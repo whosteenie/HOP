@@ -406,7 +406,7 @@ namespace Game.Weapon.Core {
                 remapDepth));
         }
 
-        private bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
+        private static bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
             mainSceneCamera = Camera.main;
             if(mainSceneCamera == weaponCamera) {
                 mainSceneCamera = null;

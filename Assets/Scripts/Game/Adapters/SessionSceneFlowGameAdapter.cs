@@ -132,11 +132,7 @@ namespace Game.Adapters {
         }
 
         private static (bool ok, string mapId, string sceneName) SelectRandomSceneForMode(string modeId) {
-            if(MatchMapService.TrySelectRandomScene(modeId, out var sceneName, out var mapId)) {
-                return (true, mapId, sceneName);
-            }
-
-            return (false, string.Empty, string.Empty);
+            return MatchMapService.TrySelectRandomScene(modeId, out var sceneName, out var mapId) ? (true, mapId, sceneName) : (false, string.Empty, string.Empty);
         }
 
         private static (string mapId, string sceneName) GetDefaultMap() {

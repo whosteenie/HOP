@@ -75,7 +75,7 @@ namespace Game.UI.Screens {
         }
 
         private void OnScoreboardVisibilityChanged(ScoreboardVisibilityChangedEvent evt) {
-            _isScoreboardVisible = evt != null && evt.IsVisible;
+            _isScoreboardVisible = evt is { IsVisible: true };
         }
 
         public void ClearChatHistory() {

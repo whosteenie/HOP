@@ -231,21 +231,16 @@ namespace Network.Session {
         }
 
         private static int ResolveMaxPlayersForMode(string mode) {
-            int resolved;
-            if(resolveMaxPlayersForMode != null) {
-                resolved = resolveMaxPlayersForMode(mode);
-            } else {
+            var resolved = resolveMaxPlayersForMode != null ? resolveMaxPlayersForMode(mode) :
                 // Sensible default when no provider is registered.
-                resolved = 10;
-            }
+                10;
 
-            if(resolved <= 0) {
-                if(Debug.isDebugBuild) {
-                    Debug.LogWarning(
-                        $"[SessionMatchmaker] resolveMaxPlayersForMode returned {resolved} for mode '{mode}'. Clamping to 1.");
-                }
-                resolved = 1;
+            if(resolved > 0) return resolved;
+            if(Debug.isDebugBuild) {
+                Debug.LogWarning(
+                    $"[SessionMatchmaker] resolveMaxPlayersForMode returned {resolved} for mode '{mode}'. Clamping to 1.");
             }
+            resolved = 1;
 
             return resolved;
         }

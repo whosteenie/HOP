@@ -1,7 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
 using Game.Match;
-using Game.UI.Misc;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;

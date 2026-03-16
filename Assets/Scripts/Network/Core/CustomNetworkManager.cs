@@ -106,7 +106,7 @@ namespace Network.Core {
         private static void OnClientDisconnected(ulong _) {
         }
 
-        private void ApprovalCheck(NetworkManager.ConnectionApprovalRequest request,
+        private static void ApprovalCheck(NetworkManager.ConnectionApprovalRequest request,
             NetworkManager.ConnectionApprovalResponse response) {
             response.Approved = true;
             response.CreatePlayerObject = false; // We spawn manually

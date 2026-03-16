@@ -60,7 +60,11 @@ namespace Game.Social {
             DontDestroyOnLoad(gameObject);
         }
 
-        private async void Start() {
+        private void Start() {
+            _ = StartAsync();
+        }
+
+        private async Task StartAsync() {
             _camera = Camera.main;
             try {
                 await InitializeVivoxAsync();

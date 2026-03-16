@@ -2,7 +2,6 @@ using Events;
 using Game.Match;
 using Game.Settings;
 using Game.Social;
-using Network.Core;
 using Steamworks;
 
 namespace Game.Player.Core {
@@ -56,10 +55,10 @@ namespace Game.Player.Core {
                 _player.FpCamera.Lens.FieldOfView = _player.LookController.BaseFov;
             }
 
-            var displayName = Social.StreamerMode.LocalDisplayName;
+            var displayName = StreamerMode.LocalDisplayName;
             var localSteamId = 0UL;
             if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
-                displayName = Social.StreamerMode.GetLocalDisplayName();
+                displayName = StreamerMode.GetLocalDisplayName();
                 localSteamId = SteamClient.SteamId.Value;
             }
 

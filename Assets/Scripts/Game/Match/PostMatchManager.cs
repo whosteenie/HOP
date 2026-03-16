@@ -838,7 +838,7 @@ namespace Game.Match {
             slot.style.translate = new Translate(0f, 0f);
         }
 
-        private Camera ResolveWorldCamera() {
+        private static Camera ResolveWorldCamera() {
             var mainCamera = Camera.main;
             if(mainCamera != null) return mainCamera;
 

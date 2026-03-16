@@ -37,7 +37,7 @@ namespace Game.Adapters {
                 if(timer.IsWaitingForPlayers || timer.IsPreMatch) return (true, "PreMatch");
                 var duration = matchSettings != null ? matchSettings.GetMatchDurationSeconds() : 0;
                 if(duration > 0 && timer.TimeRemainingSeconds >= 0) {
-                    var remainingFraction = timer.TimeRemainingSeconds / Mathf.Max(1, duration);
+                    var remainingFraction = timer.TimeRemainingSeconds / (float)Mathf.Max(1, duration);
                     var minRemaining = ResolveBackfillTimeRemainingThreshold(mode);
                     if(remainingFraction <= minRemaining) return (false, $"LateTime:{remainingFraction:0.00}");
                 }
@@ -90,7 +90,7 @@ namespace Game.Adapters {
             var scoreToWin = MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : 0;
             if(scoreToWin <= 0) return 0f;
             var leadingScore = Mathf.Max(teamAScore, teamBScore);
-            return leadingScore / Mathf.Max(1, scoreToWin);
+            return leadingScore / (float)Mathf.Max(1, scoreToWin);
         }
 
         private static float ResolveLeadingTeamObjectiveOrKillProgress(bool teamMode) {
@@ -103,7 +103,7 @@ namespace Game.Adapters {
                     if(player == null || player.NetworkObject == null || !player.NetworkObject.IsSpawned) continue;
                     leadingKills = Mathf.Max(leadingKills, player.Kills.Value);
                 }
-                return leadingKills / Mathf.Max(1, scoreToWin);
+                return leadingKills / (float)Mathf.Max(1, scoreToWin);
             }
 
             var teamAKills = 0;
@@ -119,7 +119,7 @@ namespace Game.Adapters {
                     default: throw new ArgumentOutOfRangeException();
                 }
             }
-            return Mathf.Max(teamAKills, teamBKills) / Mathf.Max(1, scoreToWin);
+            return Mathf.Max(teamAKills, teamBKills) / (float)Mathf.Max(1, scoreToWin);
         }
     }
 }
