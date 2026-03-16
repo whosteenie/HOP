@@ -43,13 +43,29 @@ namespace Events {
     }
 
     /// <summary>
-    /// Event published when a player switches weapons.
-    /// </summary>
+     /// Event published when a player switches weapons.
+     /// </summary>
     public class WeaponSwitchedEvent : GameEvent {
         public readonly int WeaponIndex;
 
         public WeaponSwitchedEvent(int weaponIndex) {
             WeaponIndex = weaponIndex;
+        }
+    }
+
+    /// <summary>
+    /// Event published synchronously when a weapon switch is being requested so other held-item systems can react.
+    /// Subscribers may mutate the flags to communicate whether they consumed a carry-item transition.
+    /// </summary>
+    public class WeaponSwitchRequestedEvent : GameEvent {
+        public readonly ulong PlayerNetworkObjectId;
+        public readonly int RequestedWeaponIndex;
+        public bool WasHoldingHopball;
+        public bool WasRestoringAfterDissolve;
+
+        public WeaponSwitchRequestedEvent(ulong playerNetworkObjectId, int requestedWeaponIndex) {
+            PlayerNetworkObjectId = playerNetworkObjectId;
+            RequestedWeaponIndex = requestedWeaponIndex;
         }
     }
 

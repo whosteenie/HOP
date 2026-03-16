@@ -246,6 +246,7 @@ namespace Game.Hopball {
             }
 
             EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            EventBus.Subscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
             EventBus.Subscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
             EventBus.Subscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Subscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
@@ -278,6 +279,7 @@ namespace Game.Hopball {
                 HopballController.Instance.OnControllerUnregistered(this);
             }
             EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            EventBus.Unsubscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
             EventBus.Unsubscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
             EventBus.Unsubscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Unsubscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
@@ -302,6 +304,20 @@ namespace Game.Hopball {
 
             if(_playerTarget != null) {
                 _playerTarget.enabled = false;
+            }
+        }
+
+        private void OnWeaponSwitchRequested(WeaponSwitchRequestedEvent evt) {
+            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+
+            if(IsHoldingHopball) {
+                evt.WasHoldingHopball = true;
+                DropHopball(HopballDropReason.WeaponSwitch);
+            }
+
+            if(IsRestoringAfterDissolve) {
+                evt.WasRestoringAfterDissolve = true;
             }
         }
 

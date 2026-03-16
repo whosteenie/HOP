@@ -1,6 +1,6 @@
 using System.Collections;
+using Events;
 using Game.Audio.System;
-using Game.Hopball;
 using Game.Weapon.Core;
 using Network.AntiCheat;
 using Network.Core;
@@ -59,16 +59,13 @@ namespace Game.Weapon.Manager {
             var isRestoringAfterDissolve = false;
             if(_root.IsOwner) {
                 if(_root.PlayerControllerRef == null) return;
-                var hopballController = _root.PlayerControllerRef.PlayerHopballController;
-                if(hopballController != null) {
-                    if(hopballController.IsHoldingHopball) {
-                        isHoldingHopball = true;
-                        hopballController.DropHopball(PlayerHopballController.HopballDropReason.WeaponSwitch);
-                    }
-
-                    if(PlayerHopballController.IsRestoringAfterDissolve) {
-                        isRestoringAfterDissolve = true;
-                    }
+                var playerNetworkObject = _root.PlayerControllerRef.NetworkObject;
+                if(playerNetworkObject != null) {
+                    var switchRequestedEvent =
+                        new WeaponSwitchRequestedEvent(playerNetworkObject.NetworkObjectId, newIndex);
+                    EventBus.Publish(switchRequestedEvent);
+                    isHoldingHopball = switchRequestedEvent.WasHoldingHopball;
+                    isRestoringAfterDissolve = switchRequestedEvent.WasRestoringAfterDissolve;
                 }
             }
 
