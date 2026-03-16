@@ -1,4 +1,6 @@
 namespace Events {
+    using UnityEngine;
+
     /// <summary>
     /// Event published when player health should be updated in the HUD.
     /// </summary>
@@ -209,12 +211,14 @@ namespace Events {
 
     /// <summary>
     /// Event published when an off-screen indicator target is enabled/disabled.
+    /// The payload is kept generic (UnityEngine.Component) so that Events
+    /// does not depend on any specific indicator implementation.
     /// </summary>
     public class IndicatorTargetStateChangedEvent : GameEvent {
-        public readonly OSI.Target Target;
+        public readonly Component Target;
         public readonly bool IsActive;
 
-        public IndicatorTargetStateChangedEvent(OSI.Target target, bool isActive) {
+        public IndicatorTargetStateChangedEvent(Component target, bool isActive) {
             Target = target;
             IsActive = isActive;
         }

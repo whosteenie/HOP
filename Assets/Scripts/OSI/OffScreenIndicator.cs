@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Events;
 using UnityEngine;
 
@@ -122,8 +122,12 @@ namespace OSI {
         }
 
         private void OnIndicatorTargetStateChanged(IndicatorTargetStateChangedEvent evt) {
-            if(evt == null || evt.Target == null) return;
-            HandleTargetStateChanged(evt.Target, evt.IsActive);
+            if(evt == null) return;
+
+            var target = evt.Target as Target;
+            if(target == null) return;
+
+            HandleTargetStateChanged(target, evt.IsActive);
         }
 
         /// <summary>
