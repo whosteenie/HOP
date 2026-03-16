@@ -67,6 +67,10 @@ namespace Game.Hopball {
             base.OnNetworkSpawn();
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
             RegisterSessionOwnerCallbacks();
+            EventBus.Subscribe<HopballPickedUpEvent>(OnHopballPickedUpEvent);
+            EventBus.Subscribe<HopballDroppedEvent>(OnHopballDroppedEvent);
+            EventBus.Subscribe<HopballEnergyDepletedEvent>(OnHopballEnergyDepletedEvent);
+            EventBus.Subscribe<HopballRespawnRequestedEvent>(OnHopballRespawnRequestedEvent);
 
             if(HasHopballAuthority) {
                 // Reset scores
@@ -95,6 +99,10 @@ namespace Game.Hopball {
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
+            EventBus.Unsubscribe<HopballPickedUpEvent>(OnHopballPickedUpEvent);
+            EventBus.Unsubscribe<HopballDroppedEvent>(OnHopballDroppedEvent);
+            EventBus.Unsubscribe<HopballEnergyDepletedEvent>(OnHopballEnergyDepletedEvent);
+            EventBus.Unsubscribe<HopballRespawnRequestedEvent>(OnHopballRespawnRequestedEvent);
             _teamAScore.OnValueChanged -= OnTeamAScoreChanged;
             _teamBScore.OnValueChanged -= OnTeamBScoreChanged;
             CleanupActiveHopball();
@@ -252,7 +260,7 @@ namespace Game.Hopball {
         }
 
         /// <summary>Respawns the hopball at a new spawn point (authority only).</summary>
-        public void RespawnAtNewLocation() {
+        private void RespawnAtNewLocation() {
             if(!HasHopballAuthority || CurrentHopballController == null) {
                 Debug.LogWarning(
                     "[HopballSpawnManager] RespawnAtNewLocation: Cannot respawn (not server or no hopball)");
@@ -414,7 +422,7 @@ namespace Game.Hopball {
             PlaySpawnSoundClientRpc(_mostRecentSpawnPoint.transform.position);
         }
 
-        /// <summary>Called when a player picks up the hopball. Tracks holder for scoring.</summary>
+        /// <summary>Tracks the active holder for scoring when the hopball is picked up.</summary>
         private void OnPlayerPickedUp(ulong playerId) {
             if(!HasHopballAuthority || CurrentHopballController == null) return;
 
@@ -422,19 +430,15 @@ namespace Game.Hopball {
             _currentHolderId = playerId;
         }
 
-        /// <summary>
-        /// Called when hopball is dropped. Clears holder tracking.
-        /// </summary>
-        public void OnHopballDropped() {
+        /// <summary>Clears active holder tracking when the hopball is dropped.</summary>
+        private void OnHopballDropped() {
             if(!HasHopballAuthority) return;
 
             _currentHolderId = 0;
         }
 
-        /// <summary>
-        /// Called by Hopball when energy depletes. Awards 1 point per 1 energy depleted.
-        /// </summary>
-        public void OnEnergyDepleted(ulong playerId, float energyDepleted) {
+        /// <summary>Awards score for active holder energy drain notifications.</summary>
+        private void OnEnergyDepleted(ulong playerId, float energyDepleted) {
             if(!HasHopballAuthority) return;
 
             // Only award points if this player is still holding the ball
@@ -456,6 +460,27 @@ namespace Game.Hopball {
             for(var i = 0; i < pointsToAward; i++) {
                 AwardPointToTeam(team);
             }
+        }
+
+        private void OnHopballPickedUpEvent(HopballPickedUpEvent evt) {
+            if(evt == null) return;
+            OnPlayerPickedUp(evt.PlayerId);
+        }
+
+        private void OnHopballDroppedEvent(HopballDroppedEvent evt) {
+            if(evt == null) return;
+            OnHopballDropped();
+        }
+
+        private void OnHopballEnergyDepletedEvent(HopballEnergyDepletedEvent evt) {
+            if(evt == null) return;
+            OnEnergyDepleted(evt.PlayerId, evt.EnergyDepleted);
+        }
+
+        private void OnHopballRespawnRequestedEvent(HopballRespawnRequestedEvent evt) {
+            if(evt == null || !HasHopballAuthority || CurrentHopballController == null) return;
+            if(CurrentHopballController.NetworkObjectId != evt.HopballNetworkObjectId) return;
+            RespawnAtNewLocation();
         }
 
         /// <summary>
@@ -611,7 +636,6 @@ namespace Game.Hopball {
 
             hopball.SetEquipped(true, controller);
 
-            OnPlayerPickedUp(requestingClientId);
             controller.OnHopballEquippedClientRpc(hopballRef, requestingClientId);
         }
 

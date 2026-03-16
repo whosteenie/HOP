@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Diagnostics;
+using Events;
 using Game.Player.Core;
 using Network.Core;
 using OSI;
@@ -212,8 +213,8 @@ namespace Game.Hopball {
         _nextDrainAt = -1f;
 
         // Holder/controller references are local-only state. After migration, treat the ball as needing a clean respawn.
-        if(!IsAwaitingRespawn && HopballSpawnManager.Instance != null && (IsEquipped || HolderController == null && !IsDropped)) {
-            HopballSpawnManager.Instance.RespawnAtNewLocation();
+        if(!IsAwaitingRespawn && (IsEquipped || HolderController == null && !IsDropped)) {
+            EventBus.Publish(new HopballRespawnRequestedEvent(NetworkObjectId, "SessionOwnerPromoted"));
         }
     }
 
@@ -221,7 +222,8 @@ namespace Game.Hopball {
         // Award scoring points as energy depletes (server only, while equipped)
         if(!HasHopballAuthority || !IsEquipped || !(previous > current)) return;
         var energyDepleted = previous - current;
-        HopballSpawnManager.Instance.OnEnergyDepleted(_equippedController.OwnerClientId, energyDepleted);
+        if(_equippedController == null) return;
+        EventBus.Publish(new HopballEnergyDepletedEvent(_equippedController.OwnerClientId, energyDepleted));
     }
 
     private void Update() {
@@ -344,6 +346,9 @@ namespace Game.Hopball {
             _equippedController = controller;
             HolderController = controller != null ? controller.PlayerController : null;
             _nextDrainAt = -1f;
+            if(controller != null) {
+                EventBus.Publish(new HopballPickedUpEvent(controller.OwnerClientId));
+            }
         } else {
             _equippedController = null;
             HolderController = null;
@@ -454,10 +459,14 @@ namespace Game.Hopball {
     /// </summary>
     public void SetDropped() {
         if(!EnsureServerAuthority(nameof(SetDropped))) return;
+        var previousHolderId = HolderController != null ? HolderController.OwnerClientId : 0UL;
         IsEquipped = false;
         IsDropped = true;
         _equippedController = null; // Clear controller reference when dropped
         HolderController = null;
+        if(previousHolderId != 0) {
+            EventBus.Publish(new HopballDroppedEvent(previousHolderId));
+        }
         FlowLog.Emit(FlowEventIds.HopballHoldStateChanged,
             ("hopballNetId", NetworkObjectId),
             ("isEquipped", false),
@@ -726,8 +735,8 @@ namespace Game.Hopball {
         }
 
         // Respawn at new location (server only)
-        if(HasHopballAuthority && HopballSpawnManager.Instance != null) {
-            HopballSpawnManager.Instance.RespawnAtNewLocation();
+        if(HasHopballAuthority) {
+            EventBus.Publish(new HopballRespawnRequestedEvent(NetworkObjectId, "DissolveComplete"));
         }
 
         BroadcastStateUpdate(new HopballStateUpdate {

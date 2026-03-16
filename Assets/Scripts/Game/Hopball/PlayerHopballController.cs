@@ -1013,10 +1013,6 @@ namespace Game.Hopball {
             }
             hopball.Rigidbody.linearVelocity = ballVelocity;
 
-            if(HopballSpawnManager.Instance != null) {
-                HopballSpawnManager.Instance.OnHopballDropped();
-            }
-
             if(requestingController == null) return;
             var controller = requestingController.PlayerHopballController;
             if(controller == null) return;

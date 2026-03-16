@@ -109,6 +109,32 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when hopball-held energy is depleted and should award score to the current holder.
+    /// </summary>
+    public class HopballEnergyDepletedEvent : GameEvent {
+        public readonly ulong PlayerId;
+        public readonly float EnergyDepleted;
+
+        public HopballEnergyDepletedEvent(ulong playerId, float energyDepleted) {
+            PlayerId = playerId;
+            EnergyDepleted = energyDepleted;
+        }
+    }
+
+    /// <summary>
+    /// Event published when the active hopball should be respawned to a fresh spawn point.
+    /// </summary>
+    public class HopballRespawnRequestedEvent : GameEvent {
+        public readonly ulong HopballNetworkObjectId;
+        public readonly string Reason;
+
+        public HopballRespawnRequestedEvent(ulong hopballNetworkObjectId, string reason) {
+            HopballNetworkObjectId = hopballNetworkObjectId;
+            Reason = reason;
+        }
+    }
+
+    /// <summary>
     /// Event published when a player network object is spawned and registered.
     /// Payload is the owning client id so Events remains agnostic to concrete player types.
     /// </summary>
