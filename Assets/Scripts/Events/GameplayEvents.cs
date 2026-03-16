@@ -70,8 +70,21 @@ namespace Events {
     }
 
     /// <summary>
-    /// Event published when a player starts grappling.
+    /// Event published when player combat/lifecycle systems need the hopball holder to drop on death-like transitions.
     /// </summary>
+    public class PlayerHopballDeathDropRequestedEvent : GameEvent {
+        public readonly ulong PlayerOwnerClientId;
+        public readonly string Reason;
+
+        public PlayerHopballDeathDropRequestedEvent(ulong playerOwnerClientId, string reason) {
+            PlayerOwnerClientId = playerOwnerClientId;
+            Reason = reason;
+        }
+    }
+
+    /// <summary>
+     /// Event published when a player starts grappling.
+     /// </summary>
     public class GrappleStartedEvent : GameEvent {
         public readonly Vector3 TargetPosition;
         public readonly bool UseFirstPersonAnimation;

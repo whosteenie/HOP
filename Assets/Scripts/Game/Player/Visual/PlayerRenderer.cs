@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Game.Hopball;
 using Game.Player.Core;
 using Game.Weapon.Manager;
 using Unity.Netcode;
@@ -140,7 +139,7 @@ namespace Game.Player.Visual {
             if(currentWorldWeapon == null) return;
 
             // Skip hopball visual (managed separately)
-            if(currentWorldWeapon.GetComponent<HopballVisual>() != null) return;
+            if(currentWorldWeapon.GetComponent<PlayerManagedVisualMarker>() != null) return;
 
             // Check if weapon changed - refresh cache if needed
             var currentWeaponIndex = _weaponManager != null ? _weaponManager.CurrentWeaponIndex : -1;

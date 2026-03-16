@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
-using Game.Hopball;
 using Game.Match;
 using Game.Player.Core;
 using Game.Player.Look;
@@ -447,18 +446,7 @@ namespace Game.Player.Combat {
                     _deathCameraController.EnableDeathCamera();
                 }
 
-                var wasHoldingHopball = false;
-                if(playerController != null) {
-                    var hopballController = playerController.PlayerHopballController;
-                    if(hopballController != null) {
-                        wasHoldingHopball = hopballController.IsHoldingHopball;
-                    }
-                }
-                if(!wasHoldingHopball && HopballController.Instance != null && HopballController.Instance.IsEquipped &&
-                   HopballController.Instance.HolderController != null &&
-                   HopballController.Instance.HolderController.OwnerClientId == OwnerClientId) {
-                    wasHoldingHopball = true;
-                }
+                var wasHoldingHopball = playerController != null && playerController.IsHoldingHopball;
                 if(_playerShadow != null) {
                     _playerShadow.ApplyDeathShadowState(wasHoldingHopball);
                 }
@@ -983,22 +971,10 @@ namespace Game.Player.Combat {
         }
 
         private void TryForceHopballDrop(string reason) {
-            if(HopballSpawnManager.Instance == null || HopballSpawnManager.Instance.CurrentHopballController == null) return;
-
-            var hopball = HopballSpawnManager.Instance.CurrentHopballController;
-            if(!hopball.IsEquipped || hopball.HolderController == null ||
-               hopball.HolderController.OwnerClientId != OwnerClientId) {
-                return;
-            }
-
-            if(playerController == null) return;
-            var hopballController = playerController.PlayerHopballController;
-            if(hopballController == null) return;
             FlowLog.Emit(FlowEventIds.HopballForcedDrop,
                 ("player", OwnerClientId),
-                ("hopballNetId", hopball.NetworkObjectId),
                 ("reason", reason));
-            hopballController.DropHopballOnDeath();
+            EventBus.Publish(new PlayerHopballDeathDropRequestedEvent(OwnerClientId, reason));
         }
 
         private void StartRespawnTimeoutProbe() {

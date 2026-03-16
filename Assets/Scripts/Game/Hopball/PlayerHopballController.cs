@@ -247,6 +247,7 @@ namespace Game.Hopball {
 
             EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
             EventBus.Subscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
+            EventBus.Subscribe<PlayerHopballDeathDropRequestedEvent>(OnPlayerHopballDeathDropRequested);
             EventBus.Subscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
             EventBus.Subscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Subscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
@@ -280,6 +281,7 @@ namespace Game.Hopball {
             }
             EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
             EventBus.Unsubscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
+            EventBus.Unsubscribe<PlayerHopballDeathDropRequestedEvent>(OnPlayerHopballDeathDropRequested);
             EventBus.Unsubscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
             EventBus.Unsubscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Unsubscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
@@ -319,6 +321,11 @@ namespace Game.Hopball {
             if(IsRestoringAfterDissolve) {
                 evt.WasRestoringAfterDissolve = true;
             }
+        }
+
+        private void OnPlayerHopballDeathDropRequested(PlayerHopballDeathDropRequestedEvent evt) {
+            if(evt == null || evt.PlayerOwnerClientId != OwnerClientId) return;
+            DropHopballOnDeath();
         }
 
         public override void OnDestroy() {

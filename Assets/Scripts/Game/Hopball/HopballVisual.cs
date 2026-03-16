@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using Game.Player.Visual;
 
 namespace Game.Hopball {
     /// <summary>
@@ -7,6 +8,7 @@ namespace Game.Hopball {
     /// Syncs its visual effects (emission, light, particle scale) with the real hopball's energy state.
     /// Does not track state itself - just displays what the world hopball is doing.
     /// </summary>
+    [RequireComponent(typeof(PlayerManagedVisualMarker))]
     public class HopballVisual : MonoBehaviour {
     [Header("Visual Components")]
     [SerializeField] private MeshRenderer meshRenderer;

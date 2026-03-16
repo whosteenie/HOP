@@ -36,6 +36,7 @@ namespace Events {
             typeof(PlayerRespawnedEvent),
             typeof(WeaponSwitchedEvent),
             typeof(WeaponSwitchRequestedEvent),
+            typeof(PlayerHopballDeathDropRequestedEvent),
             typeof(GrappleStartedEvent),
             typeof(GrappleEndedEvent),
             typeof(GrappleAnimFirstFrameEvent),

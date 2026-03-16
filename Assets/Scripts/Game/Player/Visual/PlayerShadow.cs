@@ -1,4 +1,3 @@
-using Game.Hopball;
 using Game.Match;
 using Game.Player.Core;
 using Game.Weapon.Manager;
@@ -128,8 +127,8 @@ namespace Game.Player.Visual {
                     continue;
                 }
                 
-                // Skip hopball visual renderers (they're managed separately)
-                if(mr.GetComponent<HopballVisual>() != null) {
+                // Skip subsystem-managed visuals (they're handled separately)
+                if(mr.GetComponent<PlayerManagedVisualMarker>() != null) {
                     continue;
                 }
             
@@ -146,8 +145,8 @@ namespace Game.Player.Visual {
             var currentWorldWeapon = GetCurrentWorldWeapon();
 
             if(currentWorldWeapon != null) {
-                // Skip hopball visual (it's managed separately)
-                if(currentWorldWeapon.GetComponent<HopballVisual>() != null) {
+                // Skip subsystem-managed visuals (they're handled separately)
+                if(currentWorldWeapon.GetComponent<PlayerManagedVisualMarker>() != null) {
                     return;
                 }
                 

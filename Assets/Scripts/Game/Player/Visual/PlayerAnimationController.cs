@@ -185,7 +185,7 @@ namespace Game.Player.Visual {
                 _fallStartHeight = 0f;
                 if(playerController != null) {
                     playerController.NetIsJumping.Value = false;
-                    playerController.NetIsFalling.Value = false;
+                    if(playerController.NetIsFalling != null) playerController.NetIsFalling.Value = false;
                 }
             }
 
