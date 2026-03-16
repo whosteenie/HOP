@@ -72,6 +72,10 @@ namespace Game.Player.Core {
             playerState.netIsDead.OnValueChanged -= _player.HandleResolvedDeathChanged;
             playerState.netIsDead.OnValueChanged += _player.HandleResolvedDeathChanged;
             _boundPlayerState = playerState;
+
+            // Push the current snapshot immediately so owner HUD/state stays correct even if no value
+            // changes fire after rebinding during scene/menu transitions.
+            _player.HandleResolvedHealthChanged(playerState.netHealth.Value, playerState.netHealth.Value);
         }
 
         private void UnbindStateSubscriptions() {

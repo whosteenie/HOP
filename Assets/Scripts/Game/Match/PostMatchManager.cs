@@ -519,11 +519,6 @@ namespace Game.Match {
                     }
                 }
 
-                if(HUDManager.Instance != null) {
-                    EventBus.Publish(new HideHUDEvent());
-                }
-
-                HideInGameHudForPostMatch();
                 DisableHopballTargets();
             } catch(Exception e) {
                 DebugHelpers.PublishCriticalError($"PostMatchManager.FadeToPodiumClientRpc failed: {e.Message}",
@@ -985,6 +980,12 @@ namespace Game.Match {
             IsPodiumBlackoutActive = true;
             IsPostMatchMovementLockedLocal = true;
             _blackoutReadyRoutine = null;
+
+            if(HUDManager.Instance != null) {
+                EventBus.Publish(new HideHUDEvent());
+            }
+
+            HideInGameHudForPostMatch();
 
             // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)
             if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) yield break;
