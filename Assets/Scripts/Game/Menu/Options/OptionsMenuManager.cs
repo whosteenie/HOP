@@ -90,6 +90,8 @@ namespace Game.Menu.Options {
         private OptionsGameTabHandler _gameHandler;
         private OptionsControlsTabHandler _controlsHandler;
 
+        private readonly List<IOptionsTabHandler> _tabHandlers = new();
+
         #endregion
 
         #region IOptionsTabContext
@@ -117,18 +119,22 @@ namespace Game.Menu.Options {
             _gameHandler = new OptionsGameTabHandler(ResolveBackgroundRandomizer);
             _controlsHandler = new OptionsControlsTabHandler();
 
+            _tabHandlers.Clear();
+            _tabHandlers.Add(_audioHandler);
+            _tabHandlers.Add(_videoHandler);
+            _tabHandlers.Add(_gameHandler);
+            _tabHandlers.Add(_controlsHandler);
+
             FindSharedElements();
-            _audioHandler.FindElements(this);
-            _videoHandler.FindElements(this);
-            _gameHandler.FindElements(this);
-            _controlsHandler.FindElements(this);
+            foreach(var handler in _tabHandlers) {
+                handler.FindElements(this);
+            }
 
             BindDropdownOpenStateClasses();
             SetupDropdownTextFormatting();
-            _audioHandler.SetupCallbacks(this);
-            _videoHandler.SetupCallbacks(this);
-            _gameHandler.SetupCallbacks(this);
-            _controlsHandler.SetupCallbacks(this);
+            foreach(var handler in _tabHandlers) {
+                handler.SetupCallbacks(this);
+            }
             SetupOptionsTabs();
             _controlsHandler.SetupKeybinds(this);
             SetupManagerCallbacks();
@@ -390,49 +396,46 @@ namespace Game.Menu.Options {
 
         public void LoadSettings() {
             var data = GameSettings.Data;
-            _audioHandler.Load(data);
-            _controlsHandler.Load(data);
-            _gameHandler.Load(data);
-            _videoHandler.Load(data);
-            _audioHandler.StoreOriginal();
-            _controlsHandler.StoreOriginal();
-            _gameHandler.StoreOriginal();
-            _videoHandler.StoreOriginal();
+            foreach(var handler in _tabHandlers) {
+                handler.Load(data);
+                handler.StoreOriginal();
+            }
             ApplySettingsInternal();
-            _audioHandler.RefreshDisplay();
-            _controlsHandler.RefreshDisplay();
-            _videoHandler.RefreshDisplay();
+            foreach(var handler in _tabHandlers) {
+                handler.RefreshDisplay();
+            }
             _controlsHandler.LoadKeybindDisplayStrings();
         }
 
         private void ApplySettings() {
             var data = GameSettings.Data;
             var mainMenuBackgroundSelectionChanged = _gameHandler.HasBackgroundChange();
-            _audioHandler.Save(data);
-            _controlsHandler.Save(data);
-            _gameHandler.Save(data);
-            _videoHandler.Save(data);
+            foreach(var handler in _tabHandlers) {
+                handler.Save(data);
+            }
             if(KeybindManager.Instance != null) KeybindManager.Instance.SaveBindings();
             GameSettings.Save();
             ApplySettingsInternal();
             if(mainMenuBackgroundSelectionChanged) _gameHandler.ApplyBackgroundPreviewFromCurrent(onlyIfNotRandom: true);
-            _audioHandler.StoreOriginal();
-            _controlsHandler.StoreOriginal();
-            _gameHandler.StoreOriginal();
-            _videoHandler.StoreOriginal();
+            foreach(var handler in _tabHandlers) {
+                handler.StoreOriginal();
+            }
             _controlsHandler.LoadKeybindDisplayStrings();
         }
 
         private void ApplySettingsInternal() {
-            _audioHandler.ApplyToRuntime();
-            _videoHandler.ApplyToRuntime();
+            foreach(var handler in _tabHandlers) {
+                handler.ApplyToRuntime();
+            }
         }
 
-        private bool HasUnsavedChanges() =>
-            _audioHandler.HasUnsavedChanges() ||
-            _videoHandler.HasUnsavedChanges() ||
-            _gameHandler.HasUnsavedChanges() ||
-            _controlsHandler.HasUnsavedChanges();
+        private bool HasUnsavedChanges() {
+            foreach(var handler in _tabHandlers) {
+                if(handler.HasUnsavedChanges()) return true;
+            }
+
+            return false;
+        }
 
         #endregion
 
