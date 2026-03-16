@@ -1,8 +1,7 @@
-using Game.Social;
 using Steamworks;
 using Unity.Services.Authentication;
 
-namespace Network.Core {
+namespace Game.Social {
     /// <summary>
     /// Centralized access to the local user's identities for backend services (UGS) and social display (Steam).
     /// </summary>

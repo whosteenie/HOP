@@ -1,6 +1,7 @@
 using Game.Match;
 using Game.Menu;
 using Game.Settings;
+using Game.Social;
 using Network.Core;
 using Steamworks;
 using UnityEngine.UIElements;

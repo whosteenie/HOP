@@ -6,8 +6,8 @@ using Network.AntiCheat;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Network.Rpc {
-    public class NetworkDamageRelay : NetworkBehaviour {
+namespace Game.Weapon.Core {
+    public class WeaponDamageRelay : NetworkBehaviour {
         /// <summary>
         /// Shooter-side callback (client) to play hit/kill UI, etc.
         /// Only invoked on the LOCAL shooter after the server confirms.

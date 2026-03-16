@@ -10,11 +10,11 @@ using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.UI.HUD;
 using Game.UI.Misc;
+using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using Game.Weapon.Presentation;
 using Network.Components;
 using Network.Core;
-using Network.Rpc;
 using OSI;
 using Unity.Cinemachine;
 using Unity.Collections;
@@ -103,8 +103,8 @@ namespace Game.Player.Core {
         [Header("Audio / Visual Effects")]
         [SerializeField] private AudioListener audioListener;
 
-        [SerializeField] private NetworkDamageRelay damageRelay;
-        [SerializeField] private NetworkFxRelay fxRelay;
+        [SerializeField] private WeaponDamageRelay damageRelay;
+        [SerializeField] private WeaponFxRelay fxRelay;
         [SerializeField] private NetworkAudioRelay audioRelay;
         [SerializeField] private CinemachineImpulseSource impulseSource;
         [SerializeField] private SpeedTrail speedTrail;
@@ -830,8 +830,8 @@ namespace Game.Player.Core {
 
         public WeaponManager WeaponManager => weaponManager;
         public GrappleController GrappleController => grappleController;
-        public NetworkDamageRelay DamageRelay => damageRelay;
-        public NetworkFxRelay FxRelay => fxRelay;
+        public WeaponDamageRelay DamageRelay => damageRelay;
+        public WeaponFxRelay FxRelay => fxRelay;
         public NetworkAudioRelay AudioRelay => audioRelay;
         public CinemachineImpulseSource ImpulseSource => impulseSource;
         public GameObject[] WorldWeaponPrefabs => worldWeaponPrefabs;

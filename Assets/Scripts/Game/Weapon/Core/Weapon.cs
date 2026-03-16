@@ -6,9 +6,9 @@ using Game.Player.Core;
 using Game.UI.HUD;
 using Game.Weapon.Kinemation;
 using Game.Weapon.Manager;
+using Game.Weapon.Presentation;
 using Game.Weapon.World;
 using Network.Core;
-using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -105,9 +105,9 @@ namespace Game.Weapon.Core {
         internal PlayerController PlayerController => playerController;
         internal WeaponManager Manager { get; private set; }
 
-        private NetworkDamageRelay DamageRelay { get; set; }
+        private WeaponDamageRelay DamageRelay { get; set; }
 
-        internal NetworkFxRelay FxRelay { get; private set; }
+        internal WeaponFxRelay FxRelay { get; private set; }
 
         internal NetworkAudioRelay AudioRelay { get; private set; }
 

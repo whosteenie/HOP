@@ -2,21 +2,20 @@ using System.Collections.Generic;
 using Diagnostics;
 using Game.Match;
 using Game.Player.Core;
-using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Network.Rpc {
+namespace Game.Weapon.Presentation {
     [DefaultExecutionOrder(7005)] // Run after UpperBodyPitch + SpineProxy LateUpdate passes.
-    public class NetworkFxRelay : NetworkBehaviour {
+    public class WeaponFxRelay : NetworkBehaviour {
         [SerializeField] private PlayerController playerController;
         private NetworkObject _playerNetworkObject;
         private WeaponManager _playerWeaponManager;
         private readonly List<PendingRemoteShotFx> _pendingRemoteShotFx = new();
 
         private struct PendingRemoteShotFx {
-            public Weapon Weapon;
+            public Core.Weapon Weapon;
             public Vector3 EndPoint;
             public Vector3 HitNormal;
             public Vector3 ShooterVelocity;

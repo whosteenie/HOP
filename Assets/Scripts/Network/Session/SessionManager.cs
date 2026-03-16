@@ -14,6 +14,7 @@ using Lobby = Steamworks.Data.Lobby;
 using System.Collections.Generic;
 using Diagnostics;
 using Events;
+using Game.Social;
 using Game.UI.Misc;
 using Network.SessionContracts;
 using Unity.Netcode.Transports.UTP;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Events;
+using Game.Social;
 using Network.Core;
 using Network.SessionContracts;
 using Unity.Netcode;

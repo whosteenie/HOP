@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Diagnostics;
 using Game.Player.Core;
 using Game.Weapon.Manager;
+using Game.Weapon.Presentation;
 using Network.AntiCheat;
 using Network.Core;
 using Unity.Netcode;
@@ -215,7 +216,7 @@ namespace Game.Match {
                 return;
             }
 
-            var fxRelay = shooterObject.GetComponent<Network.Rpc.NetworkFxRelay>();
+            var fxRelay = shooterObject.GetComponent<WeaponFxRelay>();
             if(fxRelay == null) {
                 return;
             }

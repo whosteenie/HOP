@@ -5,6 +5,7 @@ using Diagnostics;
 using Game.Hopball;
 using Game.Match;
 using Game.Player.Core;
+using Game.Social;
 using Game.Spawning;
 using Network.Core;
 using Network.SessionContracts;

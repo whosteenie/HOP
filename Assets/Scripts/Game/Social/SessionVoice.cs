@@ -1,10 +1,9 @@
 using System;
 using Cysharp.Threading.Tasks;
-using Game.Social;
 using Network.SessionContracts;
 using UnityEngine;
 
-namespace Network.Session {
+namespace Game.Social {
     /// <summary>
     /// Voice channel join/leave helpers for Steam social lobby and UGS match. Uses VoiceManager.
     /// </summary>
