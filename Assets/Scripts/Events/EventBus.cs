@@ -69,6 +69,10 @@ namespace Events {
             typeof(VoiceLocalPttStateChangedEvent),
             typeof(VoiceOverlayResetEvent),
             typeof(ChatMessageReceivedEvent),
+            typeof(ChatOpenStateChangedEvent),
+            typeof(RestoreGameplayMenuPresentationEvent),
+            typeof(TogglePauseMenuRequestedEvent),
+            typeof(PauseMenuStateChangedEvent),
             typeof(IndicatorTargetStateChangedEvent)
         };
 

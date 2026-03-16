@@ -1,5 +1,5 @@
 using Game.Hopball;
-using Game.Menu;
+using Game.Match;
 using Game.Player.Core;
 using Game.Weapon.Manager;
 using Unity.Netcode;
@@ -280,7 +280,7 @@ namespace Game.Player.Visual {
         /// <summary>Updates holster shadow state for the owner.</summary>
         public void UpdateHolsterShadowState() {
             if(playerController == null || !playerController.IsOwner) return;
-            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
             if(isPostMatch) {
                 TrySetHolsterShadowState(true, false, ShadowCastingMode.On);
             } else {

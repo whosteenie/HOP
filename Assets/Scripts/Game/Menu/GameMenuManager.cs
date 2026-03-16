@@ -234,6 +234,7 @@ namespace Game.Menu {
             if(!IsGameplaySceneContext()) return;
             // Reset pause state
             IsPaused = false;
+            EventBus.Publish(new PauseMenuStateChangedEvent(false));
                 
             // Hide pause menu
             if(_pauseMenuPanel != null) {
@@ -488,6 +489,8 @@ namespace Game.Menu {
             EventBus.Subscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
             EventBus.Subscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
             EventBus.Subscribe<MatchStartedEvent>(OnMatchStartedEvent);
+            EventBus.Subscribe<RestoreGameplayMenuPresentationEvent>(OnRestoreGameplayMenuPresentation);
+            EventBus.Subscribe<TogglePauseMenuRequestedEvent>(OnTogglePauseMenuRequested);
             _gameplayEventsBound = true;
         }
 
@@ -497,6 +500,8 @@ namespace Game.Menu {
             EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
             EventBus.Unsubscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
             EventBus.Unsubscribe<MatchStartedEvent>(OnMatchStartedEvent);
+            EventBus.Unsubscribe<RestoreGameplayMenuPresentationEvent>(OnRestoreGameplayMenuPresentation);
+            EventBus.Unsubscribe<TogglePauseMenuRequestedEvent>(OnTogglePauseMenuRequested);
             _gameplayEventsBound = false;
         }
 
@@ -520,6 +525,23 @@ namespace Game.Menu {
 
         private void OnMatchStartedEvent(MatchStartedEvent _) {
             RestoreHudForMatchStart();
+        }
+
+        private void OnRestoreGameplayMenuPresentation(RestoreGameplayMenuPresentationEvent _) {
+            if(Root != null) {
+                var rootContainer = Root.Q<VisualElement>("root-container");
+                if(rootContainer != null) {
+                    rootContainer.style.display = DisplayStyle.Flex;
+                }
+            }
+
+            if(IsPaused) {
+                TogglePause();
+            }
+        }
+
+        private void OnTogglePauseMenuRequested(TogglePauseMenuRequestedEvent _) {
+            TogglePause();
         }
 
         private void RegisterPauseLoadoutEvents() {
@@ -914,6 +936,7 @@ namespace Game.Menu {
         #region Menu Navigation
         private void PauseGame() {
             IsPaused = true;
+            EventBus.Publish(new PauseMenuStateChangedEvent(true));
             _pauseMenuPanel.RemoveFromClassList("hidden");
             UnityEngine.Cursor.lockState = CursorLockMode.None;
             UnityEngine.Cursor.visible = true;
@@ -931,6 +954,7 @@ namespace Game.Menu {
         
         private void ResumeGame() {
             IsPaused = false;
+            EventBus.Publish(new PauseMenuStateChangedEvent(false));
             ClosePauseLoadoutDropdowns();
             _pauseMenuPanel.AddToClassList("hidden");
             _optionsPanel.AddToClassList("hidden");
@@ -1008,6 +1032,7 @@ namespace Game.Menu {
                 _optionsPanel.AddToClassList("hidden");
                 SetOptionsOpenState(false);
                 IsPaused = false;
+                EventBus.Publish(new PauseMenuStateChangedEvent(false));
                 UnityEngine.Cursor.lockState = CursorLockMode.None;
                 UnityEngine.Cursor.visible = true;
             } catch(Exception e) {

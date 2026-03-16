@@ -3,7 +3,6 @@ using Diagnostics;
 using Events;
 using Game.Audio.System;
 using Game.Match;
-using Game.Menu;
 using Game.Player.Core;
 using Game.Player.Movement;
 using Game.Settings;
@@ -47,19 +46,19 @@ namespace Game.Player.Look {
 
         #endregion
 
-        private static bool IsPaused => GameMenuManager.Instance != null && GameMenuManager.Instance.IsPaused;
+        private bool _isPauseMenuOpen;
+        private bool _isChatOpen;
 
         private bool IsPausedOrDead {
             get {
-                if(GameMenuManager.Instance == null) return playerController != null && playerController.IsDead;
-                if (GameMenuManager.Instance.IsChatOpen) return true;
-                if (GameMenuManager.Instance.IsPaused) return true;
+                if(_isChatOpen) return true;
+                if(_isPauseMenuOpen) return true;
 
                 return playerController != null && playerController.IsDead;
             }
         }
 
-        private static bool IsPreMatch => GameMenuManager.Instance != null && GameMenuManager.IsPreMatch;
+        private static bool IsPreMatch => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
         private bool IsPreMatchOrPausedOrDead => IsPreMatch || IsPausedOrDead;
 
         private WeaponManager WeaponManager {
@@ -173,7 +172,11 @@ namespace Game.Player.Look {
 
         private void OnEnable() {
             EventBus.Unsubscribe<BindingsAppliedEvent>(OnBindingsApplied);
+            EventBus.Unsubscribe<PauseMenuStateChangedEvent>(OnPauseMenuStateChanged);
+            EventBus.Unsubscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
             EventBus.Subscribe<BindingsAppliedEvent>(OnBindingsApplied);
+            EventBus.Subscribe<PauseMenuStateChangedEvent>(OnPauseMenuStateChanged);
+            EventBus.Subscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
             RefreshCachedScrollBindings();
         }
 
@@ -286,8 +289,7 @@ namespace Game.Player.Look {
 
             if (VoiceManager.Instance != null && _voiceAction != null) {
                 var isPressed = _voiceAction.IsPressed();
-                var isChatOpen = GameMenuManager.Instance != null && GameMenuManager.Instance.IsChatOpen;
-                VoiceManager.Instance.SetPttActive(isPressed && !isChatOpen);
+                VoiceManager.Instance.SetPttActive(isPressed && !_isChatOpen);
 
                 _voiceBtnDown = isPressed;
             }
@@ -363,7 +365,7 @@ namespace Game.Player.Look {
                     GrappleController.CancelGrapple();
             }
 
-            if(!IsPaused && Keyboard.current.tabKey.isPressed) {
+            if(!_isPauseMenuOpen && Keyboard.current.tabKey.isPressed) {
                 if(ScoreboardManager.Instance != null) {
                     EventBus.Publish(new ShowScoreboardEvent());
                 }
@@ -656,6 +658,7 @@ namespace Game.Player.Look {
             }
         }
 
+        [UsedImplicitly]
         private void OnScrollWheel(InputValue _) {
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
@@ -713,7 +716,7 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnGrapple(InputValue value) {
-            if(!IsOwner || IsPreMatchOrPausedOrDead || GameMenuManager.Instance.IsPostMatch) return;
+            if(!IsOwner || IsPreMatchOrPausedOrDead || (PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted)) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
 
@@ -828,6 +831,14 @@ namespace Game.Player.Look {
             RefreshCachedScrollBindings();
         }
 
+        private void OnPauseMenuStateChanged(PauseMenuStateChangedEvent evt) {
+            _isPauseMenuOpen = evt.IsPaused;
+        }
+
+        private void OnChatOpenStateChanged(ChatOpenStateChangedEvent evt) {
+            _isChatOpen = evt.IsOpen;
+        }
+
         private void RefreshCachedScrollBindings() {
             _jumpScrollUpBound = false;
             _jumpScrollDownBound = false;
@@ -907,9 +918,9 @@ namespace Game.Player.Look {
             if(!IsOwner) return;
 
             // If chat is open, ignore pause input (Escape closes chat instead)
-            if (GameMenuManager.Instance != null && GameMenuManager.Instance.IsChatOpen) return;
+            if(_isChatOpen) return;
 
-            GameMenuManager.Instance.TogglePause();
+            EventBus.Publish(new TogglePauseMenuRequestedEvent());
         }
 
         [UsedImplicitly]

@@ -1,10 +1,9 @@
+using Events;
 using Game.Match;
-using Game.Menu;
 using Game.Settings;
 using Game.Social;
 using Network.Core;
 using Steamworks;
-using UnityEngine.UIElements;
 
 namespace Game.Player.Core {
     internal sealed class PlayerSpawnPresentation {
@@ -18,7 +17,6 @@ namespace Game.Player.Core {
             EnsureCharacterControllerEnabled();
             RestoreMenuAndHudPresentation();
             ResetAnimationStateForSpawn();
-            ClearPausedMenuState();
 
             if(_player.IsOwner) {
                 ApplyOwnerSpawnPresentation();
@@ -36,19 +34,7 @@ namespace Game.Player.Core {
         }
 
         private static void RestoreMenuAndHudPresentation() {
-            var gameMenu = GameMenuManager.Instance;
-            if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc)) {
-                var root = doc.rootVisualElement;
-                VisualElement rootContainer = null;
-                if(root != null) {
-                    rootContainer = root.Q<VisualElement>("root-container");
-                }
-
-                if(rootContainer != null) {
-                    rootContainer.style.display = DisplayStyle.Flex;
-                }
-            }
-
+            EventBus.Publish(new RestoreGameplayMenuPresentationEvent());
             PlayerUiEventBridge.PublishShowHud();
         }
 
@@ -63,12 +49,6 @@ namespace Game.Player.Core {
                 _player.NetIsSliding.Value);
             animationController.ApplyRemoteWallRunState(_player.NetIsWallRunning.Value, _player.NetIsRightWallRun.Value,
                 _player.NetWallRunDirection.Value);
-        }
-
-        private static void ClearPausedMenuState() {
-            if(GameMenuManager.Instance.IsPaused) {
-                GameMenuManager.Instance.TogglePause();
-            }
         }
 
         private void ApplyOwnerSpawnPresentation() {

@@ -1,5 +1,5 @@
 using Game.Audio.System;
-using Game.Menu;
+using Game.Match;
 using Game.Player.Core;
 using Game.Player.Visual;
 using Game.Progression;
@@ -317,7 +317,7 @@ namespace Game.Player.Movement {
         /// Calculates the horizontal velocity vector for the player based on input.
         /// </summary>
         private void CalculateHorizontalVelocity() {
-            if(GameMenuManager.Instance != null && GameMenuManager.IsPreMatch) {
+            if(MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch) {
                 ApplyFriction();
                 var targetVel = Vector3.zero;
                 _horizontalVelocity = Vector3.MoveTowards(_horizontalVelocity, targetVel, Acceleration * Time.deltaTime);

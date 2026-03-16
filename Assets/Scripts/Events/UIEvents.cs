@@ -2,6 +2,40 @@ namespace Events {
     using UnityEngine;
 
     /// <summary>
+    /// Event published when gameplay wants the in-game menu root restored and any pause state cleared.
+    /// </summary>
+    public class RestoreGameplayMenuPresentationEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when the pause menu should toggle open/closed.
+    /// </summary>
+    public class TogglePauseMenuRequestedEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when the in-game pause menu state changes.
+    /// </summary>
+    public class PauseMenuStateChangedEvent : GameEvent {
+        public readonly bool IsPaused;
+
+        public PauseMenuStateChangedEvent(bool isPaused) {
+            IsPaused = isPaused;
+        }
+    }
+
+    /// <summary>
+    /// Event published when the chat UI open state changes.
+    /// </summary>
+    public class ChatOpenStateChangedEvent : GameEvent {
+        public readonly bool IsOpen;
+
+        public ChatOpenStateChangedEvent(bool isOpen) {
+            IsOpen = isOpen;
+        }
+    }
+
+    /// <summary>
     /// Event published when player health should be updated in the HUD.
     /// </summary>
     public class UpdateHealthEvent : GameEvent {

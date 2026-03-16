@@ -117,6 +117,7 @@ namespace Game.UI.Screens {
             if(_chatInput == null) return;
 
             IsChatOpen = true;
+            EventBus.Publish(new ChatOpenStateChangedEvent(true));
 
             // Show background and input
             if(_chatBackground != null) {
@@ -178,6 +179,7 @@ namespace Game.UI.Screens {
             if(_chatInput == null) return;
 
             IsChatOpen = false;
+            EventBus.Publish(new ChatOpenStateChangedEvent(false));
             _chatInput.value = ""; // Clear input
             _chatInput.AddToClassList("minimized");
 
