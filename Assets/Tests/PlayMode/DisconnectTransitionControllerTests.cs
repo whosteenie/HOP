@@ -11,7 +11,8 @@ namespace Tests.PlayMode {
 
         [SetUp]
         public void SetUp() {
-            _controllerType = PlayModeTestUtils.ResolveTypeOrAssert("Network.Singletons.DisconnectTransitionController, Assembly-CSharp");
+            _controllerType = PlayModeTestUtils.ResolveTypeOrAssert(
+                "Game.UI.Misc.DisconnectTransitionController, Assembly-CSharp");
         }
 
         [TearDown]
