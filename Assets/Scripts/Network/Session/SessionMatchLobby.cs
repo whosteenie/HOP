@@ -7,7 +7,6 @@ using Game.Match;
 using Game.Player.Core;
 using Game.Social;
 using Game.Spawning;
-using Network.Core;
 using Network.SessionContracts;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;

@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Game.Match;
 using Network.Core;
 using Network.Steam;
 using Steamworks;
@@ -14,8 +13,6 @@ using Lobby = Steamworks.Data.Lobby;
 using System.Collections.Generic;
 using Diagnostics;
 using Events;
-using Game.Social;
-using Game.UI.Misc;
 using Network.SessionContracts;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Lobbies.Models;
@@ -73,6 +70,41 @@ namespace Network.Session {
         public bool IsLocalPartyLeaderResolved => SessionParty.IsLocalPartyLeaderResolved(this);
 
         public bool IsPartyMemberResolved => SessionParty.IsPartyMemberResolved(this);
+
+        // Game-provided hooks for match settings (mode and per-match options reset).
+        private static Action resetMatchSettingsForNewMatch;
+        private static Action<string> setSelectedGameModeId;
+
+        // Game-provided hooks for voice.
+        private static Func<UniTask> leaveVoiceChannelAsync;
+        private static Action<ulong, string, Func<bool>, Action<UniTask, string>> joinVoiceForSteamLobby;
+        private static Action<string, Func<bool>, Action<UniTask, string>> joinVoiceForMatch;
+        private static Func<ISessionContext, string> getActiveVoiceChannelName;
+
+        /// <summary>
+        /// Registers game-specific hooks for mutating match settings when the network
+        /// session changes modes or clears match state.
+        /// </summary>
+        public static void SetMatchSettingsHooks(
+            Action resetMatchSettingsForNewMatch,
+            Action<string> setSelectedGameModeId) {
+            SessionManager.resetMatchSettingsForNewMatch = resetMatchSettingsForNewMatch;
+            SessionManager.setSelectedGameModeId = setSelectedGameModeId;
+        }
+
+        /// <summary>
+        /// Registers game-specific hooks for joining/leaving voice channels.
+        /// </summary>
+        public static void SetVoiceHooks(
+            Func<UniTask> leaveVoiceChannelAsync,
+            Action<ulong, string, Func<bool>, Action<UniTask, string>> joinVoiceForSteamLobby,
+            Action<string, Func<bool>, Action<UniTask, string>> joinVoiceForMatch,
+            Func<ISessionContext, string> getActiveVoiceChannelName) {
+            SessionManager.leaveVoiceChannelAsync = leaveVoiceChannelAsync;
+            SessionManager.joinVoiceForSteamLobby = joinVoiceForSteamLobby;
+            SessionManager.joinVoiceForMatch = joinVoiceForMatch;
+            SessionManager.getActiveVoiceChannelName = getActiveVoiceChannelName;
+        }
 
         // ===== UGS Lobby keys (separate namespace from Steam lobby data) =====
         private const string UgsMatchTypeKey = "matchType"; // "Public" | "Private"
@@ -311,18 +343,27 @@ namespace Network.Session {
             }
         }
 
-        private static UniTask TryLeaveVoiceChannelAsync() =>
-            SessionVoice.TryLeaveVoiceChannelAsync();
+        private static UniTask TryLeaveVoiceChannelAsync() {
+            return leaveVoiceChannelAsync != null ? leaveVoiceChannelAsync() : UniTask.CompletedTask;
+        }
 
-        private void TryJoinVoiceForSteamSocialLobby(ulong lobbyId, string context) =>
-            SessionVoice.TryJoinVoiceForSteamSocialLobby(lobbyId, context,
-                () => _isLeaving || _isShuttingDown, (t, l) => LaunchSessionTask(t, l));
+        private void TryJoinVoiceForSteamSocialLobby(ulong lobbyId, string context) {
+            joinVoiceForSteamLobby?.Invoke(
+                lobbyId,
+                context,
+                () => _isLeaving || _isShuttingDown,
+                (t, l) => LaunchSessionTask(t, l));
+        }
 
-        private void TryJoinVoiceForActiveMatch(string context) =>
-            SessionVoice.TryJoinVoiceForActiveMatch(this, () => _isLeaving || _isShuttingDown, (t, l) => LaunchSessionTask(t, l), context);
+        private void TryJoinVoiceForActiveMatch(string context) {
+            joinVoiceForMatch?.Invoke(
+                context,
+                () => _isLeaving || _isShuttingDown,
+                (t, l) => LaunchSessionTask(t, l));
+        }
 
         public bool TryGetActiveVoiceChannelName(out string channelName) {
-            channelName = SessionVoice.GetMatchVoiceChannelName(this);
+            channelName = getActiveVoiceChannelName != null ? getActiveVoiceChannelName(this) : null;
             return !string.IsNullOrEmpty(channelName);
         }
 
@@ -350,12 +391,7 @@ namespace Network.Session {
         /// </summary>
         private async UniTask ClearMatchStateAsync() {
             await _matchLobby.ClearMatchStateAsync(this, this, this);
-            var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings != null) {
-                matchSettings.preMatchCountdownEnabled = true;
-                matchSettings.swapWeaponsOnDeath = true;
-            }
-
+            resetMatchSettingsForNewMatch?.Invoke();
             UpdateSteamRichPresence();
         }
 
@@ -392,9 +428,8 @@ namespace Network.Session {
             var changed = SelectedGameMode != mode;
             SelectedGameMode = mode;
 
-            var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings != null && matchSettings.selectedGameModeId != mode) {
-                matchSettings.selectedGameModeId = mode;
+            if(setSelectedGameModeId != null) {
+                setSelectedGameModeId(mode);
                 changed = true;
             }
 
@@ -574,10 +609,6 @@ namespace Network.Session {
 
             DontDestroyOnLoad(gameObject);
 
-            if(DisconnectTransitionController.Instance == null) {
-                gameObject.AddComponent<DisconnectTransitionController>();
-            }
-
             _networkManager = NetworkManager.Singleton;
             if(_networkManager != null) {
                 _customNetworkManager = _networkManager.GetComponent<CustomNetworkManager>();
@@ -592,9 +623,6 @@ namespace Network.Session {
             _matchLobby = new SessionMatchLobby();
             _matchmaker.SetMatchLobbyService(_matchLobby);
             _sceneFlow = new SessionSceneFlow();
-
-            SelectedMapSceneName = MatchMapService.DefaultGameplaySceneName;
-            SelectedMapId = MatchMapService.DefaultMapId;
 
             // Register session id provider for flow logging without creating a Diagnostics -> Network dependency.
             FlowLog.SetSessionIdProvider(() => FlowSessionId);
@@ -711,8 +739,10 @@ namespace Network.Session {
         private async UniTask EnsureMainMenuLoadedAndReadyAsync(string currentScene) =>
             await SessionSceneFlow.EnsureMainMenuLoadedAndReadyAsync(this, currentScene);
 
+        public static Func<string, bool> IsGameplayScenePredicate { get; set; }
+
         public static bool IsGameplaySceneName(string sceneName) {
-            return MatchMapService.IsGameplayScene(sceneName);
+            return IsGameplayScenePredicate != null && IsGameplayScenePredicate(sceneName);
         }
 
         /// <summary>Removes a party member from the UGS party lobby.</summary>

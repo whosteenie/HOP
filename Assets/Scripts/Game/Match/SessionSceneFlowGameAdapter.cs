@@ -44,6 +44,11 @@ namespace Game.Match {
 
             // Match timer / scene-presented notification.
             SessionSceneFlow.SetScenePresentedNotifier(NotifyScenePresented);
+
+            // Ensure a DisconnectTransitionController exists for disconnect visuals.
+            if (DisconnectTransitionController.Instance == null) {
+                gameObject.AddComponent<DisconnectTransitionController>();
+            }
         }
 
         // ===== Gameplay readiness =====
