@@ -348,6 +348,7 @@ namespace Game.Player.Core {
 
         public override void OnDestroy() {
             CancelPendingIdentitySync();
+            UnregisterLocalAudioRelay();
             UnsubscribeFromLocalVoiceEvents();
             UnsubscribeFromNetworkVariables();
             UnregisterSpawnedPlayer(this);
@@ -367,6 +368,7 @@ namespace Game.Player.Core {
 
             if(IsOwner) {
                 LocalPlayer = this;
+                RegisterLocalAudioRelay();
             }
 
             RegisterSpawnedPlayer(this);
@@ -406,9 +408,20 @@ namespace Game.Player.Core {
 
             UnregisterSpawnedPlayer(this);
             CancelPendingIdentitySync();
+            UnregisterLocalAudioRelay();
 
             UnsubscribeFromLocalVoiceEvents();
             UnsubscribeFromNetworkVariables();
+        }
+
+        private void RegisterLocalAudioRelay() {
+            if(!IsOwner || audioRelay == null) return;
+            AudioServiceEventBusBridge.RegisterLocalRelay(audioRelay);
+        }
+
+        private void UnregisterLocalAudioRelay() {
+            if(!IsOwner || audioRelay == null) return;
+            AudioServiceEventBusBridge.UnregisterLocalRelay(audioRelay);
         }
 
         private void BeginIdentitySync(ulong localSteamId, string ugsPlayerId, string playerDisplayName) {

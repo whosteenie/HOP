@@ -1,10 +1,21 @@
 using Events;
-using Game.Player.Core;
 using UnityEngine;
 
 namespace Game.Audio.System {
     [DisallowMultipleComponent]
     public sealed class AudioServiceEventBusBridge : MonoBehaviour {
+        private static NetworkAudioRelay LocalRelay { get; set; }
+
+        public static void RegisterLocalRelay(NetworkAudioRelay relay) {
+            LocalRelay = relay;
+        }
+
+        public static void UnregisterLocalRelay(NetworkAudioRelay relay) {
+            if(LocalRelay == relay) {
+                LocalRelay = null;
+            }
+        }
+
         private void OnEnable() {
             EventBus.Subscribe<PlayLocalSoundIdEvent>(OnPlayLocal);
             EventBus.Subscribe<PlayLocalWorldSoundIdEvent>(OnPlayLocalWorld);
@@ -73,9 +84,7 @@ namespace Game.Audio.System {
             if(evt == null) return;
             if(string.IsNullOrWhiteSpace(evt.SoundId)) return;
 
-            var local = PlayerController.LocalPlayer;
-            if(local == null) return;
-            var relay = local.AudioRelay;
+            var relay = LocalRelay;
             if(relay == null) return;
 
             relay.RequestPlay(evt.SoundId, evt.Position, evt.AllowOverlap, evt.Seed);
@@ -85,9 +94,7 @@ namespace Game.Audio.System {
             if(evt == null) return;
             if(string.IsNullOrWhiteSpace(evt.SoundId)) return;
 
-            var local = PlayerController.LocalPlayer;
-            if(local == null) return;
-            var relay = local.AudioRelay;
+            var relay = LocalRelay;
             if(relay == null) return;
 
             relay.RequestPlayAttached(evt.SoundId, evt.AttachTo, evt.AllowOverlap, evt.Seed);
