@@ -107,28 +107,6 @@ namespace Game.Weapon.Core {
 
             if(_weapon.Reloading) {
                 CancelReload();
-            } else {
-                if(!_weapon.UseKinemationInternalSoundsInternal() &&
-                   !_weapon.ShouldSuppressLegacyReloadSoundInternal() &&
-                   _weapon.PlayerController != null &&
-                   _weapon.PlayerController.IsOwner &&
-                   _weapon.AudioRelay != null) {
-                    var soundId = _weapon.CurrentWeaponData.reloadSoundId;
-                    if(!string.IsNullOrWhiteSpace(soundId)) {
-                        _weapon.AudioRelay.RequestStop(soundId);
-                    }
-                }
-
-                if(_weapon.KinDriver != null) {
-                    _weapon.StopKinemationEventSoundsInternal();
-                    _weapon.KinDriver.AbortReloadAndSyncAmmo(_weapon.CurrentAmmo);
-                    _weapon.KinDriver.ResetReloadTracking();
-                }
-
-                _weapon.Reloading = false;
-                _weapon.ReloadExpectedCompleteTime = float.PositiveInfinity;
-                _weapon.KinemationReloadFallbackDeadline = float.PositiveInfinity;
-                _weapon.ExitReloadAnimationInternal();
             }
 
             _weapon.CurrentAmmo = _weapon.GetMagCapacityInternal();

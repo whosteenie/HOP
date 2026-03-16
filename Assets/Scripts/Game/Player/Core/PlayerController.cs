@@ -737,9 +737,6 @@ namespace Game.Player.Core {
         public void SetGameplayCameraActive(bool active) {
             if(fpCamera != null) {
                 fpCamera.enabled = active;
-                if(fpCamera.gameObject.activeSelf != active) {
-                    fpCamera.gameObject.SetActive(active);
-                }
             }
 
             if(deathCamera != null) {
