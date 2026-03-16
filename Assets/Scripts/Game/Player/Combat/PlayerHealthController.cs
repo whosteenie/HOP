@@ -10,7 +10,6 @@ using Game.Player.Look;
 using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.Spawning;
-using Game.UI.Misc;
 using Game.Weapon.Manager;
 using Game.Weapon.Presentation;
 using Network.Components;
@@ -580,14 +579,12 @@ namespace Game.Player.Combat {
 
         [Rpc(SendTo.Everyone)]
         private void PrepareRespawnClientRpc() {
-            if(!IsOwner || SceneTransitionManager.Instance == null) return;
+            if(!IsOwner) return;
             if(_respawnFadeCoroutine != null) {
                 StopCoroutine(_respawnFadeCoroutine);
             }
 
-            if(SceneTransitionManager.Instance != null) {
-                _respawnFadeCoroutine = StartCoroutine(SceneTransitionManager.Instance.FadeRespawnTransition());
-            }
+            EventBus.Publish(new RequestRespawnFadeTransitionEvent());
         }
 
 
@@ -670,9 +667,7 @@ namespace Game.Player.Combat {
         [Rpc(SendTo.Owner)]
         // ReSharper disable once MemberCanBeMadeStatic.Local
         private void SignalFadeInStartClientRpc() {
-            if(SceneTransitionManager.Instance != null) {
-                SceneTransitionManager.Instance.SignalFadeInStart();
-            }
+            EventBus.Publish(new RequestRespawnFadeInSignalEvent());
         }
 
         [Rpc(SendTo.Owner)]

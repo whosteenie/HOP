@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Events;
 using Game.Player.Core;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -32,6 +33,15 @@ namespace Game.UI.Misc {
             DontDestroyOnLoad(gameObject);
             _weaponLayer = LayerMask.NameToLayer("Weapon");
             if(_weaponLayer < 0) _weaponLayer = LayerMask.NameToLayer("Default");
+        }
+
+        private void OnEnable() {
+            EventBus.Unsubscribe<RequestDisconnectFpVisualCaptureEvent>(OnRequestDisconnectFpVisualCapture);
+            EventBus.Subscribe<RequestDisconnectFpVisualCaptureEvent>(OnRequestDisconnectFpVisualCapture);
+        }
+
+        private void OnDisable() {
+            EventBus.Unsubscribe<RequestDisconnectFpVisualCaptureEvent>(OnRequestDisconnectFpVisualCapture);
         }
 
         private void OnDestroy() {
@@ -82,6 +92,10 @@ namespace Game.UI.Misc {
             }
             if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] OK: duplicate shown, overlay active");
             return true;
+        }
+
+        private void OnRequestDisconnectFpVisualCapture(RequestDisconnectFpVisualCaptureEvent _) {
+            CaptureDuplicateFpVisuals(PlayerController.LocalPlayer);
         }
 
         /// <summary>

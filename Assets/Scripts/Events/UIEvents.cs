@@ -202,6 +202,42 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when player code requests respawn fade presentation to begin.
+    /// </summary>
+    public class RequestRespawnFadeTransitionEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when player code requests the respawn fade-in phase to begin.
+    /// </summary>
+    public class RequestRespawnFadeInSignalEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when player code requests unexpected-disconnect FP visual capture.
+    /// </summary>
+    public class RequestDisconnectFpVisualCaptureEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when the local damage vignette should flash from a world hit direction.
+    /// </summary>
+    public class ShowDamageVignetteFromWorldHitEvent : GameEvent {
+        public readonly Vector3 WorldHitPos;
+        public readonly Vector3 CameraPosition;
+        public readonly Vector3 CameraForward;
+        public readonly float Intensity;
+
+        public ShowDamageVignetteFromWorldHitEvent(Vector3 worldHitPos, Vector3 cameraPosition, Vector3 cameraForward,
+            float intensity) {
+            WorldHitPos = worldHitPos;
+            CameraPosition = cameraPosition;
+            CameraForward = cameraForward;
+            Intensity = intensity;
+        }
+    }
+
+    /// <summary>
     /// Event published when the scoreboard should refresh its content (e.g. after score changes).
     /// </summary>
     public class ScoreboardRefreshRequestedEvent : GameEvent {

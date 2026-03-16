@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Events;
 using Game.UI.Core;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -52,12 +53,20 @@ namespace Game.UI.HUD {
                 if(t != null)
                     t.style.opacity = 0f;
             }
+
+            EventBus.Unsubscribe<ShowDamageVignetteFromWorldHitEvent>(OnShowDamageVignetteFromWorldHit);
+            EventBus.Subscribe<ShowDamageVignetteFromWorldHitEvent>(OnShowDamageVignetteFromWorldHit);
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
             return new Dictionary<string, System.Type> {
                 { "damage-vignette-root", typeof(VisualElement) }
             };
+        }
+
+        protected override void OnCleanup() {
+            EventBus.Unsubscribe<ShowDamageVignetteFromWorldHitEvent>(OnShowDamageVignetteFromWorldHit);
+            base.OnCleanup();
         }
 
         /// <summary>
@@ -97,6 +106,26 @@ namespace Game.UI.HUD {
 
             intensity = Mathf.Clamp01(intensity);
             TriggerIndicator(sector, intensity);
+        }
+
+        private void OnShowDamageVignetteFromWorldHit(ShowDamageVignetteFromWorldHitEvent evt) {
+            if(evt == null || _indicators == null) return;
+
+            var toHit = evt.WorldHitPos - evt.CameraPosition;
+            var flatDir = Vector3.ProjectOnPlane(toHit, Vector3.up);
+            if(flatDir.sqrMagnitude < 0.0001f) return;
+            flatDir.Normalize();
+
+            var cameraForward = Vector3.ProjectOnPlane(evt.CameraForward, Vector3.up);
+            if(cameraForward.sqrMagnitude < 0.0001f) return;
+            cameraForward.Normalize();
+
+            var angle = Vector3.SignedAngle(cameraForward, flatDir, Vector3.up);
+            var clockwise = angle;
+            if(clockwise < 0f) clockwise += 360f;
+
+            var sector = Mathf.RoundToInt(clockwise / 45f) % 8;
+            TriggerIndicator(sector, Mathf.Clamp01(evt.Intensity));
         }
 
         private void TriggerIndicator(int index, float intensity) {

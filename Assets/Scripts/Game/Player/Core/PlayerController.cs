@@ -8,8 +8,6 @@ using Game.Player.Combat;
 using Game.Player.Look;
 using Game.Player.Movement;
 using Game.Player.Visual;
-using Game.UI.HUD;
-using Game.UI.Misc;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using Game.Weapon.Presentation;
@@ -395,9 +393,7 @@ namespace Game.Player.Core {
         public override void OnNetworkDespawn() {
             // Capture FP duplicate for unexpected disconnect *before* base/cleanup; player hierarchy still exists.
             if(IsOwner && SessionManager.Instance != null && !SessionManager.Instance.IsExpectedDisconnect) {
-                if(DisconnectTransitionController.Instance != null) {
-                    DisconnectTransitionController.Instance.CaptureDuplicateFpVisuals(this);
-                }
+                EventBus.Publish(new RequestDisconnectFpVisualCaptureEvent());
             }
 
             base.OnNetworkDespawn();
@@ -1051,9 +1047,11 @@ namespace Game.Player.Core {
 
                 impulseSource.GenerateImpulse();
 
-                if(DamageVignetteUIManager.Instance && fpCamera) {
+                if(fpCamera) {
                     var intensity = Mathf.Clamp01(amount / 50f);
-                    DamageVignetteUIManager.Instance.ShowHitFromWorldPoint(hitPoint, fpCamera.transform, intensity);
+                    var cameraTransform = fpCamera.transform;
+                    EventBus.Publish(new ShowDamageVignetteFromWorldHitEvent(hitPoint, cameraTransform.position,
+                        cameraTransform.forward, intensity));
                 }
             }
 

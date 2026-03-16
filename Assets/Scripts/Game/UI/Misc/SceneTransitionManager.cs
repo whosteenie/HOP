@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Events;
 using Game.Menu;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -32,6 +33,7 @@ namespace Game.UI.Misc {
         private OverlayVisualState _transitionOverlayState = OverlayVisualState.Hidden;
         private OverlayVisualState _respawnOverlayState = OverlayVisualState.Hidden;
         private MainMenuMusicPlayer _mainMenuMusicPlayer;
+        private bool _respawnFadeCoroutineActive;
 
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
@@ -63,6 +65,10 @@ namespace Game.UI.Misc {
 
             // Also listen for scene loads to refresh references
             SceneManager.sceneLoaded += OnSceneLoaded;
+            EventBus.Unsubscribe<RequestRespawnFadeTransitionEvent>(OnRequestRespawnFadeTransition);
+            EventBus.Unsubscribe<RequestRespawnFadeInSignalEvent>(OnRequestRespawnFadeInSignal);
+            EventBus.Subscribe<RequestRespawnFadeTransitionEvent>(OnRequestRespawnFadeTransition);
+            EventBus.Subscribe<RequestRespawnFadeInSignalEvent>(OnRequestRespawnFadeInSignal);
         }
 
         private void UpdateCachedSceneName() {
@@ -74,6 +80,17 @@ namespace Game.UI.Misc {
 
         private void OnDisable() {
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            EventBus.Unsubscribe<RequestRespawnFadeTransitionEvent>(OnRequestRespawnFadeTransition);
+            EventBus.Unsubscribe<RequestRespawnFadeInSignalEvent>(OnRequestRespawnFadeInSignal);
+        }
+
+        private void OnRequestRespawnFadeTransition(RequestRespawnFadeTransitionEvent _) {
+            if(_respawnFadeCoroutineActive) return;
+            StartCoroutine(RunRespawnFadeTransition());
+        }
+
+        private void OnRequestRespawnFadeInSignal(RequestRespawnFadeInSignalEvent _) {
+            SignalFadeInStart();
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
@@ -392,6 +409,15 @@ namespace Game.UI.Misc {
                 yield return FadeInRespawnOverlay();
             } finally {
                 _respawnFadeInSignal = null;
+            }
+        }
+
+        private IEnumerator RunRespawnFadeTransition() {
+            _respawnFadeCoroutineActive = true;
+            try {
+                yield return FadeRespawnTransition();
+            } finally {
+                _respawnFadeCoroutineActive = false;
             }
         }
 
