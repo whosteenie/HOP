@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
-using Events;
 using Network.Core;
 using Network.SessionContracts;
 using Unity.Netcode;
@@ -72,7 +71,6 @@ namespace Network.Session {
             session.Deleted += onDeleted;
             if(Debug.isDebugBuild)
                 Debug.Log($"[SessionManager] Bound DA session id='{session.Id}' code='{session.Code}' host='{session.Host}'.");
-            EventBus.Publish(new SessionJoinedEvent(session.Code));
         }
 
         /// <summary>Unbinds the current DA session and unsubscribes from its events.</summary>

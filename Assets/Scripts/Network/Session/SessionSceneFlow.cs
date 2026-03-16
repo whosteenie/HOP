@@ -165,10 +165,9 @@ namespace Network.Session {
                 if(evt == null) return;
 
                 var nm = NetworkManager.Singleton;
-                if(nm != null && evt.ClientId == nm.LocalClientId) {
-                    if(isLocalPlayerReady == null || isLocalPlayerReady()) {
-                        latch.SignalLocalPlayerReady();
-                    }
+                if(nm == null || evt.ClientId != nm.LocalClientId) return;
+                if(isLocalPlayerReady == null || isLocalPlayerReady()) {
+                    latch.SignalLocalPlayerReady();
                 }
             }
 
