@@ -4,7 +4,6 @@ using Events;
 using Game.Player.Core;
 using Game.Social;
 using Game.UI.Core;
-using Game.UI.Screens.Scoreboard;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
@@ -29,6 +28,7 @@ namespace Game.UI.Screens {
 
         private readonly List<ChatMessageElement> _messageElements = new();
         private Coroutine _lifetimeCheckCoroutine;
+        private bool _isScoreboardVisible;
 
         public bool IsChatOpen { get; private set; }
 
@@ -56,6 +56,8 @@ namespace Game.UI.Screens {
 
             EventBus.Unsubscribe<ChatMessageReceivedEvent>(OnChatMessageReceivedEvent);
             EventBus.Subscribe<ChatMessageReceivedEvent>(OnChatMessageReceivedEvent);
+            EventBus.Unsubscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
+            EventBus.Subscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -70,6 +72,10 @@ namespace Game.UI.Screens {
         protected override void OnCleanup() {
             this.UnsubscribeFromEventBus();
             base.OnCleanup();
+        }
+
+        private void OnScoreboardVisibilityChanged(ScoreboardVisibilityChangedEvent evt) {
+            _isScoreboardVisible = evt != null && evt.IsVisible;
         }
 
         public void ClearChatHistory() {
@@ -215,9 +221,7 @@ namespace Game.UI.Screens {
             StartCoroutine(ScrollToBottom());
 
             // Only re-lock if scoreboard isn't also visible
-            var scoreboardVisible =
-                ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible;
-            if(scoreboardVisible) return;
+            if(_isScoreboardVisible) return;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
 
