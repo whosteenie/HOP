@@ -109,7 +109,7 @@ namespace Game.Weapon.Kinemation {
             _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
             EnsureSubsystems();
             if(PlayerInstance != null) {
-                WeaponFpPresentation.SetLayerRecursive(PlayerInstance, _renderLayer);
+                KinemationViewmodelUtility.SetLayerRecursive(PlayerInstance, _renderLayer);
                 return TryCacheActiveWeapon();
             }
 

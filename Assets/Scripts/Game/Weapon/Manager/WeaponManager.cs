@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Game.Match;
 using Game.Player.Core;
@@ -14,8 +13,6 @@ using UnityEngine;
 
 namespace Game.Weapon.Manager {
     public class WeaponManager : NetworkBehaviour {
-        #region Types
-
         public enum AmmoSyncReason : byte {
             ReloadStarted,
             ReloadSingleRound,
@@ -23,19 +20,6 @@ namespace Game.Weapon.Manager {
             ReloadCanceled,
             RefillCurrentWeapon
         }
-
-        [Serializable]
-        internal class KinemationWeaponBinding {
-            public WeaponData weaponData;
-            public GameObject kinemationWeaponPrefab;
-            public bool useCustomViewmodelPose;
-            public Vector3 viewmodelLocalPosition;
-            public Vector3 viewmodelLocalEulerAngles;
-            [Tooltip("Optional grapple clip override for this weapon.")]
-            public AnimationClip grappleClip;
-        }
-
-        #endregion
 
         #region Serialized Fields
 
@@ -298,7 +282,7 @@ namespace Game.Weapon.Manager {
         internal int GetFpWeaponLayerInternal() => _fpPresentation.GetFpWeaponLayer();
         internal void SetupFpWeaponSkinnedMeshRenderersInternal(GameObject fpWeaponInstance) =>
             _fpPresentation.SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
-        internal static void EnsureHierarchyActiveInternal(GameObject instanceRoot) => WeaponFpPresentation.EnsureHierarchyActive(instanceRoot);
+        internal static void EnsureHierarchyActiveInternal(GameObject instanceRoot) => KinemationViewmodelUtility.EnsureHierarchyActive(instanceRoot);
         internal void EnsureFpWeaponLightingRigInternal() => _fpLighting.EnsureFpWeaponLightingRig();
         internal int GetSlotForIndexInternal(int index) => _loadout.GetSlotForIndexInternal(index);
         internal void ResolveCurrentWorldWeaponRefInternal() => _loadout.ResolveCurrentWorldWeaponRefInternal();

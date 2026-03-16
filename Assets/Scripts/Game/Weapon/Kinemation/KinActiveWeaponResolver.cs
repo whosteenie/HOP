@@ -83,9 +83,9 @@ namespace Game.Weapon.Kinemation {
                 ActiveWeapon = FindActiveWeaponComponent();
                 if(ActiveWeapon == null) return false;
                 _cache.Invalidate();
-                if(renderLayer >= 0) WeaponFpPresentation.SetLayerRecursive(playerInstance, renderLayer);
-                WeaponFpPresentation.DisableViewmodelShadows(playerInstance);
-                WeaponFpPresentation.AttachReloadEventRelays(playerInstance, _context.DriverForRelays,
+                if(renderLayer >= 0) KinemationViewmodelUtility.SetLayerRecursive(playerInstance, renderLayer);
+                KinemationViewmodelUtility.DisableViewmodelShadows(playerInstance);
+                KinemationViewmodelUtility.AttachReloadEventRelays(playerInstance, _context.DriverForRelays,
                     _context.WeaponSoundPlaybackDisabled, _context.DisableKinemationPlayerSounds);
             }
 
@@ -109,9 +109,9 @@ namespace Game.Weapon.Kinemation {
 
         private void ApplyLayerShadowsAndRelays(GameObject playerInstance, int renderLayer) {
             if(playerInstance == null) return;
-            if(renderLayer >= 0) WeaponFpPresentation.SetLayerRecursive(playerInstance, renderLayer);
-            WeaponFpPresentation.DisableViewmodelShadows(playerInstance);
-            WeaponFpPresentation.AttachReloadEventRelays(playerInstance, _context.DriverForRelays,
+            if(renderLayer >= 0) KinemationViewmodelUtility.SetLayerRecursive(playerInstance, renderLayer);
+            KinemationViewmodelUtility.DisableViewmodelShadows(playerInstance);
+            KinemationViewmodelUtility.AttachReloadEventRelays(playerInstance, _context.DriverForRelays,
                 _context.WeaponSoundPlaybackDisabled, _context.DisableKinemationPlayerSounds);
         }
 

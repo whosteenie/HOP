@@ -3,7 +3,6 @@ using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Kinemation;
 using Game.Weapon.Presentation;
-using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -61,7 +60,7 @@ namespace Game.Weapon.Manager {
             fpWeapon.transform.localEulerAngles = localEulerAngles;
         }
 
-        public void ApplyKinemationViewmodelPose(GameObject fpWeaponRoot, WeaponManager.KinemationWeaponBinding binding) {
+        public void ApplyKinemationViewmodelPose(GameObject fpWeaponRoot, KinemationWeaponBinding binding) {
             if(fpWeaponRoot == null) return;
             ResolveKinemationViewmodelPose(binding, out var localPosition, out var localEulerAngles);
             fpWeaponRoot.transform.localPosition = localPosition;
@@ -71,58 +70,6 @@ namespace Game.Weapon.Manager {
         public static bool TryGetKinemationDriver(GameObject fpWeaponRoot, out KinFpWeaponDriver driver) {
             driver = fpWeaponRoot != null ? fpWeaponRoot.GetComponent<KinFpWeaponDriver>() : null;
             return driver != null;
-        }
-
-        /// <summary>Sets layer on root and all descendants. Used when making FP viewmodel instance ready.</summary>
-        public static void SetLayerRecursive(GameObject root, int layer) {
-            if(root == null) return;
-            root.layer = layer;
-            foreach(Transform child in root.transform) {
-                SetLayerRecursive(child.gameObject, layer);
-            }
-        }
-
-        /// <summary>Disables shadow casting and receiving on all renderers under root. Used when making FP viewmodel ready.</summary>
-        public static void DisableViewmodelShadows(GameObject root) {
-            if(root == null) return;
-            var renderers = root.GetComponentsInChildren<Renderer>(true);
-            foreach(var r in renderers) {
-                if(r == null) continue;
-                r.shadowCastingMode = ShadowCastingMode.Off;
-                r.receiveShadows = false;
-            }
-        }
-
-        /// <summary>Attaches reload/event relays to animators and weapon sounds on the viewmodel, binds driver, and optionally destroys original sound components.</summary>
-        public static void AttachReloadEventRelays(GameObject viewmodelRoot, KinFpWeaponDriver driver,
-            bool weaponSoundPlaybackDisabled, bool disablePlayerSounds) {
-            if(viewmodelRoot == null || driver == null) return;
-
-            var animators = viewmodelRoot.GetComponentsInChildren<Animator>(true);
-            foreach(var animator in animators) {
-                if(animator == null) continue;
-                var relay = animator.GetComponent<KinReloadEventRelay>();
-                if(relay == null) relay = animator.gameObject.AddComponent<KinReloadEventRelay>();
-                relay.Bind(driver);
-            }
-
-            var weaponSounds = viewmodelRoot.GetComponentsInChildren<FPSWeaponSound>(true);
-            foreach(var weaponSound in weaponSounds) {
-                if(weaponSound == null) continue;
-                var relay = weaponSound.GetComponent<KinReloadEventRelay>();
-                if(relay == null) relay = weaponSound.gameObject.AddComponent<KinReloadEventRelay>();
-                relay.Bind(driver);
-                if(weaponSoundPlaybackDisabled) Object.Destroy(weaponSound);
-            }
-
-            if(!disablePlayerSounds) return;
-            var playerSounds = viewmodelRoot.GetComponentsInChildren<FPSPlayerSound>(true);
-            foreach(var playerSound in playerSounds) {
-                if(playerSound == null) continue;
-                if(playerSound.GetComponent<KinPlayerSoundEventRelay>() == null)
-                    playerSound.gameObject.AddComponent<KinPlayerSoundEventRelay>();
-                Object.Destroy(playerSound);
-            }
         }
 
         public int GetFpWeaponLayer() {
@@ -222,7 +169,7 @@ namespace Game.Weapon.Manager {
                 );
 
                 var fpLayer = GetFpWeaponLayer();
-                SetGameObjectAndChildrenLayer(kinemationHolder, fpLayer);
+                KinemationViewmodelUtility.SetLayerRecursive(kinemationHolder, fpLayer);
                 kinemationDriver.InitializeIfNeeded(fpLayer);
                 SetupFpWeaponSkinnedMeshRenderers(kinemationHolder);
 
@@ -260,19 +207,7 @@ namespace Game.Weapon.Manager {
             }
         }
 
-        public static void EnsureHierarchyActive(GameObject instanceRoot) {
-            if(instanceRoot == null) return;
-            var parent = instanceRoot.transform;
-            while(parent != null) {
-                if(!parent.gameObject.activeSelf) {
-                    parent.gameObject.SetActive(true);
-                }
-
-                parent = parent.parent;
-            }
-        }
-
-        private void ResolveKinemationViewmodelPose(WeaponManager.KinemationWeaponBinding binding, out Vector3 localPosition,
+        private void ResolveKinemationViewmodelPose(KinemationWeaponBinding binding, out Vector3 localPosition,
             out Vector3 localEulerAngles) {
             if(binding is { useCustomViewmodelPose: true }) {
                 localPosition = binding.viewmodelLocalPosition;
@@ -283,16 +218,6 @@ namespace Game.Weapon.Manager {
             localPosition = _root.KinemationViewmodelLocalPosition;
             localEulerAngles = _root.KinemationViewmodelLocalEulerAngles;
         }
-
-        private static void SetGameObjectAndChildrenLayer(GameObject obj, int layer) {
-            if(obj == null) return;
-
-            obj.layer = layer;
-            foreach(Transform child in obj.transform) {
-                SetGameObjectAndChildrenLayer(child.gameObject, layer);
-            }
-        }
-
         private void ApplyPlayerMaterialToFpWeapon(GameObject fpWeaponInstance) {
             if(fpWeaponInstance == null || _root.PlayerControllerRef == null) return;
 

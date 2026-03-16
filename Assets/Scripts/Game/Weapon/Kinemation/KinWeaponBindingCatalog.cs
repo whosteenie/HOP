@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Game.Weapon.Core;
-using Game.Weapon.Manager;
 using UnityEngine;
 
 namespace Game.Weapon.Kinemation {
     internal sealed class KinWeaponBindingCatalog {
-        private readonly Dictionary<WeaponData, WeaponManager.KinemationWeaponBinding> _lookup = new();
+        private readonly Dictionary<WeaponData, KinemationWeaponBinding> _lookup = new();
         private readonly List<WeaponData> _primaryWeaponOptions = new();
         private readonly List<WeaponData> _secondaryWeaponOptions = new();
 
@@ -15,7 +14,7 @@ namespace Game.Weapon.Kinemation {
         public bool IsEmpty => _lookup.Count == 0 && _primaryWeaponOptions.Count == 0 && _secondaryWeaponOptions.Count == 0;
 
         public void Rebuild(
-            IReadOnlyList<WeaponManager.KinemationWeaponBinding> bindings,
+            IReadOnlyList<KinemationWeaponBinding> bindings,
             Func<WeaponData, int> resolveWeaponSlot,
             Action<string> logError) {
             _lookup.Clear();
@@ -58,7 +57,7 @@ namespace Game.Weapon.Kinemation {
         public bool TryGetBinding(
             GameObject kinemationFpsPlayerPrefab,
             WeaponData weaponData,
-            out WeaponManager.KinemationWeaponBinding binding) {
+            out KinemationWeaponBinding binding) {
             binding = null;
             if(kinemationFpsPlayerPrefab == null || weaponData == null) return false;
 
