@@ -119,12 +119,6 @@ namespace Network.Session {
             networkManager.NetworkConfig.ConnectionData = ConnectionPayload.Encode(payload);
         }
 
-        public enum DaSessionJoinResult {
-            Success,
-            RateLimited,
-            Failed
-        }
-
         public static float ComputeDaJoinRetryDelaySeconds(int attempt) {
             var exponent = Mathf.Clamp(attempt, 0, DistributedAuthorityJoinRetryMaxExponent);
             var rawBackoff = DistributedAuthorityJoinRetryBaseDelaySeconds * Mathf.Pow(2f, exponent);

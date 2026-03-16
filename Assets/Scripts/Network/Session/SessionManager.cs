@@ -221,7 +221,7 @@ namespace Network.Session {
             await SessionNetworkLifecycle.CreateDaSessionAsync(
                 this, this, this, maxPlayers, isPrivateMatch, contextLabel);
 
-        private async UniTask<SessionNetworkLifecycle.DaSessionJoinResult>
+        private async UniTask<DaSessionJoinResult>
             JoinDaSessionAsync(
                 string sessionCode, bool isPrivateMatch,
                 string contextLabel) =>
@@ -922,7 +922,7 @@ namespace Network.Session {
 
         UniTask IMatchSnapshotActions.LeaveToMainMenuAsync(bool skipFadeOut) => LeaveToMainMenuAsync(skipFadeOut);
 
-        UniTask<SessionNetworkLifecycle.DaSessionJoinResult>
+        UniTask<DaSessionJoinResult>
             IMatchSnapshotActions.JoinDaSessionAsync(string sessionCode, bool isPrivateMatch,
                 string contextLabel) =>
             JoinDaSessionAsync(sessionCode, isPrivateMatch, contextLabel);

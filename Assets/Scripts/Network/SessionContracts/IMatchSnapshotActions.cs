@@ -1,5 +1,4 @@
 using Cysharp.Threading.Tasks;
-using Network.Session;
 using Unity.Services.Lobbies.Models;
 
 namespace Network.SessionContracts {
@@ -13,7 +12,7 @@ namespace Network.SessionContracts {
         UniTask StartMatchClientAsync(bool useFadeOut = false, string expectedSessionCode = null, bool? expectedIsPrivateMatch = null);
         UniTask FadeOutWithFallbackAsync(int fallbackDelayMs = 500);
         UniTask LeaveToMainMenuAsync(bool skipFadeOut = false);
-        UniTask<SessionNetworkLifecycle.DaSessionJoinResult> JoinDaSessionAsync(string sessionCode, bool isPrivateMatch, string contextLabel);
+        UniTask<DaSessionJoinResult> JoinDaSessionAsync(string sessionCode, bool isPrivateMatch, string contextLabel);
         UniTask<bool> JoinMatchLobbyByIdAsync(string lobbyId);
 
         bool UgsLocalReadySubmitted { get; set; }

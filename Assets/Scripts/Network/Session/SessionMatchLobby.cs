@@ -1026,11 +1026,11 @@ namespace Network.Session {
                 var isPrivateMatch = expectedIsPrivateMatch ?? IsPrivateMatchLobby(ctx.UgsMatchLobby);
                 var joinResult = await actions.JoinDaSessionAsync(sessionCode, isPrivateMatch, "StartMatchClientAsync");
                 switch(joinResult) {
-                    case SessionNetworkLifecycle.DaSessionJoinResult.Success:
+                    case DaSessionJoinResult.Success:
                         ResetDistributedAuthorityJoinRetryState();
                         shouldResetClientStartFlag = false;
                         return;
-                    case SessionNetworkLifecycle.DaSessionJoinResult.RateLimited:
+                    case DaSessionJoinResult.RateLimited:
                         ScheduleDistributedAuthorityJoinRetry(ctx, actions, sessionCode, isPrivateMatch);
                         return;
                     default:
