@@ -201,6 +201,8 @@ namespace Game.Menu {
                 RestoreHudForMatchStart();
             }
 
+            PublishGameplayUiDocumentReady();
+
             SetPauseChallengesDirty();
             UpdateChallengeTimers(force: true);
             _nextChallengeTimerUpdateAt = Time.unscaledTime + ChallengeTimerUpdateIntervalSeconds;
@@ -259,6 +261,8 @@ namespace Game.Menu {
 
             EnsureGameplayRootVisible();
 
+            PublishGameplayUiDocumentReady();
+
             // Reset cursor state
             UnityEngine.Cursor.lockState = CursorLockMode.Locked;
             UnityEngine.Cursor.visible = false;
@@ -271,6 +275,12 @@ namespace Game.Menu {
             _pauseLoadoutPendingApply = false;
             SyncPauseLoadoutFromSettings();
             ClosePauseLoadoutDropdowns();
+        }
+
+        private void PublishGameplayUiDocumentReady() {
+            if(!IsGameplaySceneContext()) return;
+            if(uiDocument == null || uiDocument.rootVisualElement == null) return;
+            EventBus.Publish(new GameplayUiDocumentReadyEvent(uiDocument));
         }
 
         private void FindUIElements() {
@@ -493,6 +503,7 @@ namespace Game.Menu {
             EventBus.Subscribe<MatchStartedEvent>(OnMatchStartedEvent);
             EventBus.Subscribe<RestoreGameplayMenuPresentationEvent>(OnRestoreGameplayMenuPresentation);
             EventBus.Subscribe<TogglePauseMenuRequestedEvent>(OnTogglePauseMenuRequested);
+            EventBus.Subscribe<SetPostMatchMenuStateEvent>(OnSetPostMatchMenuState);
             _gameplayEventsBound = true;
         }
 
@@ -504,6 +515,7 @@ namespace Game.Menu {
             EventBus.Unsubscribe<MatchStartedEvent>(OnMatchStartedEvent);
             EventBus.Unsubscribe<RestoreGameplayMenuPresentationEvent>(OnRestoreGameplayMenuPresentation);
             EventBus.Unsubscribe<TogglePauseMenuRequestedEvent>(OnTogglePauseMenuRequested);
+            EventBus.Unsubscribe<SetPostMatchMenuStateEvent>(OnSetPostMatchMenuState);
             _gameplayEventsBound = false;
         }
 
@@ -539,6 +551,11 @@ namespace Game.Menu {
 
         private void OnTogglePauseMenuRequested(TogglePauseMenuRequestedEvent _) {
             TogglePause();
+        }
+
+        private void OnSetPostMatchMenuState(SetPostMatchMenuStateEvent evt) {
+            if(evt == null) return;
+            IsPostMatch = evt.IsPostMatch;
         }
 
         private void RegisterPauseLoadoutEvents() {

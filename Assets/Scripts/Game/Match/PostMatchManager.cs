@@ -5,7 +5,6 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
-using Game.Menu;
 using Game.Spawning;
 using Game.Hopball;
 using Game.Player.Combat;
@@ -79,7 +78,6 @@ namespace Game.Match {
 
         public bool PostMatchFlowStarted { get; private set; }
         private SpawnPoint.Team _winningTeam = SpawnPoint.Team.None;
-        private Coroutine _blackoutReadyRoutine;
         private bool _matchEndedEventsBound;
         private bool _sessionOwnerCallbacksRegistered;
         private bool HasPostMatchAuthority => NetworkAuthority.HasGlobalAuthority(this);
@@ -125,17 +123,15 @@ namespace Game.Match {
             }
         }
 
-        private void Start() {
-            // UI Toolkit document can be valid in inspector but still not bound to a live root in Start
-            // depending on scene/object initialization order. Defer hard binding until first real use.
-            TryResolveUiDocumentReference();
-        }
+        private void Start() { }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
             RegisterSessionOwnerCallbacks();
             BindMatchEndedEvent();
+            EventBus.Subscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
+            EventBus.Subscribe<GameplayUiDocumentReadyEvent>(OnGameplayUiDocumentReady);
         }
 
         private void InitializeUI() {
@@ -159,16 +155,7 @@ namespace Game.Match {
             _matchTimerContainer = _root.Q<VisualElement>("match-timer-container");
         }
 
-        private void TryResolveUiDocumentReference() {
-            if(GameMenuManager.Instance == null ||
-               !GameMenuManager.Instance.TryGetComponent(out UIDocument gameMenuDoc)) return;
-            if(uiDocument == null || uiDocument != gameMenuDoc || uiDocument.rootVisualElement == null) {
-                uiDocument = gameMenuDoc;
-            }
-        }
-
         private bool EnsureUiReferencesBound() {
-            TryResolveUiDocumentReference();
             if(uiDocument == null) {
                 uiDocument = GetComponent<UIDocument>();
             }
@@ -229,9 +216,17 @@ namespace Game.Match {
             return true;
         }
 
+        private void OnGameplayUiDocumentReady(GameplayUiDocumentReadyEvent evt) {
+            if(evt?.Document == null) return;
+            if(uiDocument == evt.Document && uiDocument.rootVisualElement != null) return;
+            uiDocument = evt.Document;
+        }
+
         public override void OnNetworkDespawn() {
             UnbindMatchEndedEvent();
             UnregisterSessionOwnerCallbacks();
+            EventBus.Unsubscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
+            EventBus.Unsubscribe<GameplayUiDocumentReadyEvent>(OnGameplayUiDocumentReady);
             ResetPostMatchUiState();
             base.OnNetworkDespawn();
             if(Instance == this)
@@ -242,6 +237,8 @@ namespace Game.Match {
             base.OnDestroy();
             UnbindMatchEndedEvent();
             UnregisterSessionOwnerCallbacks();
+            EventBus.Unsubscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
+            EventBus.Unsubscribe<GameplayUiDocumentReadyEvent>(OnGameplayUiDocumentReady);
             if(Instance == this) {
                 Instance = null;
             }
@@ -488,25 +485,10 @@ namespace Game.Match {
                 ResetPostMatchUiState();
                 IsPodiumBlackoutActive = false;
                 IsPostMatchMovementLockedLocal = false;
-                if(_blackoutReadyRoutine != null) {
-                    StopCoroutine(_blackoutReadyRoutine);
-                    _blackoutReadyRoutine = null;
-                }
-
-                // Fade to black using respawn fade overlay (appears above HUD but below pause menu)
-                if(SceneTransitionManager.Instance != null) {
-                    // Only fade out, we'll manually fade back in later
-                    SceneTransitionManager.Instance.StartCoroutine(
-                        SceneTransitionManager.Instance.FadeOutRespawnOverlay()
-                    );
-                }
-
-                _blackoutReadyRoutine = StartCoroutine(MarkBlackoutReadyAfterFade());
+                EventBus.Publish(new RequestPostMatchBlackoutTransitionEvent());
 
                 // Enter post-match HUD mode (hide crosshair, timer, etc.)
-                if(GameMenuManager.Instance != null) {
-                    GameMenuManager.Instance.IsPostMatch = true;
-                }
+                EventBus.Publish(new SetPostMatchMenuStateEvent(true));
 
                 // Find local controller and disable sniper overlay (do NOT lock movement yet - wait for fade to complete)
                 if(NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null) {
@@ -599,16 +581,7 @@ namespace Game.Match {
         [Rpc(SendTo.Everyone)]
         private void FadeInFromPodiumClientRpc() {
             IsPodiumBlackoutActive = false;
-            if(_blackoutReadyRoutine != null) {
-                StopCoroutine(_blackoutReadyRoutine);
-                _blackoutReadyRoutine = null;
-            }
-
-            if(SceneTransitionManager.Instance != null) {
-                SceneTransitionManager.Instance.StartCoroutine(
-                    SceneTransitionManager.Instance.FadeInRespawnOverlay()
-                );
-            }
+            EventBus.Publish(new RequestPostMatchFadeInEvent());
 
             StartReturnToMenuCountdown();
         }
@@ -917,11 +890,6 @@ namespace Game.Match {
                 _localReturnToMenuRoutine = null;
             }
 
-            if(_blackoutReadyRoutine != null) {
-                StopCoroutine(_blackoutReadyRoutine);
-                _blackoutReadyRoutine = null;
-            }
-
             _firstPlacePlayerId = ulong.MaxValue;
             _secondPlacePlayerId = ulong.MaxValue;
             _thirdPlacePlayerId = ulong.MaxValue;
@@ -975,11 +943,9 @@ namespace Game.Match {
             }
         }
 
-        private IEnumerator MarkBlackoutReadyAfterFade() {
-            yield return new WaitForSeconds(fadeDuration + fadeBuffer);
+        private void OnPostMatchBlackoutReady(PostMatchBlackoutReadyEvent _) {
             IsPodiumBlackoutActive = true;
             IsPostMatchMovementLockedLocal = true;
-            _blackoutReadyRoutine = null;
 
             if(HUDManager.Instance != null) {
                 EventBus.Publish(new HideHUDEvent());
@@ -988,13 +954,13 @@ namespace Game.Match {
             HideInGameHudForPostMatch();
 
             // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)
-            if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) yield break;
+            if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) return;
             var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
 
-            if(localPlayer == null) yield break;
+            if(localPlayer == null) return;
             var localController = localPlayer.GetComponent<PlayerController>();
 
-            if(localController == null) yield break;
+            if(localController == null) return;
             if(localController.WeaponManager != null) {
                 localController.WeaponManager.PrepareCurrentWeaponForPostMatchPodium();
             }

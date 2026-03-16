@@ -3,7 +3,7 @@ using Game.Match;
 using Network.Session;
 using UnityEngine;
 
-namespace Game.Match {
+namespace Game.Adapters {
     /// <summary>
     /// Wires game-specific matchmaker behavior (max players per mode, default public match settings)
     /// into Network.Session.SessionMatchmaker via hooks so the network layer does not depend

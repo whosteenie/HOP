@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Diagnostics;
+using Game.Match;
 using Game.Player.Core;
 using Game.Spawning;
 using Network.Core;
@@ -10,7 +11,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Game.Match {
+namespace Game.Adapters {
     /// <summary>
     /// Wires game-specific spawn, team assignment, and connection metadata logic into
     /// Network.Core.CustomNetworkManager via hooks so that the network stack stays

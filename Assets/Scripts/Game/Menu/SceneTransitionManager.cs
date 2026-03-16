@@ -66,8 +66,12 @@ namespace Game.Menu {
             SceneManager.sceneLoaded += OnSceneLoaded;
             EventBus.Unsubscribe<RequestRespawnFadeTransitionEvent>(OnRequestRespawnFadeTransition);
             EventBus.Unsubscribe<RequestRespawnFadeInSignalEvent>(OnRequestRespawnFadeInSignal);
+            EventBus.Unsubscribe<RequestPostMatchBlackoutTransitionEvent>(OnRequestPostMatchBlackoutTransition);
+            EventBus.Unsubscribe<RequestPostMatchFadeInEvent>(OnRequestPostMatchFadeIn);
             EventBus.Subscribe<RequestRespawnFadeTransitionEvent>(OnRequestRespawnFadeTransition);
             EventBus.Subscribe<RequestRespawnFadeInSignalEvent>(OnRequestRespawnFadeInSignal);
+            EventBus.Subscribe<RequestPostMatchBlackoutTransitionEvent>(OnRequestPostMatchBlackoutTransition);
+            EventBus.Subscribe<RequestPostMatchFadeInEvent>(OnRequestPostMatchFadeIn);
         }
 
         private void UpdateCachedSceneName() {
@@ -81,6 +85,8 @@ namespace Game.Menu {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             EventBus.Unsubscribe<RequestRespawnFadeTransitionEvent>(OnRequestRespawnFadeTransition);
             EventBus.Unsubscribe<RequestRespawnFadeInSignalEvent>(OnRequestRespawnFadeInSignal);
+            EventBus.Unsubscribe<RequestPostMatchBlackoutTransitionEvent>(OnRequestPostMatchBlackoutTransition);
+            EventBus.Unsubscribe<RequestPostMatchFadeInEvent>(OnRequestPostMatchFadeIn);
         }
 
         private void OnRequestRespawnFadeTransition(RequestRespawnFadeTransitionEvent _) {
@@ -90,6 +96,14 @@ namespace Game.Menu {
 
         private void OnRequestRespawnFadeInSignal(RequestRespawnFadeInSignalEvent _) {
             SignalFadeInStart();
+        }
+
+        private void OnRequestPostMatchBlackoutTransition(RequestPostMatchBlackoutTransitionEvent _) {
+            StartCoroutine(RunPostMatchBlackoutTransition());
+        }
+
+        private void OnRequestPostMatchFadeIn(RequestPostMatchFadeInEvent _) {
+            StartCoroutine(RunPostMatchFadeInTransition());
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
@@ -325,6 +339,15 @@ namespace Game.Menu {
             _respawnFadeOverlay.pickingMode = PickingMode.Ignore;
             _respawnFadeOverlay.style.display = DisplayStyle.None;
             _respawnOverlayState = OverlayVisualState.Hidden;
+        }
+
+        private IEnumerator RunPostMatchBlackoutTransition() {
+            yield return FadeOutRespawnOverlay();
+            EventBus.Publish(new PostMatchBlackoutReadyEvent());
+        }
+
+        private IEnumerator RunPostMatchFadeInTransition() {
+            yield return FadeInRespawnOverlay();
         }
 
         /// <summary>

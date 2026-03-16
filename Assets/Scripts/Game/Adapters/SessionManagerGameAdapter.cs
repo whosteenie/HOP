@@ -1,8 +1,9 @@
+using Game.Match;
 using Network.Core;
 using Network.Session;
 using UnityEngine;
 
-namespace Game.Match {
+namespace Game.Adapters {
     /// <summary>
     /// Wires game-specific match settings behavior (mode selection, per-match options reset)
     /// into Network.Session.SessionManager via hooks so that the network stack does not

@@ -1,8 +1,9 @@
+using Game.Social;
 using Network.Session;
 using Network.SessionContracts;
 using UnityEngine;
 
-namespace Game.Social {
+namespace Game.Adapters {
     /// <summary>
     /// Wires Game.Social.SessionVoice into Network.Session.SessionManager via hooks so that
     /// SessionManager does not need a direct reference to Game.Social.

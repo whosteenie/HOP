@@ -1,5 +1,6 @@
 namespace Events {
     using UnityEngine;
+    using UnityEngine.UIElements;
 
     /// <summary>
     /// Event published when gameplay wants the in-game menu root restored and any pause state cleared.
@@ -211,6 +212,48 @@ namespace Events {
     /// Event published when player code requests the respawn fade-in phase to begin.
     /// </summary>
     public class RequestRespawnFadeInSignalEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when post-match podium blackout fade-out should begin.
+    /// SceneTransitionManager owns the fade execution and will publish PostMatchBlackoutReadyEvent
+    /// once the screen is fully black.
+    /// </summary>
+    public class RequestPostMatchBlackoutTransitionEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when the post-match blackout fade-in should begin.
+    /// </summary>
+    public class RequestPostMatchFadeInEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published once the post-match blackout has fully reached black.
+    /// </summary>
+    public class PostMatchBlackoutReadyEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when gameplay menu state should enter or exit post-match mode.
+    /// </summary>
+    public class SetPostMatchMenuStateEvent : GameEvent {
+        public readonly bool IsPostMatch;
+
+        public SetPostMatchMenuStateEvent(bool isPostMatch) {
+            IsPostMatch = isPostMatch;
+        }
+    }
+
+    /// <summary>
+    /// Event published when the gameplay menu UIDocument is ready for consumers that render into it.
+    /// </summary>
+    public class GameplayUiDocumentReadyEvent : GameEvent {
+        public readonly UIDocument Document;
+
+        public GameplayUiDocumentReadyEvent(UIDocument document) {
+            Document = document;
+        }
     }
 
     /// <summary>

@@ -1,7 +1,8 @@
+using Game.Social;
 using Network.Session;
 using UnityEngine;
 
-namespace Game.Social {
+namespace Game.Adapters {
     /// <summary>
     /// Wires Game.Social.LocalIdentity into Network.Session.SessionNetworkLifecycle via
     /// identity providers so the network stack does not depend directly on Game.Social.

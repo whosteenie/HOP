@@ -1,12 +1,13 @@
 using Cysharp.Threading.Tasks;
 using Game.Audio.System;
+using Game.Match;
 using Game.Menu;
 using Game.Player.Core;
 using Game.UI.Misc;
 using Network.Session;
 using UnityEngine;
 
-namespace Game.Match {
+namespace Game.Adapters {
     /// <summary>
     /// Wires game-specific presentation and readiness behavior into Network.Session.SessionSceneFlow
     /// via delegate providers so that the network stack does not depend on Game.* types.

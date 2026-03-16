@@ -5,7 +5,7 @@ using Network.SessionContracts;
 using Steamworks;
 using UnityEngine;
 
-namespace Game.Social {
+namespace Game.Adapters {
     /// <summary>
     /// Wires Game-specific social behavior (chat presence, streamer mode, player icon)
     /// into Network.Session.SteamSocialBridge via hooks so the network layer does

@@ -7,7 +7,7 @@ using Network.Session;
 using Network.SessionContracts;
 using UnityEngine;
 
-namespace Game.Match {
+namespace Game.Adapters {
     /// <summary>
     /// Provides game-specific backfill eligibility logic for public matches and
     /// plugs it into Network.Session.SessionMatchLobby via the BackfillEligibilityProvider hook.
