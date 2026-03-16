@@ -79,6 +79,7 @@ namespace Network.Core {
         // --- Public utility: call when leaving to menu/lobby ---
         private void ResetSpawningState() {
             _allowPlayerSpawns = false;
+            PrivateMatchTeamAssignments.Clear();
         }
 
         private void OnServerStopped(bool _) => ResetSpawningState();

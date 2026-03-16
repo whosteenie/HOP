@@ -543,6 +543,11 @@ namespace Network.Session {
             if(!actions.TryGetNetworkManager(contextLabel, out _))
                 return false;
             SelectMapForHost(ctx, actions, contextLabel);
+            if(string.IsNullOrWhiteSpace(ctx.SelectedMapSceneName)) {
+                Debug.LogError(
+                    $"[SessionManager] Cannot load gameplay scene: SelectedMapSceneName is empty after map selection (context='{contextLabel}', mode='{ctx.SelectedGameMode ?? "<null>"}').");
+                return false;
+            }
             ctx.SetPhase(SessionPhase.LoadingScene);
             actions.LoadScene(ctx.SelectedMapSceneName);
             return true;

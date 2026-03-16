@@ -24,6 +24,30 @@ namespace Network.Session {
         private static Action<string, bool> lobbyPresenceNotifier;
         private static Action<ISessionContext> updateLocalDisplayMetadata;
 
+        private static void SafeInvokeLobbyPresenceNotifier(string friendName, bool joined) {
+            if(lobbyPresenceNotifier == null) return;
+            try {
+                lobbyPresenceNotifier(friendName, joined);
+            } catch(Exception ex) {
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning(
+                        $"[SessionManager] LobbyPresenceNotifier threw an exception for friend='{friendName}' joined={joined}: {ex.Message}");
+                }
+            }
+        }
+
+        private static void SafeUpdateLocalDisplayMetadata(ISessionContext ctx) {
+            if(updateLocalDisplayMetadata == null || ctx == null) return;
+            try {
+                updateLocalDisplayMetadata(ctx);
+            } catch(Exception ex) {
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning(
+                        $"[SessionManager] UpdateLocalDisplayMetadata threw an exception for lobby='{ctx.CurrentLobby?.Id}': {ex.Message}");
+                }
+            }
+        }
+
         /// <summary>
         /// Register game hook to send lobby presence messages (joined/left) to chat or other systems.
         /// Parameters: friendName, joined (true on join, false on leave).
@@ -98,7 +122,7 @@ namespace Network.Session {
             }
 
             if(friend.Id != SteamClient.SteamId) {
-                lobbyPresenceNotifier?.Invoke(friend.Name, true);
+                SafeInvokeLobbyPresenceNotifier(friend.Name, true);
             }
 
             if(_ctx.CurrentLobby.HasValue && _ctx.CurrentLobby.Value.Id == lobby.Id && lobby.MemberCount > 1) {
@@ -115,7 +139,7 @@ namespace Network.Session {
 
             if(_ctx is { CurrentLobby: not null } && _ctx.CurrentLobby.Value.Id == lobby.Id &&
                friend.Id != SteamClient.SteamId) {
-                lobbyPresenceNotifier?.Invoke(friend.Name, false);
+                SafeInvokeLobbyPresenceNotifier(friend.Name, false);
             }
 
             _ctx?.NotifyPartyStateChanged();
@@ -295,7 +319,7 @@ namespace Network.Session {
         /// Actual behavior is provided by the game via UpdateLocalDisplayMetadata.
         /// </summary>
         public static void UpdateLocalDisplayNameInLobby(ISessionContext ctx) {
-            updateLocalDisplayMetadata?.Invoke(ctx);
+            SafeUpdateLocalDisplayMetadata(ctx);
         }
 
         /// <summary>Creates a Steam social lobby and sets context. Called when creating UGS party without an existing Steam lobby.</summary>

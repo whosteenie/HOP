@@ -740,9 +740,21 @@ namespace Network.Session {
             await SessionSceneFlow.EnsureMainMenuLoadedAndReadyAsync(this, currentScene);
 
         public static Func<string, bool> IsGameplayScenePredicate { get; set; }
+        private static bool _loggedMissingGameplayScenePredicate;
 
         public static bool IsGameplaySceneName(string sceneName) {
-            return IsGameplayScenePredicate != null && IsGameplayScenePredicate(sceneName);
+            if(IsGameplayScenePredicate != null) return IsGameplayScenePredicate(sceneName);
+
+            if(!_loggedMissingGameplayScenePredicate) {
+                _loggedMissingGameplayScenePredicate = true;
+                Debug.LogWarning(
+                    "[SessionManager] IsGameplayScenePredicate is not set; using fallback rules for gameplay scene detection.");
+            }
+
+            if(string.IsNullOrWhiteSpace(sceneName)) return false;
+            if(string.Equals(sceneName, "MainMenu", StringComparison.OrdinalIgnoreCase)) return false;
+            if(string.Equals(sceneName, "Init", StringComparison.OrdinalIgnoreCase)) return false;
+            return true;
         }
 
         /// <summary>Removes a party member from the UGS party lobby.</summary>

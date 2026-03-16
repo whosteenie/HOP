@@ -40,6 +40,33 @@ namespace Game.Match {
                 SpawnPlayerForClient);
         }
 
+        private void OnEnable() {
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+            networkManager.OnServerStopped += OnNetworkStopped;
+            networkManager.OnClientStopped += OnNetworkStopped;
+        }
+
+        private void OnDisable() {
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+            networkManager.OnServerStopped -= OnNetworkStopped;
+            networkManager.OnClientStopped -= OnNetworkStopped;
+        }
+
+        private void OnNetworkStopped(bool _) {
+            ResetSessionState();
+        }
+
+        private void ResetSessionState() {
+            _clientPartyIds.Clear();
+            _clientSteamIds.Clear();
+            _clientUgsPlayerIds.Clear();
+            _pendingTeamAssignments.Clear();
+            _hasSessionPrivateFlag = false;
+            _sessionIsPrivateMatch = false;
+        }
+
         // ===== Approval / metadata =====
 
         private void OnClientApproved(ulong clientId, ConnectionPayload payload) {
