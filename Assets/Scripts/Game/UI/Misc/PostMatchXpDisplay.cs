@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Events;
 using Game.Progression;
 using Game.UI.Core;
 using UnityEngine;
@@ -16,6 +17,18 @@ namespace Game.UI.Misc {
         protected override void Awake() {
             base.Awake();
             if(uiDocument == null) uiDocument = GetComponent<UIDocument>();
+        }
+
+        protected override void OnEnable() {
+            base.OnEnable();
+            EventBus.Subscribe<ShowPostMatchXpEvent>(OnShowPostMatchXp);
+            EventBus.Subscribe<HidePostMatchXpEvent>(OnHidePostMatchXp);
+        }
+
+        protected override void OnDisable() {
+            EventBus.Unsubscribe<ShowPostMatchXpEvent>(OnShowPostMatchXp);
+            EventBus.Unsubscribe<HidePostMatchXpEvent>(OnHidePostMatchXp);
+            base.OnDisable();
         }
 
         protected override void Start() {
@@ -44,7 +57,7 @@ namespace Game.UI.Misc {
             };
         }
 
-        public void ShowXp(int oldLevel, int oldXp, int currentLevel, int currentXp, int xpGained) {
+        private void ShowXp(int oldLevel, int oldXp, int currentLevel, int currentXp, int xpGained) {
             if(!IsInitialized) {
                 Initialize();
             }
@@ -59,6 +72,15 @@ namespace Game.UI.Misc {
             }
 
             _xpAnimationRoutine = StartCoroutine(AnimateXp(oldLevel, oldXp, currentLevel, currentXp, xpGained));
+        }
+
+        private void OnShowPostMatchXp(ShowPostMatchXpEvent evt) {
+            if(evt == null) return;
+            ShowXp(evt.OldLevel, evt.OldXp, evt.CurrentLevel, evt.CurrentXp, evt.XpGained);
+        }
+
+        private void OnHidePostMatchXp(HidePostMatchXpEvent _) {
+            Hide();
         }
 
         private IEnumerator AnimateXp(int startLevel, int startXp, int endLevel, int endXp, int gained) {
@@ -132,7 +154,7 @@ namespace Game.UI.Misc {
             _xpBar.value = toXp;
         }
 
-        public void Hide() {
+        private void Hide() {
             if(_xpAnimationRoutine != null) {
                 StopCoroutine(_xpAnimationRoutine);
                 _xpAnimationRoutine = null;

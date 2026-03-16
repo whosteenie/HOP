@@ -9,9 +9,6 @@ using Game.Spawning;
 using Game.Hopball;
 using Game.Player.Combat;
 using Game.Player.Core;
-using Game.UI.HUD;
-using Game.UI.Misc;
-using Game.UI.Screens.Scoreboard;
 using Network.Core;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -32,8 +29,6 @@ namespace Game.Match {
 
         [Header("UI")]
         [SerializeField] private UIDocument uiDocument;
-
-        [SerializeField] private PostMatchXpDisplay xpDisplay;
 
         [Header("Timing")]
         [Tooltip("How long to stay on podium view before returning to menu.")] [SerializeField]
@@ -66,7 +61,6 @@ namespace Game.Match {
         // HUD elements for hiding/showing
         private VisualElement _matchTimerContainer;
 
-        private PostMatchXpDisplay _xpDisplay;
         private Coroutine _podiumWorldSpaceTrackingRoutine;
         private bool _missingUiReferenceLogged;
 
@@ -114,16 +108,7 @@ namespace Game.Match {
 
             _root = uiDocument.rootVisualElement;
 
-            _xpDisplay = xpDisplay != null ? xpDisplay : GetComponent<PostMatchXpDisplay>();
-            if(_xpDisplay == null) {
-                Debug.LogError("[PostMatchManager] PostMatchXpDisplay is not assigned. " +
-                               "Add PostMatchXpDisplay to Game scene object 'PostMatchManager' and assign UIDocument.");
-            } else if(_xpDisplay.uiDocument == null) {
-                _xpDisplay.uiDocument = uiDocument;
-            }
         }
-
-        private void Start() { }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
@@ -165,14 +150,6 @@ namespace Game.Match {
                 Debug.LogError("[PostMatchManager] UIDocument is missing; cannot bind post-match UI references.", this);
                 _missingUiReferenceLogged = true;
                 return false;
-            }
-
-            if(_xpDisplay == null) {
-                _xpDisplay = xpDisplay != null ? xpDisplay : GetComponent<PostMatchXpDisplay>();
-            }
-
-            if(_xpDisplay != null && _xpDisplay.uiDocument == null) {
-                _xpDisplay.uiDocument = uiDocument;
             }
 
             var currentRoot = uiDocument.rootVisualElement;
@@ -546,8 +523,8 @@ namespace Game.Match {
                     0); // 0 = no placement context
             } else {
                 // FFA Mode (Gun Tag, Deathmatch)
-                if(ScoreboardManager.Instance != null &&
-                   ScoreboardManager.Instance.GetLocalPlayerPlacement(out var rank, out _)) {
+                if(TryGetLocalFfaPlacement(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag",
+                       out var rank, out _)) {
                     // Award Win if Rank 1?
                     if(rank == 1) {
                         Progression.ProgressionManager.Instance.AddXp(500);
@@ -641,20 +618,19 @@ namespace Game.Match {
             SetPodiumSlot(_podiumThirdSlot, _podiumThirdName, _podiumThirdKills, thirdName, thirdKills);
 
             // Show XP Bar for local player
-            if(_xpDisplay == null || Progression.ProgressionManager.Instance == null) return;
+            if(Progression.ProgressionManager.Instance == null) return;
             var pm = Progression.ProgressionManager.Instance;
             pm.GetXpForLevel(pm.StartMatchLevel);
 
             // Note: If we leveled up multiple times, the animation might be a bit weird with just start/end,
             // but PostMatchXPDisplay handles basic level up logic.
 
-            _xpDisplay.ShowXp(
+            EventBus.Publish(new ShowPostMatchXpEvent(
                 pm.StartMatchLevel,
                 pm.StartMatchCurrentXp,
                 pm.Data.level,
                 pm.Data.currentXp,
-                pm.CurrentMatchXp
-            );
+                pm.CurrentMatchXp));
         }
 
         private static void SetPodiumSlot(
@@ -673,6 +649,36 @@ namespace Game.Match {
             killsLabel.text = hasPlayer ? kills.ToString() : "0";
         }
 
+        private static bool TryGetLocalFfaPlacement(bool isTagMode, out int placement, out int totalPlayers) {
+            placement = 0;
+            totalPlayers = 0;
+
+            var localClient = NetworkManager.Singleton.LocalClient;
+            if(localClient?.PlayerObject == null) return false;
+
+            var sortedPlayers = PlayerController.SpawnedPlayers
+                .Where(p => p != null && p.IsSpawned)
+                .OrderBy(p => isTagMode ? GetTagSortScore(p) : -p.Kills.Value)
+                .ThenBy(p => p.OwnerClientId)
+                .ToList();
+
+            totalPlayers = sortedPlayers.Count;
+            if(totalPlayers == 0) return false;
+
+            for(var i = 0; i < sortedPlayers.Count; i++) {
+                if(sortedPlayers[i].OwnerClientId != localClient.ClientId) continue;
+                placement = i + 1;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static int GetTagSortScore(PlayerController player) {
+            var tagCtrl = player != null ? player.GetComponent<PlayerTagController>() : null;
+            return tagCtrl != null ? tagCtrl.TimeTagged.Value : int.MaxValue;
+        }
+
         /// <summary>
         /// Hides only the in-game HUD elements, but leaves pause/scoreboard usable.
         /// </summary>
@@ -680,8 +686,7 @@ namespace Game.Match {
             EnsureUiReferencesBound();
 
             // Hide individual HUD elements
-            if(KillFeedManager.Instance != null)
-                EventBus.Publish(new HideKillFeedEvent());
+            EventBus.Publish(new HideKillFeedEvent());
             if(_matchTimerContainer != null)
                 _matchTimerContainer.style.display = DisplayStyle.None;
             EventBus.Publish(new HideScoreDisplayEvent());
@@ -699,8 +704,7 @@ namespace Game.Match {
             }
 
             // Show individual HUD elements
-            if(KillFeedManager.Instance != null)
-                EventBus.Publish(new ShowKillFeedEvent());
+            EventBus.Publish(new ShowKillFeedEvent());
             if(_matchTimerContainer != null)
                 _matchTimerContainer.style.display = DisplayStyle.Flex;
             EventBus.Publish(new ShowScoreDisplayEvent());
@@ -903,9 +907,7 @@ namespace Game.Match {
             SetPodiumSlot(_podiumSecondSlot, _podiumSecondName, _podiumSecondKills, string.Empty, 0);
             SetPodiumSlot(_podiumThirdSlot, _podiumThirdName, _podiumThirdKills, string.Empty, 0);
 
-            if(_xpDisplay != null) {
-                _xpDisplay.Hide();
-            }
+            EventBus.Publish(new HidePostMatchXpEvent());
         }
 
         /// <summary>Starts the countdown after which the local client returns to menu.</summary>
@@ -947,10 +949,7 @@ namespace Game.Match {
             IsPodiumBlackoutActive = true;
             IsPostMatchMovementLockedLocal = true;
 
-            if(HUDManager.Instance != null) {
-                EventBus.Publish(new HideHUDEvent());
-            }
-
+            EventBus.Publish(new HideHUDEvent());
             HideInGameHudForPostMatch();
 
             // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)

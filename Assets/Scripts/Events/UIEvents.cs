@@ -257,6 +257,31 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when post-match XP should be shown and animated.
+    /// </summary>
+    public class ShowPostMatchXpEvent : GameEvent {
+        public readonly int OldLevel;
+        public readonly int OldXp;
+        public readonly int CurrentLevel;
+        public readonly int CurrentXp;
+        public readonly int XpGained;
+
+        public ShowPostMatchXpEvent(int oldLevel, int oldXp, int currentLevel, int currentXp, int xpGained) {
+            OldLevel = oldLevel;
+            OldXp = oldXp;
+            CurrentLevel = currentLevel;
+            CurrentXp = currentXp;
+            XpGained = xpGained;
+        }
+    }
+
+    /// <summary>
+    /// Event published when post-match XP should be hidden/reset.
+    /// </summary>
+    public class HidePostMatchXpEvent : GameEvent {
+    }
+
+    /// <summary>
     /// Event published when player code requests unexpected-disconnect FP visual capture.
     /// </summary>
     public class RequestDisconnectFpVisualCaptureEvent : GameEvent {

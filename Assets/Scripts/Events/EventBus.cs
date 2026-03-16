@@ -75,6 +75,8 @@ namespace Events {
             typeof(PostMatchBlackoutReadyEvent),
             typeof(SetPostMatchMenuStateEvent),
             typeof(GameplayUiDocumentReadyEvent),
+            typeof(ShowPostMatchXpEvent),
+            typeof(HidePostMatchXpEvent),
             typeof(RequestDisconnectFpVisualCaptureEvent),
             typeof(ShowDamageVignetteFromWorldHitEvent),
             typeof(VoiceParticipantSpeechChangedEvent),
