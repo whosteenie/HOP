@@ -262,7 +262,15 @@ namespace Game.UI.Screens {
 
         private void OnChatMessageReceivedEvent(ChatMessageReceivedEvent evt) {
             if(evt == null) return;
-            AddMessage(evt.Message);
+
+            var msg = new ChatMessage {
+                SenderSteamId = evt.SenderSteamId,
+                SenderName = evt.SenderName,
+                MessageContent = evt.MessageContent,
+                IsSystemMessage = evt.IsSystemMessage
+            };
+
+            AddMessage(msg);
         }
 
         private void AddMessage(ChatMessage msg) {

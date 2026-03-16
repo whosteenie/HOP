@@ -479,7 +479,11 @@ namespace Game.Social {
         }
 
         private static void NotifyMessageReceived(ChatMessage message) {
-            EventBus.Publish(new ChatMessageReceivedEvent(message));
+            EventBus.Publish(new ChatMessageReceivedEvent(
+                message.SenderSteamId,
+                message.SenderName,
+                message.MessageContent,
+                message.IsSystemMessage));
         }
     }
 }

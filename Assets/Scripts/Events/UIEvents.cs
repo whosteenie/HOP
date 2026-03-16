@@ -200,12 +200,20 @@ namespace Events {
 
     /// <summary>
     /// Event published when a chat message should be rendered by chat UI.
+    /// The payload is a simple DTO so Events does not depend on Game.Social types.
     /// </summary>
     public class ChatMessageReceivedEvent : GameEvent {
-        public readonly Game.Social.ChatMessage Message;
+        public readonly ulong SenderSteamId;
+        public readonly string SenderName;
+        public readonly string MessageContent;
+        public readonly bool IsSystemMessage;
 
-        public ChatMessageReceivedEvent(Game.Social.ChatMessage message) {
-            Message = message;
+        public ChatMessageReceivedEvent(ulong senderSteamId, string senderName, string messageContent,
+            bool isSystemMessage) {
+            SenderSteamId = senderSteamId;
+            SenderName = senderName;
+            MessageContent = messageContent;
+            IsSystemMessage = isSystemMessage;
         }
     }
 
