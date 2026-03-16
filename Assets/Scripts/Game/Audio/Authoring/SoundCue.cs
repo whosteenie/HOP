@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Game.Audio.System;
 using UnityEngine;
 using UnityEngine.Audio;
 
-namespace Game.Audio2 {
+namespace Game.Audio.Authoring {
     [CreateAssetMenu(fileName = "SoundCue", menuName = "AudioService/Sound Cue")]
     public sealed class SoundCue : ScriptableObject {
         [Serializable]
@@ -61,7 +62,7 @@ namespace Game.Audio2 {
         public int maxInstances = 4;
 
         [Min(0f)]
-        public float cooldownSeconds = 0f;
+        public float cooldownSeconds;
 
         public VoiceStealPolicy stealPolicy = VoiceStealPolicy.StealLowestPriorityThenOldest;
 
@@ -69,12 +70,11 @@ namespace Game.Audio2 {
         public StopBehavior stopBehavior = StopBehavior.StopLast;
 
         [Header("Loading")]
-        public bool preload = false;
+        public bool preload;
 
         public bool HasValidVariants() {
             if(variants == null || variants.Count == 0) return false;
-            for(var i = 0; i < variants.Count; i++) {
-                var v = variants[i];
+            foreach(var v in variants) {
                 if(v.clip == null) continue;
                 if(v.weight <= 0f) continue;
                 return true;

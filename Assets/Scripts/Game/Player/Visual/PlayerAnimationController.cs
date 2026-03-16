@@ -1,4 +1,4 @@
-using Audio.Networking;
+using Game.Audio.System;
 using Game.Player.Core;
 using Unity.Netcode;
 using UnityEngine;

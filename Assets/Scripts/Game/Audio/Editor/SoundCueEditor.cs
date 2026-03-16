@@ -1,11 +1,11 @@
 #if UNITY_EDITOR
 using System;
 using System.Reflection;
-using Game.Audio2;
+using Game.Audio.Authoring;
 using UnityEditor;
 using UnityEngine;
 
-namespace Audio.Editor {
+namespace Game.Audio.Editor {
     [CustomEditor(typeof(SoundCue))]
     public sealed class SoundCueEditor : UnityEditor.Editor {
         private static MethodInfo playClip;

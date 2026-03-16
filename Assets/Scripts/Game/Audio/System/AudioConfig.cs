@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
 
-namespace Game.Audio2 {
+namespace Game.Audio.System {
     [CreateAssetMenu(fileName = "AudioConfig", menuName = "AudioService/Audio Config")]
     public sealed class AudioConfig : ScriptableObject {
         [Serializable]
@@ -37,20 +37,17 @@ namespace Game.Audio2 {
 
         [Header("Diagnostics")]
         [Tooltip("Enable [HOPFLOW][AUDIO] PLAY_DROP logs for dropped/clipped audio play attempts.")]
-        public bool enableHopflowAudioDropReasonLogs = false;
+        public bool enableHopflowAudioDropReasonLogs;
 
         private Dictionary<SoundBus, BusConfig> _busLookup;
 
         public bool TryGetBusConfig(SoundBus bus, out BusConfig cfg) {
-            if(_busLookup == null) {
-                _busLookup = new Dictionary<SoundBus, BusConfig>();
-                if(buses != null) {
-                    for(var i = 0; i < buses.Count; i++) {
-                        var b = buses[i];
-                        if(_busLookup.ContainsKey(b.bus)) continue;
-                        _busLookup.Add(b.bus, b);
-                    }
-                }
+            if(_busLookup != null) return _busLookup.TryGetValue(bus, out cfg);
+            _busLookup = new Dictionary<SoundBus, BusConfig>();
+            
+            if(buses == null) return _busLookup.TryGetValue(bus, out cfg);
+            foreach(var b in buses) {
+                if(!_busLookup.TryAdd(b.bus, b)) continue;
             }
             return _busLookup.TryGetValue(bus, out cfg);
         }

@@ -1,10 +1,8 @@
 using Events;
-using Game.Audio2;
-using Game.Player;
 using Game.Player.Core;
 using UnityEngine;
 
-namespace Game.Audio2 {
+namespace Game.Audio.System {
     [DisallowMultipleComponent]
     public sealed class AudioServiceEventBusBridge : MonoBehaviour {
         private void OnEnable() {

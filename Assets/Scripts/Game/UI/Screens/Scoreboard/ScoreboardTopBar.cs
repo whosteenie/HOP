@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Audio.System;
 using Game.Hopball;
 using Game.Match;
 using Game.Player.Core;
@@ -38,8 +39,8 @@ namespace Game.UI.Screens.Scoreboard {
             var seconds = secondsRemaining % 60;
             _matchTimerLabel.text = $"{minutes:00}:{seconds:00}";
             if(!playTickSfx || minutes != 0 || seconds is > 5 or < 1) return;
-            if(Audio2.AudioService.Instance != null)
-                Audio2.AudioService.Instance.Play("ui.timer", Vector3.zero);
+            if(AudioService.Instance != null)
+                AudioService.Instance.Play("ui.timer", Vector3.zero);
         }
 
         public void ApplyInitialTimerState() {

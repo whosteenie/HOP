@@ -1,3 +1,4 @@
+using Game.Audio.System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -12,9 +13,9 @@ namespace Game.UI.Core {
         /// </summary>
         /// <param name="isBack">If true, plays back button sound; otherwise plays normal click sound.</param>
         public static void PlayButtonClick(bool isBack = false) {
-            if(Audio2.AudioService.Instance == null) return;
+            if(AudioService.Instance == null) return;
             var soundId = !isBack ? "ui.button.forward" : "ui.button.back";
-            Audio2.AudioService.Instance.Play(soundId, Vector3.zero);
+            AudioService.Instance.Play(soundId, Vector3.zero);
         }
 
         /// <summary>
@@ -22,8 +23,8 @@ namespace Game.UI.Core {
         /// Uses MouseEnterEvent which only fires when entering the element, preventing multiple triggers from child elements.
         /// </summary>
         public static void PlayButtonHover() {
-            if(Audio2.AudioService.Instance == null) return;
-            Audio2.AudioService.Instance.Play("ui.button.hover", Vector3.zero);
+            if(AudioService.Instance == null) return;
+            AudioService.Instance.Play("ui.button.hover", Vector3.zero);
         }
 
         /// <summary>

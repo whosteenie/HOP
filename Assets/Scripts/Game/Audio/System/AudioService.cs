@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Game.Audio.Authoring;
 using UnityEngine;
-using UnityEngine.Audio;
 
-namespace Game.Audio2 {
+namespace Game.Audio.System {
     [DisallowMultipleComponent]
     public sealed class AudioService : MonoBehaviour {
         public static AudioService Instance { get; private set; }
@@ -74,18 +74,16 @@ namespace Game.Audio2 {
             if(config.audioSourcePrefab == null) return;
 
             var parent = transform;
-            if(config.buses != null) {
-                for(var i = 0; i < config.buses.Count; i++) {
-                    var bc = config.buses[i];
-                    if(_pools.ContainsKey(bc.bus)) continue;
-                    var q = new Queue<AudioSource>(Mathf.Max(0, bc.prewarmSources));
-                    _pools.Add(bc.bus, q);
+            if(config.buses == null) return;
+            foreach(var bc in config.buses) {
+                if(_pools.ContainsKey(bc.bus)) continue;
+                var q = new Queue<AudioSource>(Mathf.Max(0, bc.prewarmSources));
+                _pools.Add(bc.bus, q);
 
-                    for(var j = 0; j < bc.prewarmSources; j++) {
-                        var src = Instantiate(config.audioSourcePrefab, parent);
-                        src.gameObject.SetActive(false);
-                        q.Enqueue(src);
-                    }
+                for(var j = 0; j < bc.prewarmSources; j++) {
+                    var src = Instantiate(config.audioSourcePrefab, parent);
+                    src.gameObject.SetActive(false);
+                    q.Enqueue(src);
                 }
             }
         }
@@ -93,8 +91,7 @@ namespace Game.Audio2 {
         private void PreloadMarkedCues() {
             if(catalog == null || catalog.entries == null) return;
 
-            for(var i = 0; i < catalog.entries.Count; i++) {
-                var e = catalog.entries[i];
+            foreach(var e in catalog.entries) {
                 var cue = e.cue;
                 if(cue == null) continue;
                 if(!cue.preload) continue;
@@ -117,7 +114,7 @@ namespace Game.Audio2 {
         }
 
         public bool Play(string id, Vector3 worldPosition, uint seed = 0) {
-            return Play(id, new PlayParams { UseWorldPosition = true, WorldPosition = worldPosition, Seed = seed });
+            return Play(id, new PlayParams { useWorldPosition = true, worldPosition = worldPosition, seed = seed });
         }
 
         /// <summary>Bypasses pool/voice system: PlayOneShot on a dedicated 2D source. Use for local owner jumppad so it always plays.</summary>
@@ -139,19 +136,19 @@ namespace Game.Audio2 {
 
         /// <summary>Play at world position with optional 2D override (e.g. local owner jumppad, no parent).</summary>
         public bool Play(string id, Vector3 worldPosition, uint seed, bool force2D) {
-            return Play(id, new PlayParams { UseWorldPosition = true, WorldPosition = worldPosition, Seed = seed, Force2D = force2D });
+            return Play(id, new PlayParams { useWorldPosition = true, worldPosition = worldPosition, seed = seed, force2D = force2D });
         }
 
         public bool PlayAttached(string id, Transform parent, uint seed = 0) {
-            return Play(id, new PlayParams { Parent = parent, UseWorldPosition = false, Seed = seed });
+            return Play(id, new PlayParams { parent = parent, useWorldPosition = false, seed = seed });
         }
 
         /// <summary>Play attached with optional 2D override so the sound is always heard (e.g. local jumppad).</summary>
         public bool PlayAttached(string id, Transform parent, uint seed, bool force2D) {
-            return Play(id, new PlayParams { Parent = parent, UseWorldPosition = false, Seed = seed, Force2D = force2D });
+            return Play(id, new PlayParams { parent = parent, useWorldPosition = false, seed = seed, force2D = force2D });
         }
 
-        public bool Play(string id, PlayParams p) {
+        private bool Play(string id, PlayParams p) {
             if(string.IsNullOrWhiteSpace(id)) return false;
             if(config == null || catalog == null) return false;
 
@@ -180,7 +177,7 @@ namespace Game.Audio2 {
             // Voice limit (per cue)
             if(cue.maxInstances > 0) {
                 if(_activeById.TryGetValue(id, out var list) && list != null && list.Count >= cue.maxInstances) {
-                    if(!TryStealVoice(id, cue, list)) {
+                    if(!TryStealVoice(cue, list)) {
                         EmitDroppedPlayLog(id, "max_instances_cap",
                             $"active={list.Count} cap={cue.maxInstances} policy={cue.stealPolicy}");
                         return false;
@@ -189,8 +186,8 @@ namespace Game.Audio2 {
             }
 
             // Global cap
-            if(config.globalMaxVoices > 0 && _active.Count >= config.globalMaxVoices) {
-                if(!TryStealGlobal(cue)) {
+            if(_active.Count >= config.globalMaxVoices) {
+                if(!TryStealGlobal()) {
                     EmitDroppedPlayLog(id, "global_voice_cap",
                         $"active={_active.Count} cap={config.globalMaxVoices}");
                     return false;
@@ -203,13 +200,13 @@ namespace Game.Audio2 {
                 return false;
             }
 
-            if(!ApplyCueToSource(src, cue, id, p.Seed)) {
+            if(!ApplyCueToSource(src, cue, id, p.seed)) {
                 EmitDroppedPlayLog(id, "apply_cue_failed", $"bus={cue.bus}");
                 ReturnToPool(cue.bus, src);
                 return false;
             }
 
-            if(p.Force2D && src != null) {
+            if(p.force2D && src != null) {
                 src.spatialBlend = 0f;
             }
 
@@ -217,12 +214,14 @@ namespace Game.Audio2 {
             EnsureSourcePlayable(src, id, cue.bus);
 
             // Parent vs world
-            if(p.Parent != null && !p.UseWorldPosition) {
-                src.transform.SetParent(p.Parent, false);
-                src.transform.localPosition = Vector3.zero;
+            if(p.parent != null && !p.useWorldPosition) {
+                Transform tr;
+                (tr = src.transform).SetParent(p.parent, false);
+                tr.localPosition = Vector3.zero;
             } else {
-                src.transform.SetParent(transform, false);
-                src.transform.position = p.WorldPosition;
+                Transform tr;
+                (tr = src.transform).SetParent(transform, false);
+                tr.position = p.worldPosition;
             }
 
             try {
@@ -291,13 +290,12 @@ namespace Game.Audio2 {
             }
         }
 
-        private bool TryStealVoice(string id, SoundCue cue, List<Voice> list) {
+        private bool TryStealVoice(SoundCue cue, List<Voice> list) {
             if(cue.stealPolicy == VoiceStealPolicy.DropNew) return false;
             if(list == null || list.Count == 0) return false;
 
             Voice best = null;
-            for(var i = 0; i < list.Count; i++) {
-                var v = list[i];
+            foreach(var v in list) {
                 if(v == null) continue;
                 if(best == null) {
                     best = v;
@@ -320,11 +318,10 @@ namespace Game.Audio2 {
             return true;
         }
 
-        private bool TryStealGlobal(SoundCue requestingCue) {
+        private bool TryStealGlobal() {
             // Steal the oldest, lowest-importance voice globally.
             Voice best = null;
-            for(var i = 0; i < _active.Count; i++) {
-                var v = _active[i];
+            foreach(var v in _active) {
                 if(v == null) continue;
                 if(best == null) {
                     best = v;
@@ -371,8 +368,7 @@ namespace Game.Audio2 {
             if(config.TryGetBusConfig(bus, out var bc) && bc.maxPoolSize > 0) {
                 // Approximate: current pool + active voices for this bus.
                 var activeCount = 0;
-                for(var i = 0; i < _active.Count; i++) {
-                    var v = _active[i];
+                foreach(var v in _active) {
                     if(v == null || v.Src == null) continue;
                     if(v.Cue != null && v.Cue.bus == bus) activeCount++;
                 }
@@ -469,8 +465,7 @@ namespace Game.Audio2 {
         private static Voice GetNewest(List<Voice> list) {
             if(list == null || list.Count == 0) return null;
             Voice best = null;
-            for(var i = 0; i < list.Count; i++) {
-                var v = list[i];
+            foreach(var v in list) {
                 if(v == null) continue;
                 if(best == null || v.StartTime > best.StartTime) {
                     best = v;
@@ -485,8 +480,7 @@ namespace Game.Audio2 {
 
             // Weighted random over variants with clip != null and weight > 0.
             var total = 0f;
-            for(var i = 0; i < cue.variants.Count; i++) {
-                var vi = cue.variants[i];
+            foreach(var vi in cue.variants) {
                 if(vi.clip == null) continue;
                 if(!(vi.weight > 0f)) continue;
                 total += vi.weight;
@@ -524,10 +518,9 @@ namespace Game.Audio2 {
             unchecked {
                 var h = 2166136261u;
                 h = (h ^ seed) * 16777619u;
-                if(salt != null) {
-                    for(var i = 0; i < salt.Length; i++) {
-                        h = (h ^ salt[i]) * 16777619u;
-                    }
+                if(salt == null) return (h & 0x00FFFFFF) / 16777216f;
+                foreach(var t in salt) {
+                    h = (h ^ t) * 16777619u;
                 }
                 // map to [0,1)
                 return (h & 0x00FFFFFF) / 16777216f;
@@ -540,8 +533,7 @@ namespace Game.Audio2 {
         }
 
         private static string GetSourceDebugId(AudioSource src) {
-            if(src == null) return "null";
-            return $"{src.gameObject.name}#{src.GetInstanceID()}";
+            return src == null ? "null" : $"{src.gameObject.name}#{src.GetInstanceID()}";
         }
 
         private bool ShouldEmitSourceStateLog(AudioSource src, float intervalSeconds = 10f) {
@@ -567,12 +559,11 @@ namespace Game.Audio2 {
                 }
             }
 
-            if(!src.gameObject.activeSelf) {
-                src.gameObject.SetActive(true);
-                if(ShouldEmitSourceStateLog(src)) {
-                    Debug.LogWarning(
-                        $"[AudioService] Reactivated pooled source GameObject for id='{id}' bus='{bus}' src='{GetSourceDebugId(src)}'.");
-                }
+            if(src.gameObject.activeSelf) return;
+            src.gameObject.SetActive(true);
+            if(ShouldEmitSourceStateLog(src)) {
+                Debug.LogWarning(
+                    $"[AudioService] Reactivated pooled source GameObject for id='{id}' bus='{bus}' src='{GetSourceDebugId(src)}'.");
             }
         }
 
@@ -592,12 +583,12 @@ namespace Game.Audio2 {
 
     [Serializable]
     public struct PlayParams {
-        public Transform Parent;
-        public bool UseWorldPosition;
-        public Vector3 WorldPosition;
-        public uint Seed;
+        public Transform parent;
+        public bool useWorldPosition;
+        public Vector3 worldPosition;
+        public uint seed;
         /// <summary>When true, force spatialBlend to 0 so the sound plays as 2D (e.g. for local owner jumppad).</summary>
-        public bool Force2D;
+        public bool force2D;
     }
 }
 

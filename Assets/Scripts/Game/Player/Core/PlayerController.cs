@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Audio.Networking;
 using Events;
+using Game.Audio.System;
 using Game.Hopball;
 using Game.Match;
 using Game.Player.Combat;
@@ -1012,8 +1012,8 @@ namespace Game.Player.Core {
         [Rpc(SendTo.Everyone)]
         public void PlayHitEffectsClientRpc(Vector3 hitPoint, float amount) {
             if(IsOwner) {
-                if(Audio2.AudioService.Instance != null) {
-                    Audio2.AudioService.Instance.Play("ui.hit.hurt", Vector3.zero);
+                if(AudioService.Instance != null) {
+                    AudioService.Instance.Play("ui.hit.hurt", Vector3.zero);
                 }
 
                 impulseSource.GenerateImpulse();

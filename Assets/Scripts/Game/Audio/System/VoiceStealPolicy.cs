@@ -1,6 +1,6 @@
 using System;
 
-namespace Game.Audio2 {
+namespace Game.Audio.System {
     [Serializable]
     public enum VoiceStealPolicy : byte {
         DropNew = 0,

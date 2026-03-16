@@ -1,11 +1,11 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using Game.Audio2;
+using Game.Audio.Authoring;
 using UnityEditor;
 using UnityEngine;
 
-namespace Audio.Editor {
+namespace Game.Audio.Editor {
     public static class SoundCatalogValidator {
         [MenuItem("Tools/AudioService/Validate Selected SoundCatalog", priority = 0)]
         private static void ValidateSelected() {

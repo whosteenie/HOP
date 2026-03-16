@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
-using Audio.Networking;
 using Events;
+using Game.Audio.System;
 using Game.Player.Core;
 using Game.UI.HUD;
 using Game.Weapon.Kinemation;
@@ -270,10 +270,10 @@ namespace Game.Weapon.Core {
         }
 
         private static void OnHitConfirm(bool wasKill) {
-            if(Audio2.AudioService.Instance == null) return;
+            if(AudioService.Instance == null) return;
 
             var soundId = wasKill ? "ui.hit.hitmarker.kill" : "ui.hit.hitmarker.hit";
-            Audio2.AudioService.Instance.Play(soundId, Vector3.zero);
+            AudioService.Instance.Play(soundId, Vector3.zero);
         }
 
         #endregion

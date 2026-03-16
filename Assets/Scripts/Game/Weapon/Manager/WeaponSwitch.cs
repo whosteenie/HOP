@@ -1,4 +1,5 @@
 using System.Collections;
+using Game.Audio.System;
 using Game.Hopball;
 using Game.Match;
 using Game.Menu;
@@ -171,8 +172,8 @@ namespace Game.Weapon.Manager {
                 return;
             }
 
-            if(playSwitchAudio && _root.IsOwner && Audio2.AudioService.Instance != null) {
-                Audio2.AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
+            if(playSwitchAudio && _root.IsOwner && AudioService.Instance != null) {
+                AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
             }
 
             if(_root.CurrentWeaponInternal != null && _root.CurrentWeaponInternal.IsReloadInProgress) {

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Game.Audio2 {
+namespace Game.Audio.Authoring {
     [CreateAssetMenu(fileName = "SoundCatalog", menuName = "AudioService/Sound Catalog")]
     public sealed class SoundCatalog : ScriptableObject {
         [Serializable]
@@ -51,7 +51,7 @@ namespace Game.Audio2 {
             if(_lookup == null) {
                 InitializeLookup(logWarnings: false);
             }
-            return _lookup.TryGetValue(id, out cue);
+            return _lookup != null && _lookup.TryGetValue(id, out cue);
         }
     }
 }

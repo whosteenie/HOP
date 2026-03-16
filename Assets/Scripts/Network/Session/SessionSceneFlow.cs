@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
+using Game.Audio.System;
 using Game.Match;
 using Game.Menu;
 using Game.Player.Core;
@@ -306,8 +307,8 @@ namespace Network.Session {
             await actions.ClearMatchmakingStateAsync();
             FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_MATCHMAKING_CLEARED"));
 
-            if(Game.Audio2.AudioService.Instance != null)
-                Game.Audio2.AudioService.Instance.StopAll();
+            if(AudioService.Instance != null)
+                AudioService.Instance.StopAll();
 
             var currentScene = actions.GetActiveSceneName();
             var shouldFade = currentScene != "MainMenu";

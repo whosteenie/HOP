@@ -3,7 +3,7 @@ using Network.AntiCheat;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Audio.Networking {
+namespace Game.Audio.System {
     [DisallowMultipleComponent]
     public sealed class NetworkAudioRelay : NetworkBehaviour {
         /// <summary>
@@ -57,13 +57,13 @@ namespace Audio.Networking {
         [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Unreliable)]
         private void PlayClientRpc(string soundId, Vector3 worldPosition, NetworkObjectReference attachRef,
             bool attachTo, bool allowOverlap, uint seed) {
-            PlayClientRpcImpl(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed, ulong.MaxValue);
+            PlayClientRpcImpl(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed);
         }
 
         private void PlayClientRpcImpl(string soundId, Vector3 worldPosition, NetworkObjectReference attachRef,
-            bool attachTo, bool allowOverlap, uint seed, ulong requestingClientId = ulong.MaxValue) {
+            bool attachTo, bool allowOverlap, uint seed) {
 
-            var svc = Game.Audio2.AudioService.Instance;
+            var svc = AudioService.Instance;
             if(svc == null) {
                 return;
             }
@@ -101,7 +101,7 @@ namespace Audio.Networking {
 
         [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Unreliable)]
         private void StopClientRpc(string soundId) {
-            var svc = Game.Audio2.AudioService.Instance;
+            var svc = AudioService.Instance;
             if(svc == null) return;
             svc.Stop(soundId);
         }

@@ -1,6 +1,7 @@
 using System.Collections;
 using Diagnostics;
 using Events;
+using Game.Audio.System;
 using Game.Match;
 using Game.Menu;
 using Game.Player.Core;
@@ -987,8 +988,8 @@ namespace Game.Player.Look {
                 }
             }
             if(playZoomSound) {
-                if(Audio2.AudioService.Instance != null) {
-                    Audio2.AudioService.Instance.Play("ui.sniper.zoom", Vector3.zero);
+                if(AudioService.Instance != null) {
+                    AudioService.Instance.Play("ui.sniper.zoom", Vector3.zero);
                 }
             }
             UpdateSniperSensitivity();

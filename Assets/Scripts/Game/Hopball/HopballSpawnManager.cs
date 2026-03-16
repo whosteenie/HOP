@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Diagnostics;
 using Events;
+using Game.Audio.System;
 using Game.Match;
 using Game.Player.Core;
 using Game.Spawning;
@@ -502,11 +503,11 @@ namespace Game.Hopball {
         [Rpc(SendTo.Everyone)]
         // ReSharper disable once MemberCanBeMadeStatic.Local
         private void PlaySpawnSoundClientRpc(Vector3 position) {
-            if(Audio2.AudioService.Instance == null) return;
+            if(AudioService.Instance == null) return;
 
             const string soundId = "gameplay.hopball.spawn";
-            Audio2.AudioService.Instance.Stop(soundId);
-            Audio2.AudioService.Instance.Play(soundId, position);
+            AudioService.Instance.Stop(soundId);
+            AudioService.Instance.Play(soundId, position);
         }
 
         /// <summary>Prewarms hopball visual object pools on all clients.</summary>

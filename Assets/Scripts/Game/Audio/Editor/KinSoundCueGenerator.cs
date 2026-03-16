@@ -2,14 +2,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Game.Audio2;
+using Game.Audio.Authoring;
+using Game.Audio.System;
 using Game.Weapon.Kinemation;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEditor;
 using UnityEngine;
 
-namespace Audio.Editor {
-    public static class KinemationSoundCueGenerator {
+namespace Game.Audio.Editor {
+    public static class KinSoundCueGenerator {
         private const string KinemationCueRootFolder = "Assets/Audio/SoundCue/Weapons/Kinemation";
         private const string DefaultCatalogPath = "Assets/Audio/SoundCatalog.asset";
 
