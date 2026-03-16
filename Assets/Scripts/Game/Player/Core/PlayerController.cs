@@ -348,6 +348,7 @@ namespace Game.Player.Core {
 
         public override void OnDestroy() {
             CancelPendingIdentitySync();
+            UnsubscribeFromLocalVoiceEvents();
             UnsubscribeFromNetworkVariables();
             UnregisterSpawnedPlayer(this);
             if(LocalPlayer == this) {
@@ -371,6 +372,7 @@ namespace Game.Player.Core {
             RegisterSpawnedPlayer(this);
 
             SubscribeToNetworkVariables();
+            SubscribeToLocalVoiceEvents();
             TryBindStateSubscriptions();
             UpdatePlayerMaterialFromNetwork();
             _spawnPresentation.HandleNetworkSpawnPresentation();
@@ -405,6 +407,7 @@ namespace Game.Player.Core {
             UnregisterSpawnedPlayer(this);
             CancelPendingIdentitySync();
 
+            UnsubscribeFromLocalVoiceEvents();
             UnsubscribeFromNetworkVariables();
         }
 
@@ -437,6 +440,22 @@ namespace Game.Player.Core {
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
             _materialCustomization.Unsubscribe();
             _presentationState.Unsubscribe();
+        }
+
+        private void SubscribeToLocalVoiceEvents() {
+            if(!IsOwner) return;
+            EventBus.Unsubscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChanged);
+            EventBus.Subscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChanged);
+        }
+
+        private void UnsubscribeFromLocalVoiceEvents() {
+            if(!IsOwner) return;
+            EventBus.Unsubscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChanged);
+        }
+
+        private void OnVoiceLocalPttStateChanged(VoiceLocalPttStateChangedEvent evt) {
+            if(!IsOwner) return;
+            isPttActive.Value = evt.IsActive;
         }
 
         public MatchPlayerStateProxy PlayerState => _networkState.PlayerState;

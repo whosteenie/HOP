@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using Cysharp.Threading.Tasks;
 using Diagnostics;
+using Events;
 using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Core;
@@ -231,7 +231,7 @@ namespace Game.Hopball {
             _worldHopballVisualInstance.SetActive(false);
         }
 
-        public void PrewarmHopballVisualsIfNeeded() {
+        private void PrewarmHopballVisualsIfNeeded() {
             PrewarmHopballVisualPool();
         }
 
@@ -244,6 +244,10 @@ namespace Game.Hopball {
             if(!InstancesInternal.Contains(this)) {
                 InstancesInternal.Add(this);
             }
+
+            EventBus.Subscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
+            EventBus.Subscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
+            EventBus.Subscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
 
             if(HopballController.Instance != null) {
                 HopballController.Instance.OnControllerRegistered(this);
@@ -272,6 +276,9 @@ namespace Game.Hopball {
             if(HopballController.Instance != null) {
                 HopballController.Instance.OnControllerUnregistered(this);
             }
+            EventBus.Unsubscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
+            EventBus.Unsubscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
+            EventBus.Unsubscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
             InstancesInternal.Remove(this);
             // Unsubscribe from visual state changes
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
@@ -402,18 +409,22 @@ namespace Game.Hopball {
         }
 
         /// <summary>
-        /// Consolidated ClientRpc that handles all client updates when hopball is equipped.
-        /// Replaces multiple separate RPCs to reduce network overhead.
+        /// Applies client-local presentation when a hopball equip event is received.
         /// </summary>
-        [ClientRpc]
-        internal void OnHopballEquippedClientRpc(NetworkObjectReference hopballRef, ulong holderClientId) {
+        private void OnHopballVisualPrewarmRequested(HopballVisualPrewarmRequestedEvent _) {
+            PrewarmHopballVisualsIfNeeded();
+        }
+
+        private void OnHopballEquippedPresentation(HopballEquippedPresentationEvent evt) {
+            if(evt == null) return;
+            var hopballRef = evt.HopballRef;
             if(!hopballRef.TryGet(out var networkObject) || networkObject == null) return;
 
             var hopball = networkObject.GetComponent<HopballController>();
             if(hopball == null) return;
             var energyRatio = hopball.VisualEnergyRatio;
 
-            var isHolder = OwnerClientId == holderClientId && IsOwner;
+            var isHolder = OwnerClientId == evt.HolderClientId && IsOwner;
             var localClientId = ulong.MaxValue;
             if(NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null) {
                 localClientId = NetworkManager.Singleton.LocalClient.ClientId;
@@ -428,13 +439,20 @@ namespace Game.Hopball {
                 }
             } else {
                 SetupWorldHopballVisual(false, energyRatio);
-                if(OwnerClientId != holderClientId || localClientId == holderClientId) return;
+                if(OwnerClientId != evt.HolderClientId || localClientId == evt.HolderClientId) return;
                 EnablePlayerTarget();
                 ShowBothHolsters();
                 HideWorldWeapon();
                 if(playerController != null && playerController.PlayerShadow != null) {
                     playerController.PlayerShadow.ApplyHopballShadowState(true, false);
                 }
+            }
+        }
+
+        private void OnHopballDropPresentation(HopballDropPresentationEvent evt) {
+            if(evt == null || OwnerClientId != evt.HolderClientId) return;
+            if(_playerTarget != null) {
+                _playerTarget.enabled = false;
             }
         }
 
@@ -854,172 +872,6 @@ namespace Game.Hopball {
         }
 
         /// <summary>
-        /// Server-side method to drop the hopball at a specific position.
-        /// Can be called directly from server or via ServerRpc from client.
-        /// </summary>
-        internal static async UniTaskVoid DropHopballAtPositionAuthority(HopballController hopball, Vector3 dropPosition,
-            Quaternion dropRotation, ulong requestingClientId, Vector3 playerVelocity, string dropReason) {
-            if(hopball == null) return;
-            if(!hopball.IsEquipped) {
-                FlowLog.Emit(FlowEventIds.AnomalyHopballMismatch,
-                    ("serverHolder", hopball.HolderController != null ? hopball.HolderController.OwnerClientId.ToString() : "None"),
-                    ("localHolder", requestingClientId),
-                    ("osiHolder", "Unknown"),
-                    ("reason", "DropRejectedNotEquipped"));
-                return;
-            }
-
-            hopball.PrepareDropClientRpc();
-            await UniTask.WaitForEndOfFrame();
-
-            PlayerController requestingController = null;
-            if(NetworkManager.Singleton != null) {
-                if(NetworkManager.Singleton.ConnectedClients.TryGetValue(requestingClientId, out var client)) {
-                    var requestingPlayer = client.PlayerObject;
-                    if(requestingPlayer != null) {
-                        requestingController = requestingPlayer.GetComponent<PlayerController>();
-                    }
-                }
-            }
-            var serverHolderId = hopball.HolderController != null ? hopball.HolderController.OwnerClientId : ulong.MaxValue;
-            if(serverHolderId != requestingClientId) {
-                var serverPos = hopball.transform.position;
-                var deltaFromRequest = Vector3.Distance(serverPos, dropPosition);
-                FlowLog.Emit(FlowEventIds.AnomalyHopballDivergence,
-                    ("serverHolder", serverHolderId == ulong.MaxValue ? "None" : serverHolderId.ToString()),
-                    ("serverPos", serverPos),
-                    ("clientPos", dropPosition),
-                    ("delta", deltaFromRequest));
-            }
-
-            // Get hopball collider radius for accurate ground checking
-            var hopballCollider = hopball.GetComponent<Collider>();
-            var hopballRadius = 0.5f;
-            if(hopballCollider != null) {
-                var sphereCollider = hopballCollider as SphereCollider;
-                if(sphereCollider != null) {
-                    var lossyScale = hopball.transform.lossyScale;
-                    hopballRadius = sphereCollider.radius * Mathf.Max(lossyScale.x, lossyScale.y, lossyScale.z);
-                } else {
-                    var capsuleCollider = hopballCollider as CapsuleCollider;
-                    if(capsuleCollider != null) {
-                        var lossyScale = hopball.transform.lossyScale;
-                        hopballRadius = capsuleCollider.radius * Mathf.Max(lossyScale.x, lossyScale.z);
-                    }
-                }
-            }
-
-            // Preserve original drop position for visual fidelity (player's hand position)
-            // Clamp if the hand point is pushed through world geometry (e.g. against a wall).
-            // We spherecast from the player toward the intended drop point and clamp to the first world hit.
-            var finalDropPosition = dropPosition;
-            var worldLayer = LayerMask.GetMask("Default", "World");
-            if(requestingController != null) {
-                worldLayer = requestingController.WorldLayer.value;
-                var origin = requestingController.Position + Vector3.up * 1.2f;
-                var toDrop = finalDropPosition - origin;
-                var distToDrop = toDrop.magnitude;
-                if(distToDrop > 0.001f) {
-                    var dirToDrop = toDrop / distToDrop;
-                    const float wallMargin = 0.03f;
-                    var castRadius = hopballRadius + wallMargin;
-                    if(Physics.SphereCast(origin, castRadius, dirToDrop, out var wallHit, distToDrop, worldLayer)) {
-                        // Place just before the wall along the player->hand line.
-                        finalDropPosition = wallHit.point - dirToDrop * (castRadius + 0.01f);
-                    }
-                }
-            }
-
-            // Only adjust if it would fall through the floor
-            const float raycastDistance = 15f;
-            const float safetyMargin = 0.2f; // Safety margin above ground
-            
-            // Use sphere cast to check if hopball would intersect with ground at drop position
-            var sphereCastRadius = hopballRadius + safetyMargin;
-            var sphereCastStart = finalDropPosition + Vector3.up * sphereCastRadius;
-            var sphereCastDistance = sphereCastRadius * 2f + 5f; // Check well below the drop position
-
-            var sphereHit = Physics.SphereCast(sphereCastStart, sphereCastRadius, Vector3.down, out var hit, sphereCastDistance, worldLayer);
-
-            if(sphereHit) {
-                var groundHeight = hit.point.y + sphereCastRadius;
-                // Only adjust if drop position would intersect with ground
-                if(finalDropPosition.y < groundHeight) {
-                    finalDropPosition = new Vector3(finalDropPosition.x, groundHeight, finalDropPosition.z);
-                }
-            } else {
-                // Fallback: if sphere cast fails, try regular raycast
-                if(Physics.Raycast(finalDropPosition + Vector3.up * 0.1f, Vector3.down, out var rayHit, raycastDistance, worldLayer)) {
-                    var groundHeight = rayHit.point.y + sphereCastRadius;
-                    if(finalDropPosition.y < groundHeight) {
-                        finalDropPosition = new Vector3(finalDropPosition.x, groundHeight, finalDropPosition.z);
-                    }
-                } else {
-                    // If no ground found below, check if we're already below ground level
-                    if(Physics.Raycast(finalDropPosition + Vector3.down * 5f, Vector3.up, out var hitUp, 15f, worldLayer)) {
-                        var groundHeight = hitUp.point.y + sphereCastRadius;
-                        if(finalDropPosition.y < groundHeight) {
-                            finalDropPosition = new Vector3(finalDropPosition.x, groundHeight, finalDropPosition.z);
-                        }
-                    }
-                }
-            }
-
-            var currentScale = hopball.transform.localScale;
-            var networkTransform = hopball.GetComponent<Unity.Netcode.Components.NetworkTransform>();
-            var rb = hopball.Rigidbody;
-
-            // Ensure physics body is synced to the teleport target.
-            // Evidence: logs showed transform teleported while Rigidbody stayed at old position, then snapped back.
-            rb.isKinematic = true;
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            rb.position = finalDropPosition;
-            rb.rotation = dropRotation;
-
-            if(networkTransform != null) {
-                networkTransform.Teleport(finalDropPosition, dropRotation, currentScale);
-            } else {
-                var hopballTransform = hopball.transform;
-                hopballTransform.position = finalDropPosition;
-                hopballTransform.rotation = dropRotation;
-                hopballTransform.localScale = currentScale;
-            }
-            
-            hopball.transform.SetParent(null);
-
-            // Re-assert RB pose after teleport and sync transforms so physics can't snap us back.
-            rb.position = finalDropPosition;
-            rb.rotation = dropRotation;
-            Physics.SyncTransforms();
-
-            await UniTask.WaitForFixedUpdate();
-
-            hopball.SetDropped();
-            FlowLog.Emit(FlowEventIds.HopballDropCommitted,
-                ("player", requestingClientId),
-                ("hopballNetId", hopball.NetworkObjectId),
-                ("dropReason", string.IsNullOrEmpty(dropReason) ? "Unknown" : dropReason),
-                ("position", finalDropPosition));
-
-            hopball.Rigidbody.isKinematic = false;
-            
-            // Apply fraction of player velocity to ball (0.3 = 30% of player velocity)
-            const float velocityTransferFactor = 0.3f;
-            var ballVelocity = playerVelocity * velocityTransferFactor;
-            // Ensure minimum downward velocity for natural drop
-            if(ballVelocity.y > -1f) {
-                ballVelocity.y = -2f;
-            }
-            hopball.Rigidbody.linearVelocity = ballVelocity;
-
-            if(requestingController == null) return;
-            var controller = requestingController.PlayerHopballController;
-            if(controller == null) return;
-            controller.DisablePlayerTargetClientRpc();
-        }
-
-        /// <summary>
         /// Drops the hopball when the player dies.
         /// </summary>
         public void DropHopballOnDeath() {
@@ -1090,16 +942,6 @@ namespace Game.Hopball {
             }
 
             if(_weaponManager != null) _weaponManager.TriggerPullOutAnimation();
-        }
-
-        /// <summary>
-        /// Disables the OSI Target on the holder's client. Pass ClientRpcParams targeting owner when only holder should run it.
-        /// </summary>
-        [ClientRpc]
-        private void DisablePlayerTargetClientRpc() {
-            if(_playerTarget != null) {
-                _playerTarget.enabled = false;
-            }
         }
 
         /// <summary>

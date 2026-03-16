@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Events;
-using Game.Player.Core;
 using Network.Core;
 using Network.Session;
 using UnityEngine;
@@ -416,12 +415,6 @@ namespace Game.Social {
             // Fire event for local UI
             if (SocialSettings.InputMode == VoiceInputMode.PushToTalk) {
                 EventBus.Publish(new VoiceLocalPttStateChangedEvent(_isMicOpen));
-                
-                // Update NetworkVariable on local PlayerController so other clients see the indicator
-                var localPlayer = PlayerController.LocalPlayer;
-                if (localPlayer != null) {
-                    localPlayer.isPttActive.Value = _isMicOpen;
-                }
             }
             
             if (_isMicOpen) {

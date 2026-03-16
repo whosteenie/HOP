@@ -135,6 +135,36 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published on clients when hopball visuals should be prewarmed for player controllers.
+    /// </summary>
+    public class HopballVisualPrewarmRequestedEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published on clients when hopball equip presentation should be applied.
+    /// </summary>
+    public class HopballEquippedPresentationEvent : GameEvent {
+        public readonly Unity.Netcode.NetworkObjectReference HopballRef;
+        public readonly ulong HolderClientId;
+
+        public HopballEquippedPresentationEvent(Unity.Netcode.NetworkObjectReference hopballRef, ulong holderClientId) {
+            HopballRef = hopballRef;
+            HolderClientId = holderClientId;
+        }
+    }
+
+    /// <summary>
+    /// Event published on clients when hopball drop presentation should be applied.
+    /// </summary>
+    public class HopballDropPresentationEvent : GameEvent {
+        public readonly ulong HolderClientId;
+
+        public HopballDropPresentationEvent(ulong holderClientId) {
+            HolderClientId = holderClientId;
+        }
+    }
+
+    /// <summary>
     /// Event published when a player network object is spawned and registered.
     /// Payload is the owning client id so Events remains agnostic to concrete player types.
     /// </summary>

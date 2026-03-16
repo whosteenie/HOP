@@ -539,10 +539,7 @@ namespace Game.Hopball {
         [Rpc(SendTo.Everyone)]
         // ReSharper disable once MemberCanBeMadeStatic.Local
         private void PrewarmVisualPoolsClientRpc() {
-            foreach(var controller in PlayerHopballController.Instances) {
-                if(controller == null) continue;
-                controller.PrewarmHopballVisualsIfNeeded();
-            }
+            EventBus.Publish(new HopballVisualPrewarmRequestedEvent());
         }
 
         /// <summary>Finds and caches all HopballSpawnPoint in the scene.</summary>
@@ -636,7 +633,7 @@ namespace Game.Hopball {
 
             hopball.SetEquipped(true, controller);
 
-            controller.OnHopballEquippedClientRpc(hopballRef, requestingClientId);
+            PublishHopballEquippedPresentationClientRpc(hopballRef, requestingClientId);
         }
 
         /// <summary>Handles a drop request (position, rotation, velocity, reason).</summary>
@@ -646,8 +643,156 @@ namespace Game.Hopball {
             if(!hopballRef.TryGet(out var networkObject) || networkObject == null) return;
 
             var hopball = networkObject.GetComponent<HopballController>();
-            PlayerHopballController.DropHopballAtPositionAuthority(hopball, dropPosition, dropRotation,
-                requestingClientId, playerVelocity, dropReason).Forget();
+            ExecuteDropAuthorityAsync(hopball, dropPosition, dropRotation, requestingClientId, playerVelocity, dropReason)
+                .Forget();
+        }
+
+        [Rpc(SendTo.Everyone)]
+        // ReSharper disable once MemberCanBeMadeStatic.Local
+        private void PublishHopballEquippedPresentationClientRpc(NetworkObjectReference hopballRef, ulong holderClientId) {
+            EventBus.Publish(new HopballEquippedPresentationEvent(hopballRef, holderClientId));
+        }
+
+        [Rpc(SendTo.Everyone)]
+        // ReSharper disable once MemberCanBeMadeStatic.Local
+        private void PublishHopballDropPresentationClientRpc(ulong holderClientId) {
+            EventBus.Publish(new HopballDropPresentationEvent(holderClientId));
+        }
+
+        private async Cysharp.Threading.Tasks.UniTaskVoid ExecuteDropAuthorityAsync(HopballController hopball,
+            Vector3 dropPosition, Quaternion dropRotation, ulong requestingClientId, Vector3 playerVelocity,
+            string dropReason) {
+            if(hopball == null) return;
+            if(!hopball.IsEquipped) {
+                FlowLog.Emit(FlowEventIds.AnomalyHopballMismatch,
+                    ("serverHolder", hopball.HolderController != null ? hopball.HolderController.OwnerClientId.ToString() : "None"),
+                    ("localHolder", requestingClientId),
+                    ("osiHolder", "Unknown"),
+                    ("reason", "DropRejectedNotEquipped"));
+                return;
+            }
+
+            hopball.PrepareDropClientRpc();
+            await Cysharp.Threading.Tasks.UniTask.WaitForEndOfFrame();
+
+            PlayerController requestingController = null;
+            if(NetworkManager.Singleton != null &&
+               NetworkManager.Singleton.ConnectedClients.TryGetValue(requestingClientId, out var client)) {
+                var requestingPlayer = client.PlayerObject;
+                if(requestingPlayer != null) {
+                    requestingController = requestingPlayer.GetComponent<PlayerController>();
+                }
+            }
+
+            var serverHolderId = hopball.HolderController != null ? hopball.HolderController.OwnerClientId : ulong.MaxValue;
+            if(serverHolderId != requestingClientId) {
+                var serverPos = hopball.transform.position;
+                var deltaFromRequest = Vector3.Distance(serverPos, dropPosition);
+                FlowLog.Emit(FlowEventIds.AnomalyHopballDivergence,
+                    ("serverHolder", serverHolderId == ulong.MaxValue ? "None" : serverHolderId.ToString()),
+                    ("serverPos", serverPos),
+                    ("clientPos", dropPosition),
+                    ("delta", deltaFromRequest));
+            }
+
+            var hopballCollider = hopball.GetComponent<Collider>();
+            var hopballRadius = 0.5f;
+            var sphereCollider = hopballCollider as SphereCollider;
+            if(sphereCollider != null) {
+                var lossyScale = hopball.transform.lossyScale;
+                hopballRadius = sphereCollider.radius * Mathf.Max(lossyScale.x, lossyScale.y, lossyScale.z);
+            } else {
+                var capsuleCollider = hopballCollider as CapsuleCollider;
+                if(capsuleCollider != null) {
+                    var lossyScale = hopball.transform.lossyScale;
+                    hopballRadius = capsuleCollider.radius * Mathf.Max(lossyScale.x, lossyScale.z);
+                }
+            }
+
+            var finalDropPosition = dropPosition;
+            var worldLayer = LayerMask.GetMask("Default", "World");
+            if(requestingController != null) {
+                worldLayer = requestingController.WorldLayer.value;
+                var origin = requestingController.Position + Vector3.up * 1.2f;
+                var toDrop = finalDropPosition - origin;
+                var distToDrop = toDrop.magnitude;
+                if(distToDrop > 0.001f) {
+                    var dirToDrop = toDrop / distToDrop;
+                    const float wallMargin = 0.03f;
+                    var castRadius = hopballRadius + wallMargin;
+                    if(Physics.SphereCast(origin, castRadius, dirToDrop, out var wallHit, distToDrop, worldLayer)) {
+                        finalDropPosition = wallHit.point - dirToDrop * (castRadius + 0.01f);
+                    }
+                }
+            }
+
+            const float raycastDistance = 15f;
+            const float safetyMargin = 0.2f;
+            var sphereCastRadius = hopballRadius + safetyMargin;
+            var sphereCastStart = finalDropPosition + Vector3.up * sphereCastRadius;
+            var sphereCastDistance = sphereCastRadius * 2f + 5f;
+            var sphereHit = Physics.SphereCast(sphereCastStart, sphereCastRadius, Vector3.down, out var hit, sphereCastDistance, worldLayer);
+
+            if(sphereHit) {
+                var groundHeight = hit.point.y + sphereCastRadius;
+                if(finalDropPosition.y < groundHeight) {
+                    finalDropPosition = new Vector3(finalDropPosition.x, groundHeight, finalDropPosition.z);
+                }
+            } else if(Physics.Raycast(finalDropPosition + Vector3.up * 0.1f, Vector3.down, out var rayHit, raycastDistance, worldLayer)) {
+                var groundHeight = rayHit.point.y + sphereCastRadius;
+                if(finalDropPosition.y < groundHeight) {
+                    finalDropPosition = new Vector3(finalDropPosition.x, groundHeight, finalDropPosition.z);
+                }
+            } else if(Physics.Raycast(finalDropPosition + Vector3.down * 5f, Vector3.up, out var hitUp, 15f, worldLayer)) {
+                var groundHeight = hitUp.point.y + sphereCastRadius;
+                if(finalDropPosition.y < groundHeight) {
+                    finalDropPosition = new Vector3(finalDropPosition.x, groundHeight, finalDropPosition.z);
+                }
+            }
+
+            var currentScale = hopball.transform.localScale;
+            var networkTransform = hopball.GetComponent<Unity.Netcode.Components.NetworkTransform>();
+            var rb = hopball.Rigidbody;
+
+            rb.isKinematic = true;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.position = finalDropPosition;
+            rb.rotation = dropRotation;
+
+            if(networkTransform != null) {
+                networkTransform.Teleport(finalDropPosition, dropRotation, currentScale);
+            } else {
+                var hopballTransform = hopball.transform;
+                hopballTransform.position = finalDropPosition;
+                hopballTransform.rotation = dropRotation;
+                hopballTransform.localScale = currentScale;
+            }
+
+            hopball.transform.SetParent(null);
+            rb.position = finalDropPosition;
+            rb.rotation = dropRotation;
+            Physics.SyncTransforms();
+
+            await Cysharp.Threading.Tasks.UniTask.WaitForFixedUpdate();
+
+            hopball.SetDropped();
+            FlowLog.Emit(FlowEventIds.HopballDropCommitted,
+                ("player", requestingClientId),
+                ("hopballNetId", hopball.NetworkObjectId),
+                ("dropReason", string.IsNullOrEmpty(dropReason) ? "Unknown" : dropReason),
+                ("position", finalDropPosition));
+
+            hopball.Rigidbody.isKinematic = false;
+
+            const float velocityTransferFactor = 0.3f;
+            var ballVelocity = playerVelocity * velocityTransferFactor;
+            if(ballVelocity.y > -1f) {
+                ballVelocity.y = -2f;
+            }
+            hopball.Rigidbody.linearVelocity = ballVelocity;
+
+            PublishHopballDropPresentationClientRpc(requestingClientId);
         }
     }
 }
