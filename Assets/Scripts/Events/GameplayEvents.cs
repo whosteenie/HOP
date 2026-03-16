@@ -141,6 +141,30 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when weapon systems need player-side world-weapon visuals to refresh after a switch/presentation change.
+    /// </summary>
+    public class PlayerWorldWeaponPresentationRefreshRequestedEvent : GameEvent {
+        public readonly ulong PlayerNetworkObjectId;
+        public readonly bool UsePodiumShadowState;
+
+        public PlayerWorldWeaponPresentationRefreshRequestedEvent(ulong playerNetworkObjectId, bool usePodiumShadowState) {
+            PlayerNetworkObjectId = playerNetworkObjectId;
+            UsePodiumShadowState = usePodiumShadowState;
+        }
+    }
+
+    /// <summary>
+    /// Event published when weapon systems need player-side holster shadows refreshed.
+    /// </summary>
+    public class PlayerHolsterShadowRefreshRequestedEvent : GameEvent {
+        public readonly ulong PlayerNetworkObjectId;
+
+        public PlayerHolsterShadowRefreshRequestedEvent(ulong playerNetworkObjectId) {
+            PlayerNetworkObjectId = playerNetworkObjectId;
+        }
+    }
+
+    /// <summary>
      /// Event published when a player starts grappling.
      /// </summary>
     public class GrappleStartedEvent : GameEvent {

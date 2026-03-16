@@ -1,3 +1,4 @@
+using Events;
 using Game.Match;
 using Game.Player.Core;
 using Game.Weapon.Manager;
@@ -62,11 +63,36 @@ namespace Game.Player.Visual {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            EventBus.Subscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnPlayerWorldWeaponPresentationRefreshRequested);
+            EventBus.Subscribe<PlayerHolsterShadowRefreshRequestedEvent>(OnPlayerHolsterShadowRefreshRequested);
 
             // Network-dependent initialization
             // Original behavior: set owner's shadows to ShadowsOnly
             if(!IsOwner) return;
             ApplyOwnerDefaultShadowState();
+        }
+
+        public override void OnNetworkDespawn() {
+            EventBus.Unsubscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnPlayerWorldWeaponPresentationRefreshRequested);
+            EventBus.Unsubscribe<PlayerHolsterShadowRefreshRequestedEvent>(OnPlayerHolsterShadowRefreshRequested);
+            base.OnNetworkDespawn();
+        }
+
+        private void OnPlayerWorldWeaponPresentationRefreshRequested(PlayerWorldWeaponPresentationRefreshRequestedEvent evt) {
+            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+
+            if(evt.UsePodiumShadowState) {
+                ApplyPodiumShadowState();
+            } else {
+                SetWorldWeaponShadowMode(ShadowCastingMode.On);
+            }
+        }
+
+        private void OnPlayerHolsterShadowRefreshRequested(PlayerHolsterShadowRefreshRequestedEvent evt) {
+            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            UpdateHolsterShadowState();
         }
 
         /// <summary>Sets shadow casting mode for all SkinnedMeshRenderers.</summary>

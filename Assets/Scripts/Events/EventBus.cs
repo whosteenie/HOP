@@ -42,6 +42,8 @@ namespace Events {
             typeof(PlayerHopballPickupPromptEvaluationRequestedEvent),
             typeof(PlayerDisconnectFpVisualHideRequestedEvent),
             typeof(HopballHoldStateChangedEvent),
+            typeof(PlayerWorldWeaponPresentationRefreshRequestedEvent),
+            typeof(PlayerHolsterShadowRefreshRequestedEvent),
             typeof(GrappleStartedEvent),
             typeof(GrappleEndedEvent),
             typeof(GrappleAnimFirstFrameEvent),

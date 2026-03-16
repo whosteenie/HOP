@@ -397,14 +397,9 @@ namespace Game.Weapon.Manager {
 
             _root.EnsureWeaponHierarchyActiveInternal();
 
-            if(_root.PlayerControllerRef != null) {
-                if(_root.PlayerControllerRef.PlayerRenderer != null) {
-                    _root.PlayerControllerRef.PlayerRenderer.SetWorldWeaponRenderersEnabled(true);
-                }
-
-                if(_root.PlayerControllerRef.PlayerShadow != null) {
-                    _root.PlayerControllerRef.PlayerShadow.SetWorldWeaponShadowMode(ShadowCastingMode.On);
-                }
+            if(_root.PlayerControllerRef != null && _root.PlayerControllerRef.NetworkObject != null) {
+                EventBus.Publish(new PlayerWorldWeaponPresentationRefreshRequestedEvent(
+                    _root.PlayerControllerRef.NetworkObjectId, usePodiumShadowState: false));
             }
 
             _root.RefreshHolsterVisibility();
@@ -421,14 +416,9 @@ namespace Game.Weapon.Manager {
                 _root.CurrentWorldWeaponInstanceInternal.SetActive(true);
             }
 
-            if(_root.PlayerControllerRef != null) {
-                if(_root.PlayerControllerRef.PlayerRenderer != null) {
-                    _root.PlayerControllerRef.PlayerRenderer.SetWorldWeaponRenderersEnabled(true);
-                }
-
-                if(_root.PlayerControllerRef.PlayerShadow != null) {
-                    _root.PlayerControllerRef.PlayerShadow.ApplyPodiumShadowState();
-                }
+            if(_root.PlayerControllerRef != null && _root.PlayerControllerRef.NetworkObject != null) {
+                EventBus.Publish(new PlayerWorldWeaponPresentationRefreshRequestedEvent(
+                    _root.PlayerControllerRef.NetworkObjectId, usePodiumShadowState: true));
             }
 
             _root.EnsureWorldWeaponShadowStateInternal();

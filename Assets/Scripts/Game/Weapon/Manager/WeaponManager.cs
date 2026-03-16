@@ -450,8 +450,8 @@ namespace Game.Weapon.Manager {
             AmmoAuthorityRef.ResolveRestoredAmmo(weaponIndex, magCapacity, seedWhenMissing);
 
         internal void RefreshHolsterShadowState() {
-            if(!IsOwner || playerController == null || playerController.PlayerShadow == null) return;
-            playerController.PlayerShadow.UpdateHolsterShadowState();
+            if(!IsOwner || playerController == null || playerController.NetworkObject == null) return;
+            EventBus.Publish(new PlayerHolsterShadowRefreshRequestedEvent(playerController.NetworkObjectId));
         }
 
         internal MatchPlayerStateProxy ResolvePlayerState() {

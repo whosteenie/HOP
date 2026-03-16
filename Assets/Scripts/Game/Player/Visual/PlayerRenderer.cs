@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Events;
 using Game.Player.Core;
 using Game.Weapon.Manager;
 using Unity.Netcode;
@@ -68,6 +69,18 @@ namespace Game.Player.Visual {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             InvalidateCache();
+            EventBus.Subscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnPlayerWorldWeaponPresentationRefreshRequested);
+        }
+
+        public override void OnNetworkDespawn() {
+            EventBus.Unsubscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnPlayerWorldWeaponPresentationRefreshRequested);
+            base.OnNetworkDespawn();
+        }
+
+        private void OnPlayerWorldWeaponPresentationRefreshRequested(PlayerWorldWeaponPresentationRefreshRequestedEvent evt) {
+            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            SetWorldWeaponRenderersEnabled(true);
         }
 
         #region Cache Management
