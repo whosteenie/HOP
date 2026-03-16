@@ -156,6 +156,9 @@ namespace Game.Menu {
         private Quaternion _cachedPreviewAnchorRotation = Quaternion.identity;
         private bool _hasCachedPreviewAnchorPose;
 
+        public Action OnApplyCustomizationRequested;
+        public Action OnReloadCustomizationRequested;
+
         protected override void Awake() {
             base.Awake();
             if(Instance != null && Instance != this) {
@@ -637,10 +640,7 @@ namespace Game.Menu {
             p.tertiaryWeaponIndex = _selectedTertiaryIndex;
 
             // Save customization (apply customization changes)
-            var customizationManager = CharacterCustomizationManager.Instance;
-            if(customizationManager != null) {
-                customizationManager.ApplyCustomization();
-            }
+            OnApplyCustomizationRequested?.Invoke();
 
             GameSettings.Save();
             Debug.Log(
@@ -1809,10 +1809,7 @@ namespace Game.Menu {
             _selectedTertiaryIndex = _savedTertiaryIndex;
             UpdateWeaponImages();
 
-            var customizationManager = CharacterCustomizationManager.Instance;
-            if(customizationManager != null) {
-                customizationManager.ReloadSavedCustomization();
-            }
+            OnReloadCustomizationRequested?.Invoke();
 
             _customizationDirty = false;
             UpdateDirtyState();

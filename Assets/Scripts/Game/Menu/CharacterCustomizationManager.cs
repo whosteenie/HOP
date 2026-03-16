@@ -116,6 +116,12 @@ namespace Game.Menu {
 
         protected override void OnEnable() {
             base.OnEnable();
+            if(loadoutManager != null) {
+                loadoutManager.OnApplyCustomizationRequested -= ApplyCustomization;
+                loadoutManager.OnApplyCustomizationRequested += ApplyCustomization;
+                loadoutManager.OnReloadCustomizationRequested -= ReloadSavedCustomization;
+                loadoutManager.OnReloadCustomizationRequested += ReloadSavedCustomization;
+            }
             if(uiDocument == null) {
                 if(mainMenuManager == null) {
                     mainMenuManager = MainMenuManager.Instance;
@@ -137,6 +143,14 @@ namespace Game.Menu {
                 // This will be set by base.Awake(), but if OnEnable is called before Awake,
                 // we need to ensure Root is set
             }
+        }
+
+        protected override void OnDisable() {
+            if(loadoutManager != null) {
+                loadoutManager.OnApplyCustomizationRequested -= ApplyCustomization;
+                loadoutManager.OnReloadCustomizationRequested -= ReloadSavedCustomization;
+            }
+            base.OnDisable();
         }
 
         protected override void OnDestroy() {
