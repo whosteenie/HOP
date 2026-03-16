@@ -52,6 +52,7 @@ namespace Events {
             typeof(PreMatchWaitingForPlayersEvent),
             typeof(MatchTimeUpdatedEvent),
             typeof(PostMatchStartedEvent),
+            typeof(PodiumVisualsSnappedEvent),
             typeof(GameMenuReadyEvent),
             typeof(MatchTimerReadyEvent),
             typeof(SessionPropertiesRefreshedEvent),

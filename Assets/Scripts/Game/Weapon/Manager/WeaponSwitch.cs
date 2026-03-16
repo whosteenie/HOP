@@ -1,7 +1,6 @@
 using System.Collections;
 using Game.Audio.System;
 using Game.Hopball;
-using Game.Match;
 using Game.Weapon.Core;
 using Network.AntiCheat;
 using Network.Core;
@@ -90,10 +89,10 @@ namespace Game.Weapon.Manager {
                 return;
             }
 
-            if(MatchCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
+            if(WeaponCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
                 ApplyApprovedLocalWeaponSwitch(newIndex);
                 _root.PendingPredictedWeaponIndex = newIndex;
-                MatchCombatAuthority.Instance.RequestWeaponSwitchServerRpc(
+                WeaponCombatAuthority.Instance.RequestWeaponSwitchServerRpc(
                     new NetworkObjectReference(_root.NetworkObject), newIndex);
             } else {
                 Debug.LogError(
@@ -166,7 +165,7 @@ namespace Game.Weapon.Manager {
                 return;
             }
 
-            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
+            var isPostMatch = _root.IsPostMatchFlowActive;
             if(!_root.TryValidateSwitchTargetStrict(newIndex, out var data, out var magCapacity)) {
                 return;
             }
@@ -306,7 +305,7 @@ namespace Game.Weapon.Manager {
 
         public void HandlePullOutCompleted() {
             if(_root.PendingTpWeapon != null &&
-               (PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted ||
+               (_root.IsPostMatchFlowActive ||
                 _root.CurrentWorldWeaponInstanceInternal == null ||
                 !_root.CurrentWorldWeaponInstanceInternal.activeSelf)) {
                 ShowTpWeapon();
@@ -333,7 +332,7 @@ namespace Game.Weapon.Manager {
         }
 
         public void TriggerPullOutAnimation() {
-            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
+            var isPostMatch = _root.IsPostMatchFlowActive;
 
             var requiresKinemationEquipCompletion = false;
             if(_root.IsOwner && _root.CurrentWeaponIndexInternal >= 0 && _root.CurrentWeaponIndexInternal < _root.WeaponDataListRef.Count &&
@@ -412,6 +411,30 @@ namespace Game.Weapon.Manager {
             }
 
             _root.RefreshHolsterVisibility();
+        }
+
+        public void PrepareForPostMatchPresentation() {
+            CancelPendingPullOutForPostMatch();
+            ShowTpWeapon();
+            HandlePullOutCompleted();
+            SetTpWeaponIndexForPodium();
+            _root.RefreshHolsterVisibility();
+
+            if(_root.CurrentWorldWeaponInstanceInternal != null && !_root.CurrentWorldWeaponInstanceInternal.activeSelf) {
+                _root.CurrentWorldWeaponInstanceInternal.SetActive(true);
+            }
+
+            if(_root.PlayerControllerRef != null) {
+                if(_root.PlayerControllerRef.PlayerRenderer != null) {
+                    _root.PlayerControllerRef.PlayerRenderer.SetWorldWeaponRenderersEnabled(true);
+                }
+
+                if(_root.PlayerControllerRef.PlayerShadow != null) {
+                    _root.PlayerControllerRef.PlayerShadow.ApplyPodiumShadowState();
+                }
+            }
+
+            _root.EnsureWorldWeaponShadowStateInternal();
         }
 
         #endregion
@@ -581,7 +604,7 @@ namespace Game.Weapon.Manager {
             }
 
             var isOwner = _root.PlayerControllerRef != null && _root.PlayerControllerRef.IsOwner;
-            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
+            var isPostMatch = _root.IsPostMatchFlowActive;
             var targetMode = isOwner && !isPostMatch ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
 
             var playerShadow = _root.PlayerControllerRef != null ? _root.PlayerControllerRef.PlayerShadow : null;

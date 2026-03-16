@@ -10,6 +10,7 @@ using Game.Player.Look;
 using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.Spawning;
+using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using Game.Weapon.Presentation;
 using Network.Components;
@@ -515,9 +516,9 @@ namespace Game.Player.Combat {
 
         private void RequestRespawnAuthority() {
             if(netIsDead is not { Value: true }) return;
-            if(MatchCombatAuthority.Instance == null || NetworkObject == null || !NetworkObject.IsSpawned) return;
+            if(WeaponCombatAuthority.Instance == null || NetworkObject == null || !NetworkObject.IsSpawned) return;
 
-            MatchCombatAuthority.Instance.RequestRespawnServerRpc(new NetworkObjectReference(NetworkObject));
+            WeaponCombatAuthority.Instance.RequestRespawnServerRpc(new NetworkObjectReference(NetworkObject));
         }
 
         public void ProcessRespawnAuthorityRequest() {

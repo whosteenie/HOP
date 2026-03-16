@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Events;
 using Game.Match;
 using Game.Player.Core;
 using Game.Player.Visual;
@@ -116,6 +117,7 @@ namespace Game.Weapon.Manager {
         internal GameObject DeferredRespawnWorldWeapon { get; set; }
         internal Coroutine KinemationPullOutCompletionCoroutine { get; set; }
         internal bool RequiresKinemationEquipCompleteForCurrentPullOut { get; set; }
+        internal bool IsPostMatchFlowActive { get; private set; }
 
         internal Transform FpLightRigRoot { get; set; }
         internal Light FpKeyLight { get; set; }
@@ -186,11 +188,20 @@ namespace Game.Weapon.Manager {
             InitializeCoordinators();
             ValidateComponents();
             TryBindPlayerStateSubscriptions();
+            EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            EventBus.Subscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
+            EventBus.Subscribe<MatchStartedEvent>(OnMatchStarted);
+            EventBus.Subscribe<PodiumVisualsSnappedEvent>(OnPodiumVisualsSnapped);
         }
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
+            EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            EventBus.Unsubscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
+            EventBus.Unsubscribe<MatchStartedEvent>(OnMatchStarted);
+            EventBus.Unsubscribe<PodiumVisualsSnappedEvent>(OnPodiumVisualsSnapped);
             UnbindPlayerStateSubscriptions();
+            IsPostMatchFlowActive = false;
         }
 
         private void Update() {
@@ -211,7 +222,6 @@ namespace Game.Weapon.Manager {
         public string GetWeaponIdByIndex(int index) => GetWeaponDataByIndex(index) != null ? GetWeaponDataByIndex(index).weaponName : string.Empty;
         public void RefreshAmmoHud() => _authority.RefreshAmmoHud();
         public void ResetAllWeaponAmmo() => _authority.ResetAllWeaponAmmo();
-        public void PrepareCurrentWeaponForPostMatchPodium() => _authority.PrepareCurrentWeaponForPostMatchPodium();
         public void DrainCurrentWeaponAmmoForTag() => _authority.DrainCurrentWeaponAmmoForTag();
         public bool RegisterServerShot(int weaponIndex, ulong shotId, float clientShotTime, out string reason) =>
             _authority.RegisterServerShot(weaponIndex, shotId, clientShotTime, out reason);
@@ -291,6 +301,30 @@ namespace Game.Weapon.Manager {
         internal void EnsureWeaponHierarchyActiveInternal() => _switch.EnsureWeaponHierarchyActiveInternal();
         internal void ApplyServerWeaponSwitch(int weaponIndex) => _authority.ApplyServerWeaponSwitch(weaponIndex);
         internal void ValidateComponentsForPublicUse() => ValidateComponents();
+
+        #endregion
+
+        #region Match Event Reactions
+
+        private void OnPostMatchStarted(PostMatchStartedEvent _) {
+            IsPostMatchFlowActive = true;
+            _switch.PrepareForPostMatchPresentation();
+        }
+
+        private void OnPostMatchBlackoutReady(PostMatchBlackoutReadyEvent _) {
+            if(!IsOwner) return;
+            _authority.PrepareCurrentWeaponForPostMatchPodium();
+        }
+
+        private void OnMatchStarted(MatchStartedEvent _) {
+            IsPostMatchFlowActive = false;
+        }
+
+        private void OnPodiumVisualsSnapped(PodiumVisualsSnappedEvent evt) {
+            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            _switch.SetTpWeaponIndexForPodium();
+        }
 
         #endregion
 

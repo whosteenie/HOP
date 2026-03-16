@@ -49,5 +49,16 @@ namespace Events {
     /// </summary>
     public class PostMatchStartedEvent : GameEvent {
     }
+
+    /// <summary>
+    /// Event published when a player's podium visuals have been snapped and any dependent presentation should resync.
+    /// </summary>
+    public class PodiumVisualsSnappedEvent : GameEvent {
+        public readonly ulong PlayerNetworkObjectId;
+
+        public PodiumVisualsSnappedEvent(ulong playerNetworkObjectId) {
+            PlayerNetworkObjectId = playerNetworkObjectId;
+        }
+    }
 }
 

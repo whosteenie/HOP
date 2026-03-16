@@ -23,7 +23,7 @@ namespace Game.Weapon.Core {
             var isSliding = movementController != null && movementController.IsSliding;
             var isWallRunning = wallRunController != null && wallRunController.IsWallRunning;
             var isPreMatch = MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
-            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
+            var isPostMatch = _weapon.Manager != null && _weapon.Manager.IsPostMatchFlowActive;
 
             var moveInput = playerController.moveInput;
             var sprintInput = playerController.sprintInput;
@@ -240,7 +240,7 @@ namespace Game.Weapon.Core {
                 return false;
             }
 
-            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
+            var isPostMatch = _weapon.Manager != null && _weapon.Manager.IsPostMatchFlowActive;
             return isPostMatch
                 ? TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance: true,
                     logErrors: logErrors)
@@ -386,7 +386,7 @@ namespace Game.Weapon.Core {
             var playerController = _weapon.PlayerController;
             if(playerController == null) return;
             if(!playerController.IsOwner) return;
-            if(PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted) return;
+            if(_weapon.Manager != null && _weapon.Manager.IsPostMatchFlowActive) return;
             if(playerController.PlayerInput != null && playerController.PlayerInput.IsSniperOverlayActive) return;
 
             var weaponCamera = playerController.WeaponCamera;

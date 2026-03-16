@@ -8,9 +8,9 @@ using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Match {
-    public class MatchCombatAuthority : NetworkBehaviour {
-        public static MatchCombatAuthority Instance { get; private set; }
+namespace Game.Weapon.Core {
+    public class WeaponCombatAuthority : NetworkBehaviour {
+        public static WeaponCombatAuthority Instance { get; private set; }
 
         private bool _sessionOwnerCallbacksRegistered;
         private readonly Dictionary<ulong, ulong> _lastDamageQuotaShotIdByShooter = new();

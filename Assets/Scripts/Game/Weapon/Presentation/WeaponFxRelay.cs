@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Diagnostics;
-using Game.Match;
 using Game.Player.Core;
+using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
@@ -73,9 +73,9 @@ namespace Game.Weapon.Presentation {
             bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash = true,
             Vector3 shooterVelocity = default) {
             if(!playerController.IsOwner || !_playerNetworkObject.IsSpawned) return;
-            if(MatchCombatAuthority.Instance == null) return;
+            if(WeaponCombatAuthority.Instance == null) return;
 
-            MatchCombatAuthority.Instance.RequestShotFxServerRpc(_playerNetworkObject, endPoint, hitNormal,
+            WeaponCombatAuthority.Instance.RequestShotFxServerRpc(_playerNetworkObject, endPoint, hitNormal,
                 madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash, shooterVelocity);
         }
 

@@ -1,4 +1,5 @@
 using System.Collections;
+using Events;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Game.Player.Visual;
@@ -107,20 +108,6 @@ namespace Game.Match {
                     worldWeapon.SetActive(true);
                 }
 
-                if(playerController.WeaponManager != null) {
-                    // Resolve any pending pull-out state while the screen is black in post-match transition.
-                    // This prevents hidden world weapons if animation events were interrupted by podium flow.
-                    playerController.WeaponManager.CancelPendingPullOutForPostMatch();
-                    playerController.WeaponManager.ShowTpWeapon();
-                    playerController.WeaponManager.HandlePullOutCompleted();
-                    playerController.WeaponManager.SetTpWeaponIndexForPodium();
-                    playerController.WeaponManager.RefreshHolsterVisibility();
-                    var currentWorldWeapon = playerController.WeaponManager.CurrentWorldWeaponInstance;
-                    if(currentWorldWeapon != null && !currentWorldWeapon.activeSelf) {
-                        currentWorldWeapon.SetActive(true);
-                    }
-                }
-
                 // Enable renderers
                 if(_visualController != null) {
                     _visualController.SetRenderersEnabled(true);
@@ -216,10 +203,8 @@ namespace Game.Match {
             podiumSkinned.enabled = false;
             _podiumSkinned.enabled = true;
 
-            // Re-apply WeaponIndex after animator toggle (disable/enable resets parameters)
-            var weaponManager = playerController != null ? playerController.WeaponManager : null;
-            if(weaponManager != null) {
-                weaponManager.SetTpWeaponIndexForPodium();
+            if(playerController != null && playerController.NetworkObject != null) {
+                EventBus.Publish(new PodiumVisualsSnappedEvent(playerController.NetworkObjectId));
             }
         }
 

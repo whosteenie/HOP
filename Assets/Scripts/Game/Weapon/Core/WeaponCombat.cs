@@ -315,8 +315,8 @@ namespace Game.Weapon.Core {
             if(IsFriendlyFire(target)) return;
 
             var targetRef = new NetworkObjectReference(target);
-            if(MatchCombatAuthority.Instance != null) {
-                MatchCombatAuthority.Instance.RequestDamageServerRpc(
+            if(WeaponCombatAuthority.Instance != null) {
+                WeaponCombatAuthority.Instance.RequestDamageServerRpc(
                     targetRef,
                     hit.point,
                     hitDirection,

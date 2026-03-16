@@ -1,5 +1,4 @@
 using Events;
-using Game.Match;
 using Game.Weapon.Core;
 using Network.AntiCheat;
 using Network.Core;
@@ -28,8 +27,8 @@ namespace Game.Weapon.Manager {
 
         public void ResetAllWeaponAmmo() {
             if(!HasWeaponAuthority) {
-                if(MatchCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
-                    MatchCombatAuthority.Instance.RequestResetWeaponAmmoServerRpc(
+                if(WeaponCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
+                    WeaponCombatAuthority.Instance.RequestResetWeaponAmmoServerRpc(
                         new NetworkObjectReference(_root.NetworkObject));
                 } else {
                     _root.ResetAllWeaponAmmoServerRpc();
@@ -183,8 +182,8 @@ namespace Game.Weapon.Manager {
 
         public void ReportWeaponStateSync(int weaponIndex, WeaponManager.AmmoSyncReason reason, int localAmmoAfterEvent) {
             if(!HasWeaponAuthority) {
-                if(MatchCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
-                    MatchCombatAuthority.Instance.RequestWeaponStateSyncServerRpc(
+                if(WeaponCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
+                    WeaponCombatAuthority.Instance.RequestWeaponStateSyncServerRpc(
                         new NetworkObjectReference(_root.NetworkObject), weaponIndex, reason, localAmmoAfterEvent);
                 } else {
                     _root.ReportWeaponStateSyncServerRpc(weaponIndex, reason, localAmmoAfterEvent);
@@ -197,8 +196,8 @@ namespace Game.Weapon.Manager {
 
         public void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime) {
             if(!HasWeaponAuthority) {
-                if(MatchCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
-                    MatchCombatAuthority.Instance.RequestShotReportServerRpc(
+                if(WeaponCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
+                    WeaponCombatAuthority.Instance.RequestShotReportServerRpc(
                         new NetworkObjectReference(_root.NetworkObject), weaponIndex, shotId, clientShotTime);
                 } else {
                     _root.ReportShotFiredServerRpc(weaponIndex, shotId, clientShotTime);
