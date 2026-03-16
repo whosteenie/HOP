@@ -104,9 +104,6 @@ namespace Network.Session {
         public static void ApplyLocalConnectionPayload(ISessionContext ctx, bool isPrivateMatch) {
             if(ctx == null || !ctx.TryGetNetworkManager("ApplyLocalConnectionPayload", out var networkManager))
                 return;
-            var customNm = networkManager.GetComponent<CustomNetworkManager>();
-            if(customNm != null)
-                customNm.ConfigureSessionMetadata(isPrivateMatch);
             var payload = new ConnectionPayload {
                 partyId = ctx.CurrentPartyId ?? "",
                 isPrivateMatch = isPrivateMatch,
