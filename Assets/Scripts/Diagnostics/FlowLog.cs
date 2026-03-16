@@ -21,6 +21,21 @@ namespace Diagnostics {
         private static readonly bool Enabled = true;
         private const bool EmitInEditor = false;
 
+        /// <summary>
+        /// Optional provider for a human-readable session identifier (e.g. lobby or match ID).
+        /// Registered by higher-level systems (such as Network.Session) to keep Diagnostics
+        /// independent of concrete session implementations.
+        /// </summary>
+        private static Func<string> sessionIdProvider;
+
+        /// <summary>
+        /// Registers a callback that returns the current session identifier for flow logging.
+        /// Passing null clears the provider and causes logs to use \"none\" for the session id.
+        /// </summary>
+        public static void SetSessionIdProvider(Func<string> provider) {
+            sessionIdProvider = provider;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void LogBoot() {
             Emit(FlowEventIds.BootStart,
@@ -114,11 +129,15 @@ namespace Diagnostics {
         }
 
         private static string GetSessionId() {
-            if(Network.Session.SessionManager.HasInstance == false) return "none";
-            var sessionManager = Network.Session.SessionManager.Instance;
-            if(sessionManager == null) return "none";
+            if(sessionIdProvider == null) return "none";
 
-            return string.IsNullOrEmpty(sessionManager.FlowSessionId) == false ? sessionManager.FlowSessionId : "none";
+            try {
+                var id = sessionIdProvider();
+                return string.IsNullOrEmpty(id) ? "none" : id;
+            } catch {
+                // Diagnostics should never throw because of provider failures.
+                return "none";
+            }
         }
 
         private static string Sanitize(object value) {

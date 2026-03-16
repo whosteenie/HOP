@@ -52,7 +52,7 @@ namespace Network.Session {
         private bool IsInGameplay { get; set; }
         public string SelectedGameMode { get; private set; } = "Deathmatch";
 
-        public string FlowSessionId {
+        private string FlowSessionId {
             get {
                 if(_ugsMatchLobby != null && string.IsNullOrEmpty(_ugsMatchLobby.Id) == false) return _ugsMatchLobby.Id;
                 if(_ugsPartyLobby != null && string.IsNullOrEmpty(_ugsPartyLobby.Id) == false) return _ugsPartyLobby.Id;
@@ -594,6 +594,9 @@ namespace Network.Session {
 
             SelectedMapSceneName = MatchMapService.DefaultGameplaySceneName;
             SelectedMapId = MatchMapService.DefaultMapId;
+
+            // Register session id provider for flow logging without creating a Diagnostics -> Network dependency.
+            FlowLog.SetSessionIdProvider(() => FlowSessionId);
         }
 
         private SteamSocialBridge _steamSocialBridge;
