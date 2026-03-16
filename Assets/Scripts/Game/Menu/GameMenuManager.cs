@@ -257,6 +257,8 @@ namespace Game.Menu {
                 _matchTimerContainer.style.display = DisplayStyle.Flex;
             }
 
+            EnsureGameplayRootVisible();
+
             // Reset cursor state
             UnityEngine.Cursor.lockState = CursorLockMode.Locked;
             UnityEngine.Cursor.visible = false;
@@ -528,12 +530,7 @@ namespace Game.Menu {
         }
 
         private void OnRestoreGameplayMenuPresentation(RestoreGameplayMenuPresentationEvent _) {
-            if(Root != null) {
-                var rootContainer = Root.Q<VisualElement>("root-container");
-                if(rootContainer != null) {
-                    rootContainer.style.display = DisplayStyle.Flex;
-                }
-            }
+            EnsureGameplayRootVisible();
 
             if(IsPaused) {
                 TogglePause();
@@ -873,11 +870,20 @@ namespace Game.Menu {
         }
 
         private void RestoreHudForMatchStart() {
+            EnsureGameplayRootVisible();
             if(_matchTimerContainer == null) return;
             IsPostMatch = false;
             _matchTimerContainer.style.display = DisplayStyle.Flex;
             if(PostMatchManager.Instance != null) {
                 PostMatchManager.Instance.ShowInGameHudAfterPostMatch();
+            }
+        }
+
+        private void EnsureGameplayRootVisible() {
+            if(Root == null) return;
+            var rootContainer = Root.Q<VisualElement>("root-container");
+            if(rootContainer != null) {
+                rootContainer.style.display = DisplayStyle.Flex;
             }
         }
 

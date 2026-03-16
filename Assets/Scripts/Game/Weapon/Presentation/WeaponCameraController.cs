@@ -14,7 +14,6 @@ namespace Game.Weapon.Presentation {
         [Header("Camera Setup")]
         private Camera _weaponCamera;
         private CinemachineCamera _fpCamera;
-        private Camera _mainSceneCamera; // Main scene camera (not player's fpCamera)
         [SerializeField] private bool syncWeaponFovWithFpCamera;
         [SerializeField, Range(1f, 179f)] private float fixedWeaponCameraFov = 70f;
 
@@ -43,9 +42,6 @@ namespace Game.Weapon.Presentation {
 
             if(_fpCamera == null) _fpCamera = playerController.FpCamera;
             if(_weaponCamera == null) _weaponCamera = playerController.WeaponCamera;
-
-            // Get main scene camera (the one in the scene, not the player's fpCamera)
-            _mainSceneCamera = Camera.main;
 
             SetupWeaponCamera();
         }
@@ -87,16 +83,17 @@ namespace Game.Weapon.Presentation {
             }
 
             // Add weapon camera to main scene camera's camera stack
-            if(_mainSceneCamera == null || _mainSceneCamera == _weaponCamera) {
-                _mainSceneCamera = Camera.main;
+            var mainSceneCamera = Camera.main;
+            if(mainSceneCamera == _weaponCamera) {
+                mainSceneCamera = null;
             }
 
-            if(_mainSceneCamera == null) {
+            if(mainSceneCamera == null) {
                 Debug.LogWarning("[WeaponCameraController] Main scene camera not found; weapon overlay stack setup skipped.");
                 return;
             }
 
-            var mainCameraData = _mainSceneCamera.GetUniversalAdditionalCameraData();
+            var mainCameraData = mainSceneCamera.GetUniversalAdditionalCameraData();
             if(mainCameraData == null) {
                 Debug.LogWarning("[WeaponCameraController] Main scene camera is missing UniversalAdditionalCameraData.");
                 return;
@@ -160,11 +157,7 @@ namespace Game.Weapon.Presentation {
             if(_weaponCamera == null) return;
 
             // Try to get main camera (may be null if scene is unloading)
-            var mainCam = _mainSceneCamera;
-            if(mainCam == null) {
-                mainCam = Camera.main;
-            }
-
+            var mainCam = Camera.main;
             if(mainCam == null) return;
 
             var mainCameraData = mainCam.GetUniversalAdditionalCameraData();

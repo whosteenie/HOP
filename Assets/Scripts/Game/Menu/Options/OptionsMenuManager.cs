@@ -278,14 +278,12 @@ namespace Game.Menu.Options {
 
         private void SetupTabHoverCallbacks(Button tab) {
             if(tab == null) return;
-            if(MouseEnterCallback != null) {
-                EventCallback<MouseEnterEvent> enterHandler = evt => {
-                    if(tab.ClassListContains("options-tab-active")) return;
-                    MouseEnterCallback(evt);
-                };
-                tab.RegisterCallback(enterHandler);
-                RegisterCleanup(() => tab.UnregisterCallback(enterHandler));
-            }
+            EventCallback<MouseEnterEvent> enterHandler = evt => {
+                if(tab.ClassListContains("options-tab-active")) return;
+                MouseEnterCallback?.Invoke(evt);
+            };
+            tab.RegisterCallback(enterHandler);
+            RegisterCleanup(() => tab.UnregisterCallback(enterHandler));
             EventCallback<MouseOverEvent> overHandler = evt => {
                 if(MouseHoverCallback != null && !tab.ClassListContains("options-tab-active")) MouseHoverCallback(evt);
                 if(!tab.ClassListContains("options-tab-active") && tab.ClassListContains("options-tab-hover")) tab.MarkDirtyRepaint();
@@ -379,11 +377,9 @@ namespace Game.Menu.Options {
         }
 
         private void RegisterHoverCallback(Button button) {
-            if(MouseEnterCallback != null) {
-                EventCallback<MouseEnterEvent> enterHandler = evt => MouseEnterCallback(evt);
-                button.RegisterCallback(enterHandler);
-                RegisterCleanup(() => button.UnregisterCallback(enterHandler));
-            }
+            EventCallback<MouseEnterEvent> enterHandler = evt => MouseEnterCallback?.Invoke(evt);
+            button.RegisterCallback(enterHandler);
+            RegisterCleanup(() => button.UnregisterCallback(enterHandler));
             if(MouseHoverCallback == null) return;
             EventCallback<MouseOverEvent> hoverHandler = evt => MouseHoverCallback(evt);
             button.RegisterCallback(hoverHandler);

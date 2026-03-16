@@ -162,7 +162,6 @@ namespace Game.Player.Core {
         private PlayerWeaponPresentation _weaponPresentation;
         private PlayerSpawnPresentation _spawnPresentation;
         private PlayerPresentationState _presentationState;
-
         #endregion
 
         #region Network Variables
@@ -738,10 +737,16 @@ namespace Game.Player.Core {
         public void SetGameplayCameraActive(bool active) {
             if(fpCamera != null) {
                 fpCamera.enabled = active;
+                if(fpCamera.gameObject.activeSelf != active) {
+                    fpCamera.gameObject.SetActive(active);
+                }
             }
 
             if(deathCamera != null) {
                 deathCamera.enabled = active;
+                if(!active && deathCamera.gameObject.activeSelf) {
+                    deathCamera.gameObject.SetActive(false);
+                }
             }
 
             if(weaponCameraController != null) {

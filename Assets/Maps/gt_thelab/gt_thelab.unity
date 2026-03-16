@@ -45635,6 +45635,22 @@ PrefabInstance:
       propertyPath: m_Name
       value: MANAGERS
       objectReference: {fileID: 0}
+    - target: {fileID: 2838958771103016377, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: podiumCamera
+      value: 
+      objectReference: {fileID: 1573192410}
+    - target: {fileID: 2838958771103016377, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: firstPlaceAnchor
+      value: 
+      objectReference: {fileID: 1229509722}
+    - target: {fileID: 2838958771103016377, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: thirdPlaceAnchor
+      value: 
+      objectReference: {fileID: 687915783}
+    - target: {fileID: 2838958771103016377, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: secondPlaceAnchor
+      value: 
+      objectReference: {fileID: 1132063413}
     - target: {fileID: 2910195345246798720, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 2341535441

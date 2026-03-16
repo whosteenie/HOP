@@ -1231,7 +1231,6 @@ GameObject:
   - component: {fileID: 26388920}
   - component: {fileID: 26388919}
   - component: {fileID: 26388918}
-  - component: {fileID: 26388917}
   m_Layer: 13
   m_Name: BotBound (15)
   m_TagString: Untagged
@@ -1254,19 +1253,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 224.635, z: 0}
---- !u!114 &26388917
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 26388915}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &26388918
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -8363,7 +8349,6 @@ GameObject:
   - component: {fileID: 122660417}
   - component: {fileID: 122660416}
   - component: {fileID: 122660415}
-  - component: {fileID: 122660414}
   m_Layer: 13
   m_Name: BotBound (16)
   m_TagString: Untagged
@@ -8386,19 +8371,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 243.414, z: 0}
---- !u!114 &122660414
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 122660412}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &122660415
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -8779,7 +8751,6 @@ GameObject:
   - component: {fileID: 145754406}
   - component: {fileID: 145754405}
   - component: {fileID: 145754404}
-  - component: {fileID: 145754403}
   m_Layer: 13
   m_Name: BotBound (14)
   m_TagString: Untagged
@@ -8802,19 +8773,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 207.038, z: 0}
---- !u!114 &145754403
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 145754401}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &145754404
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -14124,7 +14082,6 @@ GameObject:
   - component: {fileID: 235957276}
   - component: {fileID: 235957275}
   - component: {fileID: 235957274}
-  - component: {fileID: 235957273}
   m_Layer: 13
   m_Name: BotBound (4)
   m_TagString: Untagged
@@ -14147,19 +14104,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 27.047, z: 0}
---- !u!114 &235957273
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 235957271}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &235957274
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -14630,7 +14574,6 @@ GameObject:
   - component: {fileID: 245763550}
   - component: {fileID: 245763549}
   - component: {fileID: 245763548}
-  - component: {fileID: 245763547}
   m_Layer: 13
   m_Name: BotBound (5)
   m_TagString: Untagged
@@ -14653,19 +14596,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 45.214, z: 0}
---- !u!114 &245763547
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 245763545}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &245763548
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -18795,6 +18725,22 @@ PrefabInstance:
       propertyPath: m_Name
       value: MANAGERS
       objectReference: {fileID: 0}
+    - target: {fileID: 2838958771103016377, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: podiumCamera
+      value: 
+      objectReference: {fileID: 2124224294}
+    - target: {fileID: 2838958771103016377, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: firstPlaceAnchor
+      value: 
+      objectReference: {fileID: 940198476}
+    - target: {fileID: 2838958771103016377, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: thirdPlaceAnchor
+      value: 
+      objectReference: {fileID: 972847555}
+    - target: {fileID: 2838958771103016377, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: secondPlaceAnchor
+      value: 
+      objectReference: {fileID: 44623097}
     - target: {fileID: 2910195345246798720, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 3844488136
@@ -22804,7 +22750,6 @@ GameObject:
   - component: {fileID: 430874789}
   - component: {fileID: 430874788}
   - component: {fileID: 430874787}
-  - component: {fileID: 430874786}
   m_Layer: 13
   m_Name: BotBound (22)
   m_TagString: Untagged
@@ -22827,19 +22772,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 332.591, z: 0}
---- !u!114 &430874786
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 430874784}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &430874787
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -24543,7 +24475,6 @@ GameObject:
   - component: {fileID: 473602231}
   - component: {fileID: 473602230}
   - component: {fileID: 473602229}
-  - component: {fileID: 473602228}
   m_Layer: 13
   m_Name: BotBound (13)
   m_TagString: Untagged
@@ -24566,19 +24497,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 188.598, z: 0}
---- !u!114 &473602228
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 473602226}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &473602229
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -29257,7 +29175,6 @@ GameObject:
   - component: {fileID: 562312785}
   - component: {fileID: 562312784}
   - component: {fileID: 562312783}
-  - component: {fileID: 562312782}
   m_Layer: 13
   m_Name: BotBound (8)
   m_TagString: Untagged
@@ -29280,19 +29197,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 99.05, z: 0}
---- !u!114 &562312782
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 562312780}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &562312783
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -31561,7 +31465,6 @@ GameObject:
   - component: {fileID: 641820965}
   - component: {fileID: 641820964}
   - component: {fileID: 641820963}
-  - component: {fileID: 641820962}
   m_Layer: 13
   m_Name: BotBound (6)
   m_TagString: Untagged
@@ -31584,19 +31487,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 62.753, z: 0}
---- !u!114 &641820962
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 641820960}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &641820963
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -39732,7 +39622,6 @@ GameObject:
   - component: {fileID: 842227619}
   - component: {fileID: 842227618}
   - component: {fileID: 842227617}
-  - component: {fileID: 842227616}
   m_Layer: 13
   m_Name: BotBound (9)
   m_TagString: Untagged
@@ -39755,19 +39644,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 117.147, z: 0}
---- !u!114 &842227616
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 842227614}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &842227617
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -41114,7 +40990,6 @@ GameObject:
   - component: {fileID: 859692806}
   - component: {fileID: 859692805}
   - component: {fileID: 859692804}
-  - component: {fileID: 859692803}
   m_Layer: 13
   m_Name: BotBound (21)
   m_TagString: Untagged
@@ -41137,19 +41012,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 332.591, z: 0}
---- !u!114 &859692803
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 859692801}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &859692804
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -49491,7 +49353,6 @@ GameObject:
   - component: {fileID: 993416112}
   - component: {fileID: 993416111}
   - component: {fileID: 993416110}
-  - component: {fileID: 993416109}
   m_Layer: 13
   m_Name: BotBound (18)
   m_TagString: Untagged
@@ -49514,19 +49375,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 278.98102, z: 0}
---- !u!114 &993416109
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 993416107}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &993416110
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -68985,7 +68833,6 @@ GameObject:
   - component: {fileID: 1418998704}
   - component: {fileID: 1418998703}
   - component: {fileID: 1418998702}
-  - component: {fileID: 1418998701}
   m_Layer: 13
   m_Name: BotBound (2)
   m_TagString: Untagged
@@ -69008,19 +68855,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: -0.713, z: 180}
---- !u!114 &1418998701
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1418998699}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &1418998702
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -69670,7 +69504,6 @@ GameObject:
   - component: {fileID: 1425691687}
   - component: {fileID: 1425691686}
   - component: {fileID: 1425691685}
-  - component: {fileID: 1425691684}
   m_Layer: 13
   m_Name: BotBound (19)
   m_TagString: Untagged
@@ -69693,19 +69526,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 297.135, z: 0}
---- !u!114 &1425691684
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1425691682}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &1425691685
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -78922,7 +78742,6 @@ GameObject:
   - component: {fileID: 1633684515}
   - component: {fileID: 1633684514}
   - component: {fileID: 1633684513}
-  - component: {fileID: 1633684512}
   m_Layer: 13
   m_Name: BotBound (20)
   m_TagString: Untagged
@@ -78945,19 +78764,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 314.895, z: 0}
---- !u!114 &1633684512
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1633684510}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &1633684513
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -84025,7 +83831,6 @@ GameObject:
   - component: {fileID: 1714308640}
   - component: {fileID: 1714308639}
   - component: {fileID: 1714308638}
-  - component: {fileID: 1714308637}
   m_Layer: 13
   m_Name: BotBound (17)
   m_TagString: Untagged
@@ -84048,19 +83853,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 260.385, z: 0}
---- !u!114 &1714308637
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1714308635}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &1714308638
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -84233,7 +84025,6 @@ GameObject:
   - component: {fileID: 1723769684}
   - component: {fileID: 1723769683}
   - component: {fileID: 1723769682}
-  - component: {fileID: 1723769681}
   m_Layer: 13
   m_Name: BotBound (12)
   m_TagString: Untagged
@@ -84256,19 +84047,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 170.705, z: 0}
---- !u!114 &1723769681
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1723769679}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &1723769682
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -91750,7 +91528,6 @@ GameObject:
   - component: {fileID: 1928679711}
   - component: {fileID: 1928679710}
   - component: {fileID: 1928679709}
-  - component: {fileID: 1928679708}
   m_Layer: 13
   m_Name: BotBound (11)
   m_TagString: Untagged
@@ -91773,19 +91550,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 152.469, z: 0}
---- !u!114 &1928679708
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1928679706}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &1928679709
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -94955,7 +94719,6 @@ GameObject:
   - component: {fileID: 2032262892}
   - component: {fileID: 2032262891}
   - component: {fileID: 2032262890}
-  - component: {fileID: 2032262889}
   m_Layer: 13
   m_Name: BotBound (7)
   m_TagString: Untagged
@@ -94978,19 +94741,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 81.155, z: 0}
---- !u!114 &2032262889
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2032262887}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &2032262890
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -96108,7 +95858,6 @@ GameObject:
   - component: {fileID: 2047125353}
   - component: {fileID: 2047125352}
   - component: {fileID: 2047125351}
-  - component: {fileID: 2047125350}
   m_Layer: 13
   m_Name: BotBound (10)
   m_TagString: Untagged
@@ -96131,19 +95880,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1952132404}
   m_LocalEulerAnglesHint: {x: 0, y: 134.217, z: 0}
---- !u!114 &2047125350
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2047125348}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dba52ae8b7d58674e8dceed9b0bfde7e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Game.AI.EdgeZoneTrigger
-  botOnly: 1
 --- !u!65 &2047125351
 BoxCollider:
   m_ObjectHideFlags: 0

@@ -6,7 +6,6 @@ using UnityEngine;
 namespace Game.Weapon.Core {
     internal sealed class WeaponMount {
         private readonly Weapon _weapon;
-        private Camera _mainSceneCamera;
 
         public WeaponMount(Weapon weapon) {
             _weapon = weapon;
@@ -408,11 +407,10 @@ namespace Game.Weapon.Core {
         }
 
         private bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
-            if(_mainSceneCamera == null || _mainSceneCamera == weaponCamera) {
-                _mainSceneCamera = Camera.main;
+            mainSceneCamera = Camera.main;
+            if(mainSceneCamera == weaponCamera) {
+                mainSceneCamera = null;
             }
-
-            mainSceneCamera = _mainSceneCamera;
             return mainSceneCamera != null;
         }
 

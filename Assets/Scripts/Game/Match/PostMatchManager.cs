@@ -86,7 +86,6 @@ namespace Game.Match {
         private bool IsPodiumBlackoutActive { get; set; }
         public static bool IsPodiumBlackoutActiveLocal => Instance != null && Instance.IsPodiumBlackoutActive;
         private Coroutine _localReturnToMenuRoutine;
-        private Camera _camera;
 
         /// <summary>
         /// True once fade-to-black is fully black. Use this for movement lock so WASD stays active during the fade.
@@ -127,7 +126,6 @@ namespace Game.Match {
         }
 
         private void Start() {
-            _camera = Camera.main;
             // UI Toolkit document can be valid in inspector but still not bound to a live root in Start
             // depending on scene/object initialization order. Defer hard binding until first real use.
             TryResolveUiDocumentReference();
@@ -628,7 +626,7 @@ namespace Game.Match {
             var controllers = PlayerController.SpawnedPlayers;
             foreach(var pc in controllers) {
                 if(pc == null) continue;
-                pc.SetGameplayCameraActive(false); // you'll add this helper too
+                pc.SetGameplayCameraActive(false);
                 pc.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
             }
 
@@ -869,7 +867,8 @@ namespace Game.Match {
         }
 
         private Camera ResolveWorldCamera() {
-            if(_camera != null) return _camera;
+            var mainCamera = Camera.main;
+            if(mainCamera != null) return mainCamera;
 
             var cameras = Camera.allCameras;
             Camera best = null;
