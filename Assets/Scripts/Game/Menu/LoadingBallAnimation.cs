@@ -2,7 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI.Misc {
+namespace Game.Menu {
     public class LoadingBallAnimation : MonoBehaviour {
         private VisualElement _ball;
         private Coroutine _animationCoroutine;

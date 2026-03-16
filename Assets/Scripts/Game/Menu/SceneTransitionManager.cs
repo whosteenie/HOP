@@ -3,12 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Events;
-using Game.Menu;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
-namespace Game.UI.Misc {
+namespace Game.Menu {
     public class SceneTransitionManager : MonoBehaviour {
         private enum OverlayVisualState {
             Hidden,
@@ -366,7 +365,7 @@ namespace Game.UI.Misc {
         /// Respawn transition: fade to black (using default duration), hold on black screen, then fade back in.
         /// Uses default fade duration for consistency with main menu transitions.
         /// </summary>
-        public IEnumerator FadeRespawnTransition() {
+        private IEnumerator FadeRespawnTransition() {
             // Refresh overlay reference in case GameMenuManager wasn't ready when OnEnable was called
             if(_respawnFadeOverlay == null) {
                 RefreshRespawnFadeOverlay();
@@ -424,7 +423,7 @@ namespace Game.UI.Misc {
         /// <summary>
         /// Server-authoritative: Signal that fade in should start (called by server after hold duration)
         /// </summary>
-        public void SignalFadeInStart() {
+        private void SignalFadeInStart() {
             _serverSignaledFadeIn = true;
             _respawnFadeInSignal?.TrySetResult(true);
         }
