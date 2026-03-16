@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Events;
 using Game.Audio.System;
-using Game.Hopball;
 using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Look;
@@ -82,7 +81,6 @@ namespace Game.Player.Core {
         [SerializeField] private PlayerAnimationController animationController;
         [SerializeField] private PlayerTagController tagController;
         [SerializeField] private PlayerPodiumController podiumController;
-        [SerializeField] private PlayerHopballController playerHopballController;
         [SerializeField] private PlayerTeamManager playerTeamManager;
         [SerializeField] private WeaponCameraController weaponCameraController;
         [SerializeField] private DeathCameraController deathCameraController;
@@ -162,6 +160,7 @@ namespace Game.Player.Core {
         private PlayerWeaponPresentation _weaponPresentation;
         private PlayerSpawnPresentation _spawnPresentation;
         private PlayerPresentationState _presentationState;
+        private bool _isHoldingHopball;
         #endregion
 
         #region Network Variables
@@ -347,6 +346,7 @@ namespace Game.Player.Core {
             CancelPendingIdentitySync();
             UnregisterLocalAudioRelay();
             UnsubscribeFromLocalVoiceEvents();
+            UnsubscribeFromHopballStateEvents();
             UnsubscribeFromNetworkVariables();
             UnregisterSpawnedPlayer(this);
             if(LocalPlayer == this) {
@@ -372,9 +372,40 @@ namespace Game.Player.Core {
 
             SubscribeToNetworkVariables();
             SubscribeToLocalVoiceEvents();
+            SubscribeToHopballStateEvents();
             TryBindStateSubscriptions();
             UpdatePlayerMaterialFromNetwork();
             _spawnPresentation.HandleNetworkSpawnPresentation();
+        }
+
+        private void SubscribeToHopballStateEvents() {
+            EventBus.Unsubscribe<HopballHoldStateChangedEvent>(OnHopballHoldStateChanged);
+            EventBus.Unsubscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
+            EventBus.Unsubscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
+            EventBus.Subscribe<HopballHoldStateChangedEvent>(OnHopballHoldStateChanged);
+            EventBus.Subscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
+            EventBus.Subscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
+        }
+
+        private void UnsubscribeFromHopballStateEvents() {
+            EventBus.Unsubscribe<HopballHoldStateChangedEvent>(OnHopballHoldStateChanged);
+            EventBus.Unsubscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
+            EventBus.Unsubscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
+        }
+
+        private void OnHopballHoldStateChanged(HopballHoldStateChangedEvent evt) {
+            if(evt == null || evt.PlayerOwnerClientId != OwnerClientId) return;
+            _isHoldingHopball = evt.IsHoldingHopball;
+        }
+
+        private void OnHopballEquippedPresentation(HopballEquippedPresentationEvent evt) {
+            if(evt == null || evt.HolderClientId != OwnerClientId) return;
+            _isHoldingHopball = true;
+        }
+
+        private void OnHopballDropPresentation(HopballDropPresentationEvent evt) {
+            if(evt == null || evt.HolderClientId != OwnerClientId) return;
+            _isHoldingHopball = false;
         }
 
         private void DisableConflictingKinemationComponents() {
@@ -731,7 +762,9 @@ namespace Game.Player.Core {
         public void HideFpVisualsForDisconnectTransition() {
             if(!IsOwner) return;
             if(weaponManager != null) weaponManager.HideFpVisualsForDisconnectTransition();
-            if(playerHopballController != null) playerHopballController.HideFpVisualsForDisconnectTransition();
+            if(NetworkObject != null) {
+                EventBus.Publish(new PlayerDisconnectFpVisualHideRequestedEvent(NetworkObjectId));
+            }
         }
 
         public void SetGameplayCameraActive(bool active) {
@@ -782,18 +815,16 @@ namespace Game.Player.Core {
         }
 
         public void PickupHopball() {
-            if(playerHopballController != null) {
-                playerHopballController.TryPickupHopball();
-            } else {
-                Debug.LogWarning("HopballController == null, cannot pick up hopball.");
+            if(NetworkObject != null) {
+                EventBus.Publish(new PlayerHopballPickupRequestedEvent(NetworkObjectId));
             }
         }
 
-        public bool IsHoldingHopball => playerHopballController != null && playerHopballController.IsHoldingHopball;
+        public bool IsHoldingHopball => _isHoldingHopball;
 
         public void DropHopball() {
-            if(playerHopballController != null) {
-                playerHopballController.DropHopball();
+            if(NetworkObject != null) {
+                EventBus.Publish(new PlayerHopballManualDropRequestedEvent(NetworkObjectId));
             }
         }
 
@@ -849,7 +880,6 @@ namespace Game.Player.Core {
         public PlayerHealthController HealthController => healthController;
         public PlayerTagController TagController => tagController;
         public PlayerPodiumController PodiumController => podiumController;
-        public PlayerHopballController PlayerHopballController => playerHopballController;
         public PlayerTeamManager TeamManager => playerTeamManager;
         public MantleController MantleController => mantleController;
         public DeathCameraController DeathCameraController => deathCameraController;

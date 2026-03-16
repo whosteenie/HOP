@@ -83,6 +83,64 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when player systems want hopball pickup logic to run for a specific player.
+    /// </summary>
+    public class PlayerHopballPickupRequestedEvent : GameEvent {
+        public readonly ulong PlayerNetworkObjectId;
+
+        public PlayerHopballPickupRequestedEvent(ulong playerNetworkObjectId) {
+            PlayerNetworkObjectId = playerNetworkObjectId;
+        }
+    }
+
+    /// <summary>
+    /// Event published when player systems want the local holder to manually drop hopball.
+    /// </summary>
+    public class PlayerHopballManualDropRequestedEvent : GameEvent {
+        public readonly ulong PlayerNetworkObjectId;
+
+        public PlayerHopballManualDropRequestedEvent(ulong playerNetworkObjectId) {
+            PlayerNetworkObjectId = playerNetworkObjectId;
+        }
+    }
+
+    /// <summary>
+    /// Synchronous event used to evaluate whether a player's hopball pickup prompt should be shown this frame.
+    /// </summary>
+    public class PlayerHopballPickupPromptEvaluationRequestedEvent : GameEvent {
+        public readonly ulong PlayerNetworkObjectId;
+        public bool CanPickupNearbyHopball;
+
+        public PlayerHopballPickupPromptEvaluationRequestedEvent(ulong playerNetworkObjectId) {
+            PlayerNetworkObjectId = playerNetworkObjectId;
+        }
+    }
+
+    /// <summary>
+    /// Event published when player disconnect transitions need first-person hopball visuals hidden.
+    /// </summary>
+    public class PlayerDisconnectFpVisualHideRequestedEvent : GameEvent {
+        public readonly ulong PlayerNetworkObjectId;
+
+        public PlayerDisconnectFpVisualHideRequestedEvent(ulong playerNetworkObjectId) {
+            PlayerNetworkObjectId = playerNetworkObjectId;
+        }
+    }
+
+    /// <summary>
+    /// Event published when local hopball hold state changes immediately on a client.
+    /// </summary>
+    public class HopballHoldStateChangedEvent : GameEvent {
+        public readonly ulong PlayerOwnerClientId;
+        public readonly bool IsHoldingHopball;
+
+        public HopballHoldStateChangedEvent(ulong playerOwnerClientId, bool isHoldingHopball) {
+            PlayerOwnerClientId = playerOwnerClientId;
+            IsHoldingHopball = isHoldingHopball;
+        }
+    }
+
+    /// <summary>
      /// Event published when a player starts grappling.
      /// </summary>
     public class GrappleStartedEvent : GameEvent {

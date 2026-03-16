@@ -624,7 +624,7 @@ namespace Game.Hopball {
 
             var requestingController = requestingPlayer.GetComponent<PlayerController>();
             if(requestingController == null) return;
-            var controller = requestingController.PlayerHopballController;
+            var controller = requestingPlayer.GetComponent<PlayerHopballController>();
             if(controller == null) return;
             FlowLog.Emit(FlowEventIds.HopballPickupCommitted,
                 ("player", requestingClientId),

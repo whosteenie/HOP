@@ -89,6 +89,7 @@ namespace Game.Hopball {
         /// </summary>
         public void ClearHopballReference() {
             _currentHopballController = null;
+            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, false));
             // Unsubscribe from visual state changes
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
         }
@@ -248,6 +249,10 @@ namespace Game.Hopball {
             EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
             EventBus.Subscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
             EventBus.Subscribe<PlayerHopballDeathDropRequestedEvent>(OnPlayerHopballDeathDropRequested);
+            EventBus.Subscribe<PlayerHopballPickupRequestedEvent>(OnPlayerHopballPickupRequested);
+            EventBus.Subscribe<PlayerHopballManualDropRequestedEvent>(OnPlayerHopballManualDropRequested);
+            EventBus.Subscribe<PlayerHopballPickupPromptEvaluationRequestedEvent>(OnPlayerHopballPickupPromptEvaluationRequested);
+            EventBus.Subscribe<PlayerDisconnectFpVisualHideRequestedEvent>(OnPlayerDisconnectFpVisualHideRequested);
             EventBus.Subscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
             EventBus.Subscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Subscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
@@ -282,6 +287,10 @@ namespace Game.Hopball {
             EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
             EventBus.Unsubscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
             EventBus.Unsubscribe<PlayerHopballDeathDropRequestedEvent>(OnPlayerHopballDeathDropRequested);
+            EventBus.Unsubscribe<PlayerHopballPickupRequestedEvent>(OnPlayerHopballPickupRequested);
+            EventBus.Unsubscribe<PlayerHopballManualDropRequestedEvent>(OnPlayerHopballManualDropRequested);
+            EventBus.Unsubscribe<PlayerHopballPickupPromptEvaluationRequestedEvent>(OnPlayerHopballPickupPromptEvaluationRequested);
+            EventBus.Unsubscribe<PlayerDisconnectFpVisualHideRequestedEvent>(OnPlayerDisconnectFpVisualHideRequested);
             EventBus.Unsubscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
             EventBus.Unsubscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Unsubscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
@@ -326,6 +335,30 @@ namespace Game.Hopball {
         private void OnPlayerHopballDeathDropRequested(PlayerHopballDeathDropRequestedEvent evt) {
             if(evt == null || evt.PlayerOwnerClientId != OwnerClientId) return;
             DropHopballOnDeath();
+        }
+
+        private void OnPlayerHopballPickupRequested(PlayerHopballPickupRequestedEvent evt) {
+            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            TryPickupHopball();
+        }
+
+        private void OnPlayerHopballManualDropRequested(PlayerHopballManualDropRequestedEvent evt) {
+            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            DropHopball();
+        }
+
+        private void OnPlayerHopballPickupPromptEvaluationRequested(PlayerHopballPickupPromptEvaluationRequestedEvent evt) {
+            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            evt.CanPickupNearbyHopball = CanPickupNearbyHopball();
+        }
+
+        private void OnPlayerDisconnectFpVisualHideRequested(PlayerDisconnectFpVisualHideRequestedEvent evt) {
+            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            HideFpVisualsForDisconnectTransition();
         }
 
         public override void OnDestroy() {
@@ -432,6 +465,7 @@ namespace Game.Hopball {
             if(hopballController == null || !IsOwner) return;
 
             _currentHopballController = hopballController;
+            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, true));
             _putAwayAnimationTriggered = false;
             if(playerController != null && playerController.PlayerInput != null) {
                 playerController.PlayerInput.ForceDisableSniperOverlay(false);
@@ -844,6 +878,7 @@ namespace Game.Hopball {
 
             var hopball = _currentHopballController;
             _currentHopballController = null;
+            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, false));
 
             Vector3 dropPosition;
             Quaternion dropRotation;
@@ -924,6 +959,7 @@ namespace Game.Hopball {
                hopball.HolderController.OwnerClientId != OwnerClientId) return;
 
             _currentHopballController = null;
+            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, false));
 
             var dropPosition = playerController.Position + Vector3.up * 1.5f;
             var dropRotation = playerController.Rotation;
@@ -961,6 +997,7 @@ namespace Game.Hopball {
             var postMatchTransitionActive = IsPostMatchTransitionActive();
 
             _currentHopballController = null;
+            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, false));
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
 
             if(IsOwner) {

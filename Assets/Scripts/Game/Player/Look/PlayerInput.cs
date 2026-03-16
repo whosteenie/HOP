@@ -387,10 +387,12 @@ namespace Game.Player.Look {
 
             var canCheckPickup = !IsPausedOrDead && !IsPreMatch &&
                                  playerController != null &&
-                                 playerController.PlayerHopballController != null &&
+                                 playerController.NetworkObject != null &&
                                  !playerController.IsHoldingHopball;
             if(canCheckPickup) {
-                canShowPrompt = playerController.PlayerHopballController.CanPickupNearbyHopball();
+                var promptRequest = new PlayerHopballPickupPromptEvaluationRequestedEvent(playerController.NetworkObjectId);
+                EventBus.Publish(promptRequest);
+                canShowPrompt = promptRequest.CanPickupNearbyHopball;
                 if(canShowPrompt) {
                     promptText = BuildInteractPromptText();
                 }
