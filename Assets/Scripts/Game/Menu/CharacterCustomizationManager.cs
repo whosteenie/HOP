@@ -15,7 +15,6 @@ namespace Game.Menu {
         public static CharacterCustomizationManager Instance { get; private set; }
 
         [Header("References")]
-        [SerializeField] private MainMenuManager mainMenuManager;
         [SerializeField] private LoadoutManager loadoutManager;
 
         // Material packet selection UI
@@ -96,12 +95,6 @@ namespace Game.Menu {
             }
             Instance = this;
 
-            if(mainMenuManager == null) {
-                mainMenuManager = MainMenuManager.Instance;
-            }
-            if(mainMenuManager != null && uiDocument == null) {
-                uiDocument = mainMenuManager.uiDocument;
-            }
             if(uiDocument == null) {
                 uiDocument = GetComponent<UIDocument>();
             }
@@ -123,12 +116,6 @@ namespace Game.Menu {
                 loadoutManager.OnReloadCustomizationRequested += ReloadSavedCustomization;
             }
             if(uiDocument == null) {
-                if(mainMenuManager == null) {
-                    mainMenuManager = MainMenuManager.Instance;
-                }
-                if(mainMenuManager != null) {
-                    uiDocument = mainMenuManager.uiDocument;
-                }
                 if(uiDocument == null) {
                     uiDocument = GetComponent<UIDocument>();
                 }
@@ -436,20 +423,6 @@ namespace Game.Menu {
         }
 
         public void ShowCustomization() {
-            // Ensure callbacks are set up (in case they weren't set in Initialize)
-            if(mainMenuManager != null) {
-                OnButtonClickedCallback = MainMenuManager.OnButtonClicked;
-                MouseEnterCallback = MainMenuManager.MouseEnter;
-                OnBackFromCustomizationCallback = () => {
-                    Debug.Log("[CharacterCustomizationManager] Back callback invoked from ShowCustomization");
-                    if(mainMenuManager == null) return;
-                    var loadoutPanel = QOptional<VisualElement>("loadout-panel");
-                    if(loadoutPanel != null) {
-                        mainMenuManager.ShowPanel(loadoutPanel);
-                    }
-                };
-            }
-            
             LoadSavedCustomization();
             UpdateColorUI(); // Ensure color preview is updated
             UpdateSmoothnessUI();
