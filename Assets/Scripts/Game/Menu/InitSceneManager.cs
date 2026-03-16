@@ -1,11 +1,12 @@
 using System;
 using Cysharp.Threading.Tasks;
 using Game.Match;
+using Game.UI.Misc;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Network.Singletons {
+namespace Game.Menu {
     /// <summary>
     /// Manages the initialization scene that contains all DDOL singletons.
     /// This scene loads first, initializes all persistent managers, then transitions to MainMenu.
@@ -17,7 +18,7 @@ namespace Network.Singletons {
         [SerializeField] private float initializationDelay = 0.1f;
 
         [Header("Required Singletons (for validation)")]
-        [SerializeField] private Session.SessionManager sessionManager;
+        [SerializeField] private Network.Session.SessionManager sessionManager;
 
         [SerializeField] private SceneTransitionManager sceneTransitionManager;
 
@@ -61,7 +62,7 @@ namespace Network.Singletons {
             var allValid = true;
 
             // Critical singletons (required)
-            if(Session.SessionManager.Instance == null) {
+            if(Network.Session.SessionManager.Instance == null) {
                 Debug.LogError("[InitSceneManager] SessionManager.Instance == null!");
                 allValid = false;
             }

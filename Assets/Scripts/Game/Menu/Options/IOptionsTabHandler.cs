@@ -12,6 +12,7 @@ namespace Game.Menu.Options {
         void StoreOriginal();
         bool HasUnsavedChanges();
         void RefreshDisplay();
+
         /// <summary>
         /// Apply settings to actual runtime (audio mixer, URP, etc.). Only audio and video tabs need this.
         /// </summary>

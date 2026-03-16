@@ -7,7 +7,8 @@ namespace Game.Player.Core {
         }
 
         public static void PublishLocalPlayerReady(PlayerController player) {
-            EventBus.Publish(new LocalPlayerReadyEvent(player));
+            if(player == null) return;
+            EventBus.Publish(new LocalPlayerReadyEvent(player.OwnerClientId));
         }
 
         public static void PublishTagStatus(bool isTagged) {

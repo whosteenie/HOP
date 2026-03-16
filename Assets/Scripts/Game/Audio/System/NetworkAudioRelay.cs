@@ -100,6 +100,7 @@ namespace Game.Audio.System {
         }
 
         [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Unreliable)]
+        // ReSharper disable once MemberCanBeMadeStatic.Local
         private void StopClientRpc(string soundId) {
             var svc = AudioService.Instance;
             if(svc == null) return;

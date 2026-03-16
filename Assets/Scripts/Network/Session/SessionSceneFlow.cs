@@ -7,10 +7,11 @@ using Game.Audio.System;
 using Game.Match;
 using Game.Menu;
 using Game.Player.Core;
+using Game.UI.Misc;
 using Network.Core;
 using Network.SessionContracts;
-using Network.Singletons;
 using Network.Steam;
+using Unity.Netcode;
 using Unity.Services.Lobbies.Models;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -69,9 +70,15 @@ namespace Network.Session {
             var latch = new GameplayReadinessLatch();
 
             void OnLocalPlayerReady(LocalPlayerReadyEvent evt) {
-                var player = evt.Player;
-                if(player != null && player.IsOwner && player.IsSpawned)
+                if(evt == null) return;
+
+                var nm = NetworkManager.Singleton;
+                if(nm != null &&
+                   evt.ClientId == nm.LocalClientId &&
+                   PlayerController.LocalPlayer != null &&
+                   PlayerController.LocalPlayer.IsSpawned) {
                     latch.SignalLocalPlayerReady();
+                }
             }
 
             void OnGameMenuReady(GameMenuReadyEvent _) {

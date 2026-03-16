@@ -45643,6 +45643,34 @@ PrefabInstance:
       propertyPath: GlobalObjectIdHash
       value: 1934780343
       objectReference: {fileID: 0}
+    - target: {fileID: 3638884816277804763, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: allFfaPoints.Array.size
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 3638884816277804763, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'allFfaPoints.Array.data[0]'
+      value: 
+      objectReference: {fileID: 1512086768}
+    - target: {fileID: 3638884816277804763, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'allFfaPoints.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2091522062}
+    - target: {fileID: 3638884816277804763, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'allFfaPoints.Array.data[2]'
+      value: 
+      objectReference: {fileID: 515874041}
+    - target: {fileID: 3638884816277804763, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'allFfaPoints.Array.data[3]'
+      value: 
+      objectReference: {fileID: 1955491375}
+    - target: {fileID: 3638884816277804763, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'allFfaPoints.Array.data[4]'
+      value: 
+      objectReference: {fileID: 923936722}
+    - target: {fileID: 3638884816277804763, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'allFfaPoints.Array.data[5]'
+      value: 
+      objectReference: {fileID: 1257570382}
     - target: {fileID: 4104881157763307889, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 3177445269

@@ -3,7 +3,7 @@ using Game.Player.Core;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-namespace Network.Singletons {
+namespace Game.UI.Misc {
     /// <summary>
     /// Maintains duplicate FP visuals during unexpected disconnect so the player sees a seamless
     /// transition: host disconnects -> fade to black (with duplicate visible) -> screen black ->
@@ -17,6 +17,11 @@ namespace Network.Singletons {
         private GameObject _duplicateFpVisualsRoot;
         private int _weaponLayer;
         private bool _isActive;
+        private Camera _mainCamera;
+
+        private void Start() {
+            _mainCamera = Camera.main;
+        }
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -160,9 +165,8 @@ namespace Network.Singletons {
         private void RemoveOverlayFromStack() {
             if(_standbyOverlayCamera == null) return;
             _standbyOverlayCamera.enabled = false;
-            var mainCamera = Camera.main;
-            if(mainCamera == null) return;
-            var data = mainCamera.GetUniversalAdditionalCameraData();
+            if(_mainCamera == null) return;
+            var data = _mainCamera.GetUniversalAdditionalCameraData();
             if(data != null) data.cameraStack.Remove(_standbyOverlayCamera);
         }
 

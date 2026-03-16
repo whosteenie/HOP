@@ -14,7 +14,6 @@ using Game.UI.HUD;
 using Game.UI.Misc;
 using Game.UI.Screens.Scoreboard;
 using Network.Core;
-using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -87,6 +86,7 @@ namespace Game.Match {
         private bool IsPodiumBlackoutActive { get; set; }
         public static bool IsPodiumBlackoutActiveLocal => Instance != null && Instance.IsPodiumBlackoutActive;
         private Coroutine _localReturnToMenuRoutine;
+        private Camera _camera;
 
         /// <summary>
         /// True once fade-to-black is fully black. Use this for movement lock so WASD stays active during the fade.
@@ -127,6 +127,7 @@ namespace Game.Match {
         }
 
         private void Start() {
+            _camera = Camera.main;
             // UI Toolkit document can be valid in inspector but still not bound to a live root in Start
             // depending on scene/object initialization order. Defer hard binding until first real use.
             TryResolveUiDocumentReference();
@@ -865,8 +866,8 @@ namespace Game.Match {
             slot.style.translate = new Translate(0f, 0f);
         }
 
-        private static Camera ResolveWorldCamera() {
-            if(Camera.main != null) return Camera.main;
+        private Camera ResolveWorldCamera() {
+            if(_camera != null) return _camera;
 
             var cameras = Camera.allCameras;
             Camera best = null;

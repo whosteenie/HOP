@@ -3,12 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Menu;
-using Game.UI.Misc;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
-namespace Network.Singletons {
+namespace Game.UI.Misc {
     public class SceneTransitionManager : MonoBehaviour {
         private enum OverlayVisualState {
             Hidden,
@@ -117,7 +116,7 @@ namespace Network.Singletons {
         /// This overlay appears above HUD but below pause menu.
         /// </summary>
         private void RefreshRespawnFadeOverlay() {
-            if(!Session.SessionManager.IsGameplaySceneName(_cachedSceneName)) return;
+            if(!Network.Session.SessionManager.IsGameplaySceneName(_cachedSceneName)) return;
             
             var gameMenuManager = GameMenuManager.Instance;
             if(gameMenuManager == null) return;

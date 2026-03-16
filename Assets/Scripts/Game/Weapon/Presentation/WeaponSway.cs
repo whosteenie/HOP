@@ -54,6 +54,11 @@ namespace Game.Weapon.Presentation {
         private float _crouchSwayOffset;
         private float _crouchSwayVel;
         private bool _hierarchyCameraResolved;
+        private Camera _camera;
+
+        private void Start() {
+            _camera = Camera.main;
+        }
 
         public void SetCameraTransform(Transform cameraTransform) {
             cam = cameraTransform;
@@ -169,8 +174,8 @@ namespace Game.Weapon.Presentation {
                 cam = parentCinemachineCamera.transform;
             }
 
-            if(cam == null && Camera.main != null) {
-                cam = Camera.main.transform;
+            if(cam == null && _camera != null) {
+                cam = _camera.transform;
             }
 
             return cam != null;

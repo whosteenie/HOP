@@ -5,6 +5,7 @@ using Game.Player.Movement;
 using Game.Settings;
 using Game.UI.Core;
 using Unity.Cinemachine;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -198,8 +199,15 @@ namespace Game.UI.HUD {
         }
 
         private void OnLocalPlayerReady(LocalPlayerReadyEvent evt) {
-            if(evt == null || evt.Player == null) return;
-            RegisterLocalPlayer(evt.Player);
+            if(evt == null) return;
+
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+
+            // Only react when the event refers to the local client and a local player exists.
+            if(evt.ClientId == networkManager.LocalClientId && PlayerController.LocalPlayer != null) {
+                RegisterLocalPlayer(PlayerController.LocalPlayer);
+            }
         }
 
         private void OnHideGrappleUIEvent(HideGrappleUIEvent _) {

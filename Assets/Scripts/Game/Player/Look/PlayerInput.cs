@@ -13,7 +13,6 @@ using Game.UI.Screens.Scoreboard;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using JetBrains.Annotations;
-using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;

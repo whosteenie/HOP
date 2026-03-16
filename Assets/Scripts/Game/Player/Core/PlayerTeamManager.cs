@@ -62,10 +62,15 @@ namespace Game.Player.Core {
 
         // Cache last outline size to avoid GetPropertyBlock every frame
         private float _lastOutlineSize = -1f;
+        private Camera _camera;
 
         // --------------------------------------------------------------------
         // Unity / Netcode lifecycle
         // --------------------------------------------------------------------
+        private void Start() {
+            _camera = Camera.main;
+        }
+
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
@@ -272,7 +277,7 @@ namespace Game.Player.Core {
         /// </summary>
         private float CalculateOutlineSize() {
             if(_mainCamera == null) {
-                _mainCamera = Camera.main;
+                _mainCamera = _camera;
                 if(_mainCamera == null) {
                     return minOutlineSize;
                 }

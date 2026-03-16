@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using Game.Player.Visual;
 using UnityEngine;
 
-namespace Network.Singletons {
+namespace Game.Player.Visual {
     /// <summary>
     /// Singleton manager that loads and provides access to player material packets from Resources.
     /// </summary>

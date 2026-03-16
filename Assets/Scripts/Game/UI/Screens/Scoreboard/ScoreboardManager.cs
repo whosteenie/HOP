@@ -113,8 +113,33 @@ namespace Game.UI.Screens.Scoreboard {
         private void OnScoreboardGamemodeChanged(ScoreboardGamemodeChangedEvent evt) => RefreshGamemode();
         private void OnHideScoreDisplay(HideScoreDisplayEvent evt) => _topBar?.HideScoreDisplay();
         private void OnShowScoreDisplay(ShowScoreDisplayEvent evt) => _topBar?.ShowScoreDisplay();
-        private void OnPlayerNetworkSpawned(PlayerNetworkSpawnedEvent evt) => _registry?.Register(evt.Player);
-        private void OnPlayerNetworkDespawned(PlayerNetworkDespawnedEvent evt) => _registry?.Unregister(evt.Player);
+        private void OnPlayerNetworkSpawned(PlayerNetworkSpawnedEvent evt) {
+            if(evt == null || _registry == null) return;
+
+            var player = FindPlayerByClientId(evt.ClientId);
+            if(player != null) {
+                _registry.Register(player);
+            }
+        }
+
+        private void OnPlayerNetworkDespawned(PlayerNetworkDespawnedEvent evt) {
+            if(evt == null || _registry == null) return;
+
+            var player = FindPlayerByClientId(evt.ClientId);
+            if(player != null) {
+                _registry.Unregister(player);
+            }
+        }
+
+        private static PlayerController FindPlayerByClientId(ulong clientId) {
+            foreach(var p in PlayerController.SpawnedPlayers) {
+                if(p != null && p.OwnerClientId == clientId) {
+                    return p;
+                }
+            }
+
+            return null;
+        }
 
         private void OnPlayerStateRegistered(ulong id, MatchPlayerStateProxy proxy) =>
             _registry?.OnStateRegistered(id, proxy);

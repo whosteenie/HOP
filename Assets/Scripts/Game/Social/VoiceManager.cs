@@ -32,6 +32,7 @@ namespace Game.Social {
         private float _nextChannelRouteSyncTime;
         private float _nextRouteSyncLogTime;
         private bool _isRouteSyncInProgress;
+        private Camera _camera;
         private const int MaxJoinAttempts = 3;
         private const int ClaimsMismatchRetryDelayMs = 350;
         private const int GenericJoinRetryDelayMs = 500;
@@ -61,6 +62,7 @@ namespace Game.Social {
         }
 
         private async void Start() {
+            _camera = Camera.main;
             try {
                 await InitializeVivoxAsync();
              
@@ -437,8 +439,8 @@ namespace Game.Social {
 
             // Update 3D position if in a positional channel (assuming Camera/Player position)
             // TODO: Get actual player head transform
-            if(Camera.main == null) return;
-            var cameraTransform = Camera.main.transform;
+            if(_camera == null) return;
+            var cameraTransform = _camera.transform;
             VivoxService.Instance.Set3DPosition(cameraTransform.position, Vector3.zero, cameraTransform.forward, cameraTransform.up, _currentChannelName);
         }
 

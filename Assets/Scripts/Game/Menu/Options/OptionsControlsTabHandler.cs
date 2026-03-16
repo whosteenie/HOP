@@ -1,6 +1,5 @@
 using Game.Settings;
 using Game.Social;
-using Network.Singletons;
 using UnityEngine;
 using UnityEngine.UIElements;
 

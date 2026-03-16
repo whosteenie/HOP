@@ -9,12 +9,12 @@ using Game.Player.Look;
 using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.UI.HUD;
+using Game.UI.Misc;
 using Game.Weapon.Manager;
 using Game.Weapon.Presentation;
 using Network.Components;
 using Network.Core;
 using Network.Rpc;
-using Network.Singletons;
 using OSI;
 using Unity.Cinemachine;
 using Unity.Collections;
@@ -336,13 +336,14 @@ namespace Game.Player.Core {
         private static void RegisterSpawnedPlayer(PlayerController player) {
             if(player == null || !SpawnedPlayersRegistry.Add(player)) return;
             PlayerSpawned?.Invoke(player);
-            EventBus.Publish(new PlayerNetworkSpawnedEvent(player));
+            // Publish by owning client id so Events does not depend on PlayerController.
+            EventBus.Publish(new PlayerNetworkSpawnedEvent(player.OwnerClientId));
         }
 
         private static void UnregisterSpawnedPlayer(PlayerController player) {
             if(player == null || !SpawnedPlayersRegistry.Remove(player)) return;
             PlayerDespawned?.Invoke(player);
-            EventBus.Publish(new PlayerNetworkDespawnedEvent(player));
+            EventBus.Publish(new PlayerNetworkDespawnedEvent(player.OwnerClientId));
         }
 
         public override void OnDestroy() {

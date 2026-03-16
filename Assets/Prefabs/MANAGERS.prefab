@@ -73,19 +73,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpawnManager
   ShowTopMostFoldoutHeaderGroup: 1
   allTdmPoints: []
-  allFfaPoints:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  allFfaPoints: []
 --- !u!114 &4910961619472946389
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -321,7 +309,7 @@ MonoBehaviour:
   killFeedManager: {fileID: 2966568949105313116}
   scoreboardManager: {fileID: 3021185815374707159}
   optionsMenuManager: {fileID: 6828969458117590689}
-  menuBlurController: {fileID: 0}
+  menuBlurController: {fileID: 9217623768017240048}
   optionsBlurVolume: {fileID: 0}
   sniperOverlayManager: {fileID: 1391423826851152422}
   chatUIManager: {fileID: 812820397197911824}

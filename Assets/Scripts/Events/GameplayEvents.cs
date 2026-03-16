@@ -1,4 +1,3 @@
-using Game.Player.Core;
 using UnityEngine;
 
 namespace Events {
@@ -111,12 +110,13 @@ namespace Events {
 
     /// <summary>
     /// Event published when a player network object is spawned and registered.
+    /// Payload is the owning client id so Events remains agnostic to concrete player types.
     /// </summary>
     public class PlayerNetworkSpawnedEvent : GameEvent {
-        public readonly PlayerController Player;
+        public readonly ulong ClientId;
 
-        public PlayerNetworkSpawnedEvent(PlayerController player) {
-            Player = player;
+        public PlayerNetworkSpawnedEvent(ulong clientId) {
+            ClientId = clientId;
         }
     }
 
@@ -124,10 +124,10 @@ namespace Events {
     /// Event published when a player network object is despawned and unregistered.
     /// </summary>
     public class PlayerNetworkDespawnedEvent : GameEvent {
-        public readonly PlayerController Player;
+        public readonly ulong ClientId;
 
-        public PlayerNetworkDespawnedEvent(PlayerController player) {
-            Player = player;
+        public PlayerNetworkDespawnedEvent(ulong clientId) {
+            ClientId = clientId;
         }
     }
 
@@ -135,10 +135,10 @@ namespace Events {
     /// Event published when the local owner player is fully network-spawned and ready.
     /// </summary>
     public class LocalPlayerReadyEvent : GameEvent {
-        public readonly PlayerController Player;
+        public readonly ulong ClientId;
 
-        public LocalPlayerReadyEvent(PlayerController player) {
-            Player = player;
+        public LocalPlayerReadyEvent(ulong clientId) {
+            ClientId = clientId;
         }
     }
 

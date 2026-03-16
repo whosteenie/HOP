@@ -6,9 +6,14 @@ using UnityEngine;
 namespace Game.Weapon.Core {
     internal sealed class WeaponMount {
         private readonly Weapon _weapon;
+        private Camera _mainSceneCamera;
 
         public WeaponMount(Weapon weapon) {
             _weapon = weapon;
+        }
+
+        private void Start() {
+            _mainSceneCamera = Camera.main;
         }
 
         public void SyncKinemationLocomotion() {
@@ -390,17 +395,16 @@ namespace Game.Weapon.Core {
             if(playerController.PlayerInput != null && playerController.PlayerInput.IsSniperOverlayActive) return;
 
             var weaponCamera = playerController.WeaponCamera;
-            var mainSceneCamera = Camera.main;
-            if(weaponCamera == null || mainSceneCamera == null) return;
-            if(weaponCamera == mainSceneCamera) return;
+            if(weaponCamera == null || _mainSceneCamera == null) return;
+            if(weaponCamera == _mainSceneCamera) return;
 
             var viewportInWeaponCamera = weaponCamera.WorldToViewportPoint(sourcePoint);
             if(viewportInWeaponCamera.z <= 0f) return;
 
-            var transformCamera = mainSceneCamera.transform;
+            var transformCamera = _mainSceneCamera.transform;
             var preferredDepth = Vector3.Dot(sourcePoint - transformCamera.position, transformCamera.forward);
-            var remapDepth = Mathf.Max(mainSceneCamera.nearClipPlane + 0.02f, preferredDepth);
-            remappedPoint = mainSceneCamera.ViewportToWorldPoint(new Vector3(
+            var remapDepth = Mathf.Max(_mainSceneCamera.nearClipPlane + 0.02f, preferredDepth);
+            remappedPoint = _mainSceneCamera.ViewportToWorldPoint(new Vector3(
                 viewportInWeaponCamera.x,
                 viewportInWeaponCamera.y,
                 remapDepth));

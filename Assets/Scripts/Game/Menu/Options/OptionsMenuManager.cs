@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Game.Settings;
 using Game.UI.Core;
-using Network.Singletons;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;

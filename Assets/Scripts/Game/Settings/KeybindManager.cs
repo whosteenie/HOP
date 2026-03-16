@@ -2,12 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Events;
-using Game.Settings;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 
-namespace Network.Singletons {
+namespace Game.Settings {
     /// <summary>
     /// Simplified keybind manager that uses settings.json as the source of truth.
     /// </summary>

@@ -39,6 +39,7 @@ namespace Game.Hopball {
     private bool _isDropped;
     private bool _isOffScreen;
     private Color _currentColor;
+    private Camera _camera;
 
     private void Awake() {
         // Find local player's camera
@@ -46,6 +47,7 @@ namespace Game.Hopball {
     }
 
     private void Start() {
+        _camera = Camera.main;
         // Initialize with dropped state (purple diamond)
         SetDroppedState(true);
     }
@@ -69,7 +71,7 @@ namespace Game.Hopball {
     /// </summary>
     private void FindLocalCamera() {
         if(_localCamera == null) {
-            _localCamera = Camera.main;
+            _localCamera = _camera;
         }
     }
 

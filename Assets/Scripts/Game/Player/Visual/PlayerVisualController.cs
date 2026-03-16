@@ -142,7 +142,7 @@ namespace Game.Player.Visual {
             }
 
             // Get packet from manager
-            var packetManager = Network.Singletons.PlayerMaterialPacketManager.Instance;
+            var packetManager = PlayerMaterialPacketManager.Instance;
             if(packetManager == null) {
                 Debug.LogWarning("[PlayerVisualController] PlayerMaterialPacketManager not found. Falling back to legacy system.");
                 return;

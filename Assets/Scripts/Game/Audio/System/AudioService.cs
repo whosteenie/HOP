@@ -109,12 +109,11 @@ namespace Game.Audio.System {
         public bool SetBusVolume(SoundBus bus, float volumeDb) {
             if(config == null || config.mixer == null) return false;
             if(!config.TryGetBusConfig(bus, out var bc)) return false;
-            if(string.IsNullOrWhiteSpace(bc.mixerVolumeParam)) return false;
-            return config.mixer.SetFloat(bc.mixerVolumeParam, volumeDb);
+            return !string.IsNullOrWhiteSpace(bc.mixerVolumeParam) && config.mixer.SetFloat(bc.mixerVolumeParam, volumeDb);
         }
 
-        public bool Play(string id, Vector3 worldPosition, uint seed = 0) {
-            return Play(id, new PlayParams { useWorldPosition = true, worldPosition = worldPosition, seed = seed });
+        public void Play(string id, Vector3 worldPosition, uint seed = 0) {
+            Play(id, new PlayParams { useWorldPosition = true, worldPosition = worldPosition, seed = seed });
         }
 
         /// <summary>Bypasses pool/voice system: PlayOneShot on a dedicated 2D source. Use for local owner jumppad so it always plays.</summary>
@@ -139,8 +138,8 @@ namespace Game.Audio.System {
             return Play(id, new PlayParams { useWorldPosition = true, worldPosition = worldPosition, seed = seed, force2D = force2D });
         }
 
-        public bool PlayAttached(string id, Transform parent, uint seed = 0) {
-            return Play(id, new PlayParams { parent = parent, useWorldPosition = false, seed = seed });
+        public void PlayAttached(string id, Transform parent, uint seed = 0) {
+            Play(id, new PlayParams { parent = parent, useWorldPosition = false, seed = seed });
         }
 
         /// <summary>Play attached with optional 2D override so the sound is always heard (e.g. local jumppad).</summary>
@@ -168,7 +167,7 @@ namespace Game.Audio.System {
                 var now = Time.unscaledTime;
                 if(_lastPlayTime.TryGetValue(id, out var last) && now - last < cue.cooldownSeconds) {
                     EmitDroppedPlayLog(id, "cooldown",
-                        $"remaining={(cue.cooldownSeconds - (now - last)):0.000}s");
+                        $"remaining={cue.cooldownSeconds - (now - last):0.000}s");
                     return false;
                 }
                 _lastPlayTime[id] = now;
@@ -250,26 +249,23 @@ namespace Game.Audio.System {
             return true;
         }
 
-        public int Stop(string id) {
-            if(string.IsNullOrWhiteSpace(id)) return 0;
-            if(!_activeById.TryGetValue(id, out var list) || list == null || list.Count == 0) return 0;
+        public void Stop(string id) {
+            if(string.IsNullOrWhiteSpace(id)) return;
+            if(!_activeById.TryGetValue(id, out var list) || list == null || list.Count == 0) return;
 
-            var stopped = 0;
             // Respect cue stop behavior (use the first voice's cue).
             var cue = list[0] != null ? list[0].Cue : null;
             var behavior = cue != null ? cue.stopBehavior : StopBehavior.StopAll;
 
-            if(behavior == StopBehavior.NotStoppable) {
-                return 0;
-            }
-
-            if(behavior == StopBehavior.StopLast) {
-                var last = GetNewest(list);
-                if(last != null) {
+            switch(behavior) {
+                case StopBehavior.NotStoppable:
+                    return;
+                case StopBehavior.StopLast: {
+                    var last = GetNewest(list);
+                    if(last == null) return;
                     StopInternal(last, returnToPool: true);
-                    stopped = 1;
+                    return;
                 }
-                return stopped;
             }
 
             // StopAll
@@ -277,9 +273,7 @@ namespace Game.Audio.System {
                 var v = list[i];
                 if(v == null) continue;
                 StopInternal(v, returnToPool: true);
-                stopped++;
             }
-            return stopped;
         }
 
         public void StopAll() {
@@ -411,13 +405,12 @@ namespace Game.Audio.System {
                 }
             }
 
-            if(returnToPool && v.Src != null && v.Cue != null) {
-                // Jumppad: destroy source so next play gets a fresh one (reused source often fails to play).
-                if(v.Id == "gameplay.jumppad") {
-                    Destroy(v.Src.gameObject);
-                } else {
-                    ReturnToPool(v.Cue.bus, v.Src);
-                }
+            if(!returnToPool || v.Src == null || v.Cue == null) return;
+            // Jumppad: destroy source so next play gets a fresh one (reused source often fails to play).
+            if(v.Id == "gameplay.jumppad") {
+                Destroy(v.Src.gameObject);
+            } else {
+                ReturnToPool(v.Cue.bus, v.Src);
             }
         }
 
@@ -496,10 +489,9 @@ namespace Game.Audio.System {
                 if(vi.clip == null) continue;
                 if(!(vi.weight > 0f)) continue;
                 acc += vi.weight;
-                if(acc >= target) {
-                    v = vi;
-                    return i;
-                }
+                if(!(acc >= target)) continue;
+                v = vi;
+                return i;
             }
 
             // Fallback: last valid

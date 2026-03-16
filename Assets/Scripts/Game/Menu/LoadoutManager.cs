@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using Events;
 using Game.Player.Visual;
-using Network.Singletons;
 using Game.Progression;
 using Game.Settings;
 using Game.UI.Core;
