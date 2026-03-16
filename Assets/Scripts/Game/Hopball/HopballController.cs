@@ -148,6 +148,7 @@ namespace Game.Hopball {
         base.OnNetworkSpawn();
         NetworkAuthority.TryConfigureSessionOwnerObject(this);
         RegisterSessionOwnerCallbacks();
+        EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
         
         // Cache NetworkTransform reference
         if(_networkTransform == null) {
@@ -182,6 +183,7 @@ namespace Game.Hopball {
 
     public override void OnNetworkDespawn() {
         base.OnNetworkDespawn();
+        EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
 
         // Clear singleton instance
         if(Instance == this) {
@@ -215,6 +217,15 @@ namespace Game.Hopball {
         // Holder/controller references are local-only state. After migration, treat the ball as needing a clean respawn.
         if(!IsAwaitingRespawn && (IsEquipped || HolderController == null && !IsDropped)) {
             EventBus.Publish(new HopballRespawnRequestedEvent(NetworkObjectId, "SessionOwnerPromoted"));
+        }
+    }
+
+    private void OnPostMatchStarted(PostMatchStartedEvent _) {
+        var targets = GetComponentsInChildren<Target>(true);
+        foreach(var t in targets) {
+            if(t != null) {
+                t.enabled = false;
+            }
         }
     }
 

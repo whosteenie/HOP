@@ -6,7 +6,6 @@ using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
 using Game.Spawning;
-using Game.Hopball;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Network.Core;
@@ -478,7 +477,6 @@ namespace Game.Match {
                     }
                 }
 
-                DisableHopballTargets();
             } catch(Exception e) {
                 DebugHelpers.PublishCriticalError($"PostMatchManager.FadeToPodiumClientRpc failed: {e.Message}",
                     "PostMatchManager.FadeToPodiumClientRpc", e);
@@ -925,23 +923,6 @@ namespace Game.Match {
 
             if(SessionManager.Instance != null) {
                 SessionManager.Instance.LeaveToMainMenuAsync().Forget();
-            }
-        }
-
-        private static void DisableHopballTargets() {
-            // Disable Hopball target
-            if(HopballController.Instance != null) {
-                var targets = HopballController.Instance.GetComponentsInChildren<OSI.Target>(true);
-                foreach(var t in targets) {
-                    if(t != null) t.enabled = false;
-                }
-            }
-
-            // Disable all player targets (whoever is holding it)
-            foreach(var controller in PlayerHopballController.Instances) {
-                if(controller == null || controller.PlayerController == null) continue;
-                var target = controller.PlayerController.PlayerTarget;
-                if(target != null) target.enabled = false;
             }
         }
 

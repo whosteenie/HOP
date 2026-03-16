@@ -93,13 +93,6 @@ namespace Game.Match {
 
             // Ensure world model root and weapon are active for podium
             if(playerController != null) {
-                // Force-clear any lingering hopball visual state before podium snapshot.
-                if(playerController.PlayerHopballController != null) {
-                    playerController.PlayerHopballController.CancelPostMatchHopballTransitions();
-                    playerController.PlayerHopballController.ClearHopballReference();
-                    playerController.PlayerHopballController.CleanupHopballVisuals();
-                }
-
                 var worldModelRoot = playerController.PlayerModelRoot;
                 GameObject worldWeapon = null;
                 if(_visualController != null) {

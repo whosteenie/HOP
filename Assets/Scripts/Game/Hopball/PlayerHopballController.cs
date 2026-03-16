@@ -245,6 +245,7 @@ namespace Game.Hopball {
                 InstancesInternal.Add(this);
             }
 
+            EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
             EventBus.Subscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
             EventBus.Subscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Subscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
@@ -276,6 +277,7 @@ namespace Game.Hopball {
             if(HopballController.Instance != null) {
                 HopballController.Instance.OnControllerUnregistered(this);
             }
+            EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
             EventBus.Unsubscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
             EventBus.Unsubscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Unsubscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
@@ -284,6 +286,22 @@ namespace Game.Hopball {
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
             if(_armAnimationEvents != null) {
                 _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
+            }
+        }
+
+        private void OnPostMatchStarted(PostMatchStartedEvent _) {
+            if(playerController == null) return;
+
+            CancelPostMatchHopballTransitions();
+            ClearHopballReference();
+            CleanupHopballVisuals();
+
+            if(_playerTarget == null) {
+                _playerTarget = playerController.PlayerTarget;
+            }
+
+            if(_playerTarget != null) {
+                _playerTarget.enabled = false;
             }
         }
 
