@@ -3,11 +3,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
-using Game.Audio.System;
-using Game.Match;
-using Game.Menu;
-using Game.Player.Core;
-using Game.UI.Misc;
 using Network.Core;
 using Network.SessionContracts;
 using Network.Steam;
@@ -19,8 +14,105 @@ using UnityEngine.SceneManagement;
 namespace Network.Session {
     /// <summary>
     /// Handles unexpected disconnect and gameplay readiness (wait for player/menu/timer ready).
+    /// Presentation and game-specific behavior are provided via delegates so Network.Session
+    /// does not depend directly on Game.* types.
     /// </summary>
     public sealed class SessionSceneFlow {
+        // Gameplay readiness (player/menu/match timer)
+        private static Func<bool> isLocalPlayerReady;
+        private static Func<bool> isGameMenuReady;
+        private static Func<bool> isMatchTimerReady;
+
+        // Scene transitions (fade in/out) and availability
+        private static Func<bool> hasSceneTransitionProvider;
+        private static Func<int, UniTask> fadeOutProvider;
+        private static Func<int, UniTask> fadeInProvider;
+
+        // Disconnect FP visuals (duplicate / cleanup)
+        private static Action<GameObject> captureDisconnectVisuals;
+        private static Action cleanupDisconnectVisuals;
+
+        // Audio stop hook used during leave-to-menu flow
+        private static Action stopAllAudio;
+
+        // Map selection and lookup
+        private static Func<string, (bool ok, string sceneName)> getSceneByMapId;
+        private static Func<string, (bool ok, string mapId, string sceneName)> selectRandomSceneForMode;
+        private static Func<(string mapId, string sceneName)> getDefaultMap;
+
+        // Main menu readiness
+        private static Func<bool> isMainMenuReady;
+
+        // Match timer / scene-presented notification
+        // Parameters: isHost, localClientId, reason
+        private static Action<bool, ulong, string> notifyScenePresented;
+
+        /// <summary>
+        /// Registers providers for gameplay readiness checks.
+        /// </summary>
+        public static void SetGameplayReadinessProviders(
+            Func<bool> isLocalPlayerReady,
+            Func<bool> isGameMenuReady,
+            Func<bool> isMatchTimerReady) {
+            SessionSceneFlow.isLocalPlayerReady = isLocalPlayerReady;
+            SessionSceneFlow.isGameMenuReady = isGameMenuReady;
+            SessionSceneFlow.isMatchTimerReady = isMatchTimerReady;
+        }
+
+        /// <summary>
+        /// Registers providers for scene transition availability and fade in/out behavior.
+        /// </summary>
+        public static void SetSceneTransitionProviders(
+            Func<bool> hasSceneTransition,
+            Func<int, UniTask> fadeOutProvider,
+            Func<int, UniTask> fadeInProvider) {
+            hasSceneTransitionProvider = hasSceneTransition;
+            SessionSceneFlow.fadeOutProvider = fadeOutProvider;
+            SessionSceneFlow.fadeInProvider = fadeInProvider;
+        }
+
+        /// <summary>
+        /// Registers providers for disconnect FP visuals (duplicate / cleanup).
+        /// </summary>
+        public static void SetDisconnectVisualProviders(
+            Action<GameObject> captureDisconnectVisuals,
+            Action cleanupDisconnectVisuals) {
+            SessionSceneFlow.captureDisconnectVisuals = captureDisconnectVisuals;
+            SessionSceneFlow.cleanupDisconnectVisuals = cleanupDisconnectVisuals;
+        }
+
+        /// <summary>
+        /// Registers a provider used to stop all game audio during leave-to-menu flows.
+        /// </summary>
+        public static void SetStopAllAudioProvider(Action stopAllAudio) {
+            SessionSceneFlow.stopAllAudio = stopAllAudio;
+        }
+
+        /// <summary>
+        /// Registers providers for map lookup and selection for the current mode.
+        /// </summary>
+        public static void SetMapSelectionProviders(
+            Func<string, (bool ok, string sceneName)> getSceneByMapId,
+            Func<string, (bool ok, string mapId, string sceneName)> selectRandomSceneForMode,
+            Func<(string mapId, string sceneName)> getDefaultMap) {
+            SessionSceneFlow.getSceneByMapId = getSceneByMapId;
+            SessionSceneFlow.selectRandomSceneForMode = selectRandomSceneForMode;
+            SessionSceneFlow.getDefaultMap = getDefaultMap;
+        }
+
+        /// <summary>
+        /// Registers a provider that reports whether the main menu is fully initialized.
+        /// </summary>
+        public static void SetMainMenuReadyProvider(Func<bool> isMainMenuReady) {
+            SessionSceneFlow.isMainMenuReady = isMainMenuReady;
+        }
+
+        /// <summary>
+        /// Registers a notifier used to inform the match timer that the game scene has been presented.
+        /// </summary>
+        public static void SetScenePresentedNotifier(Action<bool, ulong, string> notifyScenePresented) {
+            SessionSceneFlow.notifyScenePresented = notifyScenePresented;
+        }
         private sealed class GameplayReadinessLatch {
             private readonly UniTaskCompletionSource<bool> _completion = new();
             private bool _localPlayerReady;
@@ -73,20 +165,23 @@ namespace Network.Session {
                 if(evt == null) return;
 
                 var nm = NetworkManager.Singleton;
-                if(nm != null &&
-                   evt.ClientId == nm.LocalClientId &&
-                   PlayerController.LocalPlayer != null &&
-                   PlayerController.LocalPlayer.IsSpawned) {
-                    latch.SignalLocalPlayerReady();
+                if(nm != null && evt.ClientId == nm.LocalClientId) {
+                    if(isLocalPlayerReady == null || isLocalPlayerReady()) {
+                        latch.SignalLocalPlayerReady();
+                    }
                 }
             }
 
             void OnGameMenuReady(GameMenuReadyEvent _) {
-                latch.SignalGameMenuReady();
+                if(isGameMenuReady == null || isGameMenuReady()) {
+                    latch.SignalGameMenuReady();
+                }
             }
 
             void OnMatchTimerReady(MatchTimerReadyEvent _) {
-                latch.SignalMatchTimerReady();
+                if(isMatchTimerReady == null || isMatchTimerReady()) {
+                    latch.SignalMatchTimerReady();
+                }
             }
 
             void OnActiveSceneChanged(Scene _, Scene nextScene) {
@@ -102,11 +197,11 @@ namespace Network.Session {
             EventBus.Subscribe<MatchTimerReadyEvent>(OnMatchTimerReady);
             SceneManager.activeSceneChanged += OnActiveSceneChanged;
 
-            if(PlayerController.LocalPlayer != null && PlayerController.LocalPlayer.IsSpawned)
+            if(isLocalPlayerReady != null && isLocalPlayerReady())
                 latch.SignalLocalPlayerReady();
-            if(GameMenuManager.Instance != null)
+            if(isGameMenuReady != null && isGameMenuReady())
                 latch.SignalGameMenuReady();
-            if(MatchTimerManager.Instance != null)
+            if(isMatchTimerReady != null && isMatchTimerReady())
                 latch.SignalMatchTimerReady();
 
             var ready = false;
@@ -178,10 +273,10 @@ namespace Network.Session {
             }
         }
 
-        /// <summary>Fade out via SceneTransitionManager or delay. Used by SessionManager and disconnect flow.</summary>
+        /// <summary>Fade out via game-provided transition or delay. Used by SessionManager and disconnect flow.</summary>
         public static async UniTask FadeOutWithFallbackAsync(int fallbackDelayMs = 500) {
-            if(SceneTransitionManager.Instance != null) {
-                await SceneTransitionManager.Instance.FadeOutAsync();
+            if(fadeOutProvider != null) {
+                await fadeOutProvider(fallbackDelayMs);
                 return;
             }
             await UniTask.Delay(fallbackDelayMs);
@@ -193,10 +288,11 @@ namespace Network.Session {
         /// </summary>
         public static async UniTask RunPreFadePrivateHostAsync(ISessionContext ctx, Action<bool> setHostPreFadedOut) {
             setHostPreFadedOut?.Invoke(false);
-            if(SceneTransitionManager.Instance == null) return;
+            // Only run pre-fade when the game has an actual scene transition system.
+            if(hasSceneTransitionProvider == null || hasSceneTransitionProvider() == false) return;
             setHostPreFadedOut?.Invoke(true);
             ctx.SetFrontStatus(SessionPhase.SynchronizingLoad, "Waiting for party...");
-            await SceneTransitionManager.Instance.FadeOutAsync();
+            await FadeOutWithFallbackAsync();
         }
 
         /// <summary>
@@ -268,31 +364,20 @@ namespace Network.Session {
                 if(Debug.isDebugBuild) Debug.Log("[SessionManager] CaptureFp: early out nm or LocalClient null");
                 return;
             }
+            if(captureDisconnectVisuals == null) return;
             var playerObject = networkManager.LocalClient.PlayerObject;
             if(playerObject == null) {
                 if(Debug.isDebugBuild)
                     Debug.Log("[SessionManager] CaptureFp: early out playerObject null (despawned?)");
                 return;
             }
-            var playerController = playerObject.GetComponent<PlayerController>();
-            if(playerController == null) {
-                if(Debug.isDebugBuild) Debug.Log("[SessionManager] CaptureFp: early out playerController null");
-                return;
-            }
-            if(DisconnectTransitionController.Instance == null && Debug.isDebugBuild)
-                Debug.Log("[SessionManager] Disconnect: DisconnectTransitionController.Instance is null");
-            var duplicateShown = DisconnectTransitionController.Instance != null &&
-                                 DisconnectTransitionController.Instance.CaptureDuplicateFpVisuals(playerController);
-            if(duplicateShown) return;
-            if(Debug.isDebugBuild)
-                Debug.Log("[SessionManager] Disconnect: duplicate failed, using HideFpVisuals fallback");
-            playerController.HideFpVisualsForDisconnectTransition();
+            captureDisconnectVisuals(playerObject.gameObject);
         }
 
-        /// <summary>Fade in via SceneTransitionManager or delay.</summary>
+        /// <summary>Fade in via game-provided transition or delay.</summary>
         private static async UniTask FadeInWithFallbackAsync(int fallbackDelayMs = 500) {
-            if(SceneTransitionManager.Instance != null) {
-                await SceneTransitionManager.Instance.FadeInAsync();
+            if(fadeInProvider != null) {
+                await fadeInProvider(fallbackDelayMs);
                 return;
             }
             await UniTask.Delay(fallbackDelayMs);
@@ -314,8 +399,7 @@ namespace Network.Session {
             await actions.ClearMatchmakingStateAsync();
             FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_MATCHMAKING_CLEARED"));
 
-            if(AudioService.Instance != null)
-                AudioService.Instance.StopAll();
+            stopAllAudio?.Invoke();
 
             var currentScene = actions.GetActiveSceneName();
             var shouldFade = currentScene != "MainMenu";
@@ -327,8 +411,8 @@ namespace Network.Session {
                 ("shouldFade", shouldFade),
                 ("shouldRevealMenu", shouldRevealMenu));
 
-            if(skipFadeOut && DisconnectTransitionController.Instance != null)
-                DisconnectTransitionController.Instance.CleanupDuplicate();
+            if(skipFadeOut)
+                cleanupDisconnectVisuals?.Invoke();
 
             if(shouldFade && !skipFadeOut) {
                 FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_OUT_BEGIN"));
@@ -382,14 +466,14 @@ namespace Network.Session {
         }
 
         /// <summary>
-        /// Waits until MainMenuManager.Instance is non-null (with timeout and cancellation).
+        /// Waits until the main menu is ready (as reported by the game-provided provider).
         /// </summary>
         private static async UniTask<bool> WaitForMainMenuReadyAsync(float timeoutSeconds,
             CancellationToken cancellationToken) {
             var start = Time.realtimeSinceStartup;
             while(Time.realtimeSinceStartup - start < timeoutSeconds) {
                 if(cancellationToken.IsCancellationRequested) return false;
-                if(MainMenuManager.Instance != null) return true;
+                if(isMainMenuReady != null && isMainMenuReady()) return true;
                 await UniTask.DelayFrame(1, cancellationToken: cancellationToken);
             }
             return false;
@@ -415,7 +499,9 @@ namespace Network.Session {
         /// </summary>
         public static void RunSetSelectedMapFromId(ISessionContext ctx, IHostMapSceneActions hostMapActions, string mapId) {
             if(ctx == null || hostMapActions == null || string.IsNullOrWhiteSpace(mapId)) return;
-            if(!MatchMapService.TryGetSceneByMapId(mapId, out var sceneName)) return;
+            if(getSceneByMapId == null) return;
+            var (ok, sceneName) = getSceneByMapId(mapId);
+            if(!ok) return;
             hostMapActions.SetSelectedMap(mapId, sceneName);
             ctx.SetPrivateMatchMapPreset(true);
             if(Debug.isDebugBuild)
@@ -432,10 +518,17 @@ namespace Network.Session {
                     Debug.Log(
                         $"[SessionManager] Using preset private match map ({context}) mapId='{ctx.SelectedMapId}' scene='{ctx.SelectedMapSceneName}'.");
                 }
-            } else if(MatchMapService.TrySelectRandomScene(ctx.SelectedGameMode, out var sceneName, out var mapId)) {
-                actions.SetSelectedMap(mapId, sceneName);
-            } else {
-                actions.SetSelectedMap(MatchMapService.DefaultMapId, MatchMapService.DefaultGameplaySceneName);
+            } else if(selectRandomSceneForMode != null) {
+                var (ok, mapId, sceneName) = selectRandomSceneForMode(ctx.SelectedGameMode);
+                if(ok) {
+                    actions.SetSelectedMap(mapId, sceneName);
+                } else if(getDefaultMap != null) {
+                    var (defaultMapId, defaultScene) = getDefaultMap();
+                    actions.SetSelectedMap(defaultMapId, defaultScene);
+                }
+            } else if(getDefaultMap != null) {
+                var (defaultMapId, defaultScene) = getDefaultMap();
+                actions.SetSelectedMap(defaultMapId, defaultScene);
             }
             if(Debug.isDebugBuild && !usedPreset) {
                 Debug.Log(
@@ -451,6 +544,11 @@ namespace Network.Session {
             if(!actions.TryGetNetworkManager(contextLabel, out _))
                 return false;
             SelectMapForHost(ctx, actions, contextLabel);
+            if(string.IsNullOrWhiteSpace(ctx.SelectedMapSceneName)) {
+                Debug.LogError(
+                    $"[SessionManager] Cannot load gameplay scene: SelectedMapSceneName is empty after map selection (context='{contextLabel}', mode='{ctx.SelectedGameMode ?? "<null>"}').");
+                return false;
+            }
             ctx.SetPhase(SessionPhase.LoadingScene);
             actions.LoadScene(ctx.SelectedMapSceneName);
             return true;
@@ -507,7 +605,8 @@ namespace Network.Session {
 
                 await actions.UnsubscribeMatchLobbyAsync("OnGameSceneLoadedAsync/InGame");
 
-                if(SceneTransitionManager.Instance != null) {
+                var hasSceneTransition = hasSceneTransitionProvider != null && hasSceneTransitionProvider();
+                if(hasSceneTransition) {
                     var ready = await WaitForGameplayReadyAsync(ctx, sceneActions, 20f);
                     if(!ready) {
                         Debug.LogWarning(
@@ -515,21 +614,15 @@ namespace Network.Session {
                     }
 
                     if(actions.IsCurrentGameScenePresentation(presentationSerial) && !ctx.IsLeaving && !ctx.IsShuttingDown) {
-                        await SceneTransitionManager.Instance.FadeInAsync();
-                        if(MatchTimerManager.Instance != null && actions.TryGetNetworkManager(out var nm) && nm.IsClient) {
-                            if(NetworkAuthority.HasGlobalAuthority(nm)) {
-                                MatchTimerManager.Instance.MarkClientScenePresented(nm.LocalClientId, "HostLocalFadeIn");
-                            } else {
-                                MatchTimerManager.Instance.ReportScenePresentedServerRpc();
-                            }
+                        await FadeInWithFallbackAsync();
+                        if(notifyScenePresented != null && actions.TryGetNetworkManager(out var nm) && nm.IsClient) {
+                            var isHost = NetworkAuthority.HasGlobalAuthority(nm);
+                            notifyScenePresented(isHost, nm.LocalClientId, "HostLocalFadeIn");
                         }
                     }
-                } else if(MatchTimerManager.Instance != null && actions.TryGetNetworkManager(out var nm) && nm.IsClient) {
-                    if(NetworkAuthority.HasGlobalAuthority(nm)) {
-                        MatchTimerManager.Instance.MarkClientScenePresented(nm.LocalClientId, "HostNoTransitionManager");
-                    } else {
-                        MatchTimerManager.Instance.ReportScenePresentedServerRpc();
-                    }
+                } else if(notifyScenePresented != null && actions.TryGetNetworkManager(out var nm) && nm.IsClient) {
+                    var isHost = NetworkAuthority.HasGlobalAuthority(nm);
+                    notifyScenePresented(isHost, nm.LocalClientId, "HostNoTransitionManager");
                 }
             } catch(Exception ex) {
                 Debug.LogException(ex);

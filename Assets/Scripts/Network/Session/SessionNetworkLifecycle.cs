@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Events;
-using Game.Social;
 using Network.Core;
 using Network.SessionContracts;
 using Unity.Netcode;
@@ -19,6 +18,12 @@ namespace Network.Session {
     /// Shuts down Netcode/UGS session and NGO: leave DA session, then shutdown NetworkManager.
     /// </summary>
     public static class SessionNetworkLifecycle {
+        // Game-provided identity hooks. Until wired by a game adapter, these
+        // return placeholder values (0 / empty / "Player") so the network layer
+        // can run without depending directly on Game.Social.LocalIdentity.
+        public static Func<ulong> GetSteamIdProvider { get; set; } = () => 0UL;
+        public static Func<string> GetUgsPlayerIdProvider { get; set; } = () => "";
+        public static Func<string> GetDisplayNameProvider { get; set; } = () => "Player";
         private const int ShutdownMaxWaitFrames = 240;
         private const string MultiplayerSessionType = "HOP.Match";
         private const string MultiplayerSessionModeKey = "mode";
@@ -104,15 +109,12 @@ namespace Network.Session {
         public static void ApplyLocalConnectionPayload(ISessionContext ctx, bool isPrivateMatch) {
             if(ctx == null || !ctx.TryGetNetworkManager("ApplyLocalConnectionPayload", out var networkManager))
                 return;
-            var customNm = networkManager.GetComponent<CustomNetworkManager>();
-            if(customNm != null)
-                customNm.ConfigureSessionMetadata(isPrivateMatch);
             var payload = new ConnectionPayload {
                 partyId = ctx.CurrentPartyId ?? "",
                 isPrivateMatch = isPrivateMatch,
-                steamId = LocalIdentity.GetSteamId(),
-                ugsPlayerId = LocalIdentity.GetUgsPlayerId(),
-                displayName = LocalIdentity.GetDisplayName()
+                steamId = GetSteamIdProvider != null ? GetSteamIdProvider() : 0UL,
+                ugsPlayerId = GetUgsPlayerIdProvider != null ? GetUgsPlayerIdProvider() : "",
+                displayName = GetDisplayNameProvider != null ? GetDisplayNameProvider() : "Player"
             };
             networkManager.NetworkConfig.ConnectionData = ConnectionPayload.Encode(payload);
         }
@@ -249,10 +251,13 @@ namespace Network.Session {
         }
 
         private static JoinSessionOptions BuildJoinSessionOptions(ISessionContext ctx) {
+            var displayName = GetDisplayNameProvider != null ? GetDisplayNameProvider() : "Player";
+            var steamId = GetSteamIdProvider != null ? GetSteamIdProvider() : 0UL;
+
             var joinOptions = new JoinSessionOptions {
                 Type = MultiplayerSessionType,
                 PlayerProperties = new Dictionary<string, PlayerProperty> {
-                    ["displayName"] = new(LocalIdentity.GetDisplayName(), VisibilityPropertyOptions.Member)
+                    ["displayName"] = new(displayName, VisibilityPropertyOptions.Member)
                 }
             };
             if(!string.IsNullOrEmpty(ctx.CurrentPartyId)) {
@@ -260,7 +265,6 @@ namespace Network.Session {
                     new PlayerProperty(ctx.CurrentPartyId, VisibilityPropertyOptions.Member);
             }
 
-            var steamId = LocalIdentity.GetSteamId();
             if(steamId != 0) {
                 joinOptions.PlayerProperties[MultiplayerSessionSteamIdKey] =
                     new PlayerProperty(steamId.ToString(), VisibilityPropertyOptions.Member);
@@ -273,6 +277,9 @@ namespace Network.Session {
         /// Builds SessionOptions for DA create (name, max players, session/player properties, DA network).
         /// </summary>
         private static SessionOptions BuildDaSessionOptions(ISessionContext ctx, int maxPlayers, bool isPrivateMatch) {
+            var displayName = GetDisplayNameProvider != null ? GetDisplayNameProvider() : "Player";
+            var steamId = GetSteamIdProvider != null ? GetSteamIdProvider() : 0UL;
+
             var options = new SessionOptions {
                 Name = $"HOP {ctx.SelectedGameMode}",
                 MaxPlayers = Mathf.Max(1, maxPlayers),
@@ -283,7 +290,7 @@ namespace Network.Session {
                     [MultiplayerSessionMatchTypeKey] = new(isPrivateMatch ? "Private" : "Public")
                 },
                 PlayerProperties = new Dictionary<string, PlayerProperty> {
-                    ["displayName"] = new(LocalIdentity.GetDisplayName(), VisibilityPropertyOptions.Member)
+                    ["displayName"] = new(displayName, VisibilityPropertyOptions.Member)
                 }
             };
 
@@ -292,7 +299,6 @@ namespace Network.Session {
                     new PlayerProperty(ctx.CurrentPartyId, VisibilityPropertyOptions.Member);
             }
 
-            var steamId = LocalIdentity.GetSteamId();
             if(steamId != 0) {
                 options.PlayerProperties[MultiplayerSessionSteamIdKey] =
                     new PlayerProperty(steamId.ToString(), VisibilityPropertyOptions.Member);

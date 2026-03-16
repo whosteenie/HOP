@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
-using Game.Match;
 using Network.SessionContracts;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
@@ -27,6 +26,21 @@ namespace Network.Session {
         private ISessionContext _ctx;
         private IMatchmakerSessionActions _actions;
         private SessionMatchLobby _matchLobby;
+
+        // Game-provided hooks for mode-specific matchmaking behavior.
+        private static Func<string, int> resolveMaxPlayersForMode;
+        private static Action<string> resetPublicRuntimeMatchSettings;
+
+        /// <summary>
+        /// Registers game-specific hooks used by the matchmaker for determining max players
+        /// and resetting public runtime match settings for a given mode.
+        /// </summary>
+        public static void SetMatchmakerGameHooks(
+            Func<string, int> resolveMaxPlayersForMode,
+            Action<string> resetPublicRuntimeMatchSettings) {
+            SessionMatchmaker.resolveMaxPlayersForMode = resolveMaxPlayersForMode;
+            SessionMatchmaker.resetPublicRuntimeMatchSettings = resetPublicRuntimeMatchSettings;
+        }
 
         private string _matchmakerTicketId;
         private string _matchmakerQueueName;
@@ -217,34 +231,27 @@ namespace Network.Session {
         }
 
         private static int ResolveMaxPlayersForMode(string mode) {
-            var def = MatchSettingsManager.Instance != null
-                ? MatchSettingsManager.Instance.GetGamemodeDef(mode)
-                : default;
+            int resolved;
+            if(resolveMaxPlayersForMode != null) {
+                resolved = resolveMaxPlayersForMode(mode);
+            } else {
+                // Sensible default when no provider is registered.
+                resolved = 10;
+            }
 
-            var maxPlayers = 10;
-            if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
-            return maxPlayers;
-        }
+            if(resolved <= 0) {
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning(
+                        $"[SessionMatchmaker] resolveMaxPlayersForMode returned {resolved} for mode '{mode}'. Clamping to 1.");
+                }
+                resolved = 1;
+            }
 
-        private static int ResolveDefaultPublicScoreToWin(string mode) {
-            if(string.Equals(mode, "Hopball", StringComparison.OrdinalIgnoreCase)) return 60;
-            return string.Equals(mode, "KOTH", StringComparison.OrdinalIgnoreCase) ? 200 : 50;
+            return resolved;
         }
 
         private static void ResetPublicRuntimeMatchSettings(string mode) {
-            var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings == null) return;
-
-            var defaultDuration = matchSettings.defaultMatchDurationSeconds > 0
-                ? matchSettings.defaultMatchDurationSeconds
-                : 600;
-
-            matchSettings.matchDurationSeconds = defaultDuration;
-            matchSettings.preMatchCountdownEnabled = true;
-            matchSettings.swapWeaponsOnDeath = true;
-            matchSettings.scoreToWin = ResolveDefaultPublicScoreToWin(mode);
-            matchSettings.kothHillSpeed = 1;
-            matchSettings.taggedPlayers = 1;
+            resetPublicRuntimeMatchSettings?.Invoke(mode);
         }
 
         private static Dictionary<string, object> BuildMatchmakerTicketAttributes(string mode) {

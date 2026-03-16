@@ -2,12 +2,6 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
-using Game.Hopball;
-using Game.Match;
-using Game.Player.Core;
-using Game.Social;
-using Game.Spawning;
-using Network.Core;
 using Network.SessionContracts;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
@@ -45,6 +39,12 @@ namespace Network.Session {
         private const string UgsMemberReadyKey = "readyToLoad";
 
         private float _nextUgsHeartbeatTime;
+
+        /// <summary>
+        /// Game-provided hook that decides whether a public match is still eligible for backfill.
+        /// If not set, backfill remains allowed by default.
+        /// </summary>
+        public static Func<ISessionContext, (bool allowed, string reason)> BackfillEligibilityProvider { get; set; }
 
         /// <summary>Build options to set readyToLoad=1 on the local player. Used by SessionManager.</summary>
         private static UpdatePlayerOptions BuildReadyToLoadUpdatePlayerOptions() {
@@ -145,10 +145,16 @@ namespace Network.Session {
 
         private static Player BuildLobbyPlayer() {
             var pid = AuthenticationService.Instance.PlayerId;
+            var displayName = SessionNetworkLifecycle.GetDisplayNameProvider != null
+                ? SessionNetworkLifecycle.GetDisplayNameProvider()
+                : "Player";
+            var steamId = SessionNetworkLifecycle.GetSteamIdProvider != null
+                ? SessionNetworkLifecycle.GetSteamIdProvider()
+                : 0UL;
+
             var data = new Dictionary<string, PlayerDataObject> {
-                ["displayName"] = new(PlayerDataObject.VisibilityOptions.Member, LocalIdentity.GetDisplayName())
+                ["displayName"] = new(PlayerDataObject.VisibilityOptions.Member, displayName)
             };
-            var steamId = LocalIdentity.GetSteamId();
             if(steamId != 0) {
                 data["steamId"] = new PlayerDataObject(PlayerDataObject.VisibilityOptions.Member, steamId.ToString());
             }
@@ -370,101 +376,20 @@ namespace Network.Session {
 
         /// <summary>Game rules: whether this public match is still eligible for backfill join-in-progress.</summary>
         private static (bool allowed, string reason) EvaluateBackfillEligibility(ISessionContext ctx) {
-            var matchSettings = MatchSettingsManager.Instance;
-            var mode = matchSettings != null && !string.IsNullOrWhiteSpace(matchSettings.selectedGameModeId)
-                ? matchSettings.selectedGameModeId
-                : ctx.SelectedGameMode;
-
-            if(string.IsNullOrWhiteSpace(mode)) return (true, "UnknownMode");
-
-            if(PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted)
-                return (false, "PostMatch");
-
-            var timer = MatchTimerManager.Instance;
-            if(timer != null) {
-                if(timer.IsWaitingForPlayers || timer.IsPreMatch) return (true, "PreMatch");
-                var duration = matchSettings != null ? matchSettings.GetMatchDurationSeconds() : 0;
-                if(duration > 0 && timer.TimeRemainingSeconds >= 0) {
-                    var remainingFraction = timer.TimeRemainingSeconds / (float)Mathf.Max(1, duration);
-                    var minRemaining = ResolveBackfillTimeRemainingThreshold(mode);
-                    if(remainingFraction <= minRemaining) return (false, $"LateTime:{remainingFraction:0.00}");
+            if(BackfillEligibilityProvider != null) {
+                try {
+                    return BackfillEligibilityProvider(ctx);
+                } catch(Exception ex) {
+                    if(Debug.isDebugBuild) {
+                        Debug.LogWarning($"[SessionMatchLobby] BackfillEligibilityProvider threw: {ex.Message}");
+                    }
+                    // Fail-open: allow backfill but surface the reason.
+                    return (true, "ProviderException");
                 }
             }
 
-            var scoreToWin = matchSettings != null ? matchSettings.GetScoreToWin() : 0;
-            if(scoreToWin <= 0) return (true, "Eligible");
-
-            var scoreProgress = ResolveBackfillScoreProgress(mode);
-            if(scoreProgress <= 0f) return (true, "Eligible");
-            var progressThreshold = ResolveBackfillScoreThreshold(mode);
-            if(progressThreshold <= 0f) return (true, "Eligible");
-            return scoreProgress >= progressThreshold ? (false, $"LateScore:{scoreProgress:0.00}") : (true, "Eligible");
-        }
-
-        private static float ResolveBackfillTimeRemainingThreshold(string mode) => mode switch {
-            "Hopball" => 0.20f, "KOTH" => 0.20f, "Team Deathmatch" => 0.20f, "Deathmatch" => 0.20f, "Gun Tag" => 0.20f,
-            _ => 0.15f
-        };
-
-        private static float ResolveBackfillScoreThreshold(string mode) => mode switch {
-            "Hopball" => 0.70f, "KOTH" => 0.80f, "Team Deathmatch" => 0.75f, "Deathmatch" => 0.80f, "Gun Tag" => 0f,
-            _ => 0.80f
-        };
-
-        private static float ResolveBackfillScoreProgress(string mode) => mode switch {
-            "Hopball" => ResolveHopballBackfillScoreProgress(),
-            "KOTH" => ResolveKothBackfillScoreProgress(),
-            "Team Deathmatch" => ResolveLeadingTeamKillProgress(),
-            "Deathmatch" => ResolveLeadingFfaKillProgress(),
-            "Gun Tag" => 0f,
-            _ => 0f
-        };
-
-        private static float ResolveHopballBackfillScoreProgress() {
-            var hopballManager = HopballSpawnManager.Instance;
-            return hopballManager == null ? 0f : ResolveLeadingTeamObjectiveProgress(hopballManager.GetTeamAScore(), hopballManager.GetTeamBScore());
-        }
-
-        private static float ResolveKothBackfillScoreProgress() {
-            var kothManager = KingOfTheHillManager.Instance;
-            return kothManager == null ? 0f : ResolveLeadingTeamObjectiveProgress(kothManager.GetTeamAScore(), kothManager.GetTeamBScore());
-        }
-
-        private static float ResolveLeadingTeamObjectiveProgress(int teamAScore, int teamBScore) {
-            var scoreToWin = MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : 0;
-            if(scoreToWin <= 0) return 0f;
-            var leadingScore = Mathf.Max(teamAScore, teamBScore);
-            return leadingScore / (float)Mathf.Max(1, scoreToWin);
-        }
-
-        private static float ResolveLeadingFfaKillProgress() {
-            var scoreToWin = MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : 0;
-            if(scoreToWin <= 0) return 0f;
-            var leadingKills = 0;
-            foreach(var player in PlayerController.SpawnedPlayers) {
-                if(player == null || player.NetworkObject == null || !player.NetworkObject.IsSpawned) continue;
-                leadingKills = Mathf.Max(leadingKills, player.Kills.Value);
-            }
-            return leadingKills / (float)Mathf.Max(1, scoreToWin);
-        }
-
-        private static float ResolveLeadingTeamKillProgress() {
-            var scoreToWin = MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : 0;
-            if(scoreToWin <= 0) return 0f;
-            var teamAKills = 0;
-            var teamBKills = 0;
-            foreach(var player in PlayerController.SpawnedPlayers) {
-                if(player == null || player.NetworkObject == null || !player.NetworkObject.IsSpawned) continue;
-                var teamManager = player.TeamManager;
-                if(teamManager == null) continue;
-                switch(teamManager.netTeam.Value) {
-                    case SpawnPoint.Team.TeamA: teamAKills += player.Kills.Value; break;
-                    case SpawnPoint.Team.TeamB: teamBKills += player.Kills.Value; break;
-                    case SpawnPoint.Team.None: break;
-                    default: throw new ArgumentOutOfRangeException();
-                }
-            }
-            return Mathf.Max(teamAKills, teamBKills) / (float)Mathf.Max(1, scoreToWin);
+            // If no provider is registered, default to allowing backfill.
+            return (true, "NoProvider");
         }
 
         private static async UniTask<bool> TryUpdateBackfillEligibilityAsync(ISessionContext ctx, bool allowed, string reason, string context) {

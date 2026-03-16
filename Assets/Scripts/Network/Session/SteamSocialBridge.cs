@@ -2,8 +2,6 @@ using System;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
-using Game.Settings;
-using Game.Social;
 using Network.SessionContracts;
 using Steamworks;
 using UnityEngine;
@@ -18,12 +16,55 @@ namespace Network.Session {
         private const string TargetModeKey = "TargetMode";
         private const string SteamUgsPartyCodeKey = "UgsPartyCode";
         private const string SteamUgsMatchLobbyIdKey = "UgsMatchLobbyId";
-        private const string DisplayNameKey = "DisplayName";
-        private const string AvatarHiddenKey = "AvatarHidden";
-        private const string PlayerIconKey = "PlayerIcon";
+
+        // Shared Steam lobby member-data keys used by game-side adapters.
+        public const string DisplayNameKey = "DisplayName";
+        public const string AvatarHiddenKey = "AvatarHidden";
+        public const string PlayerIconKey = "PlayerIcon";
 
         private ISessionContext _ctx;
         private ISteamSessionActions _actions;
+
+        // Game-provided hooks
+        private static Action<string, bool> lobbyPresenceNotifier;
+        private static Action<ISessionContext> updateLocalDisplayMetadata;
+
+        private static void SafeInvokeLobbyPresenceNotifier(string friendName, bool joined) {
+            if(lobbyPresenceNotifier == null) return;
+            try {
+                lobbyPresenceNotifier(friendName, joined);
+            } catch(Exception ex) {
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning(
+                        $"[SessionManager] LobbyPresenceNotifier threw an exception for friend='{friendName}' joined={joined}: {ex.Message}");
+                }
+            }
+        }
+
+        private static void SafeUpdateLocalDisplayMetadata(ISessionContext ctx) {
+            if(updateLocalDisplayMetadata == null || ctx == null) return;
+            try {
+                updateLocalDisplayMetadata(ctx);
+            } catch(Exception ex) {
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning(
+                        $"[SessionManager] UpdateLocalDisplayMetadata threw an exception for lobby='{ctx.CurrentLobby?.Id}': {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Register game hook to send lobby presence messages (joined/left) to chat or other systems.
+        /// Parameters: friendName, joined (true on join, false on leave).
+        /// </summary>
+        public static void SetLobbyPresenceNotifier(Action<string, bool> notifier) =>
+            lobbyPresenceNotifier = notifier;
+
+        /// <summary>
+        /// Register game hook to update local display metadata (name, avatar visibility, icon) in the Steam lobby.
+        /// </summary>
+        public static void SetUpdateLocalDisplayMetadata(Action<ISessionContext> updater) =>
+            updateLocalDisplayMetadata = updater;
 
         public void Register(ISessionContext ctx, ISteamSessionActions actions) {
             _ctx = ctx;
@@ -85,8 +126,8 @@ namespace Network.Session {
                 return;
             }
 
-            if(friend.Id != SteamClient.SteamId && ChatManager.Instance != null) {
-                ChatManager.SendLobbyPresenceMessage(friend.Name, true);
+            if(friend.Id != SteamClient.SteamId) {
+                SafeInvokeLobbyPresenceNotifier(friend.Name, true);
             }
 
             if(_ctx.CurrentLobby.HasValue && _ctx.CurrentLobby.Value.Id == lobby.Id && lobby.MemberCount > 1) {
@@ -102,8 +143,8 @@ namespace Network.Session {
             }
 
             if(_ctx is { CurrentLobby: not null } && _ctx.CurrentLobby.Value.Id == lobby.Id &&
-               friend.Id != SteamClient.SteamId && ChatManager.Instance != null) {
-                ChatManager.SendLobbyPresenceMessage(friend.Name, false);
+               friend.Id != SteamClient.SteamId) {
+                SafeInvokeLobbyPresenceNotifier(friend.Name, false);
             }
 
             _ctx?.NotifyPartyStateChanged();
@@ -278,24 +319,12 @@ namespace Network.Session {
             }
         }
 
-        /// <summary>Updates the local player's display name, avatar hidden, and player icon in the Steam lobby.</summary>
+        /// <summary>
+        /// Updates the local player's display name, avatar hidden, and player icon in the Steam lobby.
+        /// Actual behavior is provided by the game via UpdateLocalDisplayMetadata.
+        /// </summary>
         public static void UpdateLocalDisplayNameInLobby(ISessionContext ctx) {
-            if(ctx is not { CurrentLobby: not null }) return;
-            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
-            try {
-                var displayName = StreamerMode.GetLocalDisplayName();
-                if(string.IsNullOrEmpty(displayName)) return;
-                ctx.CurrentLobby.Value.SetMemberData(DisplayNameKey, displayName);
-                var hide = StreamerMode.Enabled;
-                ctx.CurrentLobby.Value.SetMemberData(AvatarHiddenKey, hide ? "1" : "0");
-                var data = GameSettings.Data;
-                var baseColor = data.player.customization.baseColor;
-                var iconId = PlayerIconPicker.PickIconIdFromBaseColor(baseColor, hide);
-                ctx.CurrentLobby.Value.SetMemberData(PlayerIconKey, iconId);
-            } catch(Exception ex) {
-                if(Debug.isDebugBuild)
-                    Debug.LogWarning($"[SessionManager] Failed to update local lobby display metadata: {ex.Message}");
-            }
+            SafeUpdateLocalDisplayMetadata(ctx);
         }
 
         /// <summary>Creates a Steam social lobby and sets context. Called when creating UGS party without an existing Steam lobby.</summary>

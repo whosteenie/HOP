@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
-using Game.Match;
-using Game.Social;
 using Network.Core;
 using Network.SessionContracts;
 using Steamworks;
@@ -212,10 +210,16 @@ namespace Network.Session {
 
         private static Player BuildLobbyPlayer() {
             var pid = AuthenticationService.Instance.PlayerId;
+            var displayName = SessionNetworkLifecycle.GetDisplayNameProvider != null
+                ? SessionNetworkLifecycle.GetDisplayNameProvider()
+                : "Player";
+            var steamId = SessionNetworkLifecycle.GetSteamIdProvider != null
+                ? SessionNetworkLifecycle.GetSteamIdProvider()
+                : 0UL;
+
             var data = new Dictionary<string, PlayerDataObject> {
-                ["displayName"] = new(PlayerDataObject.VisibilityOptions.Member, LocalIdentity.GetDisplayName())
+                ["displayName"] = new(PlayerDataObject.VisibilityOptions.Member, displayName)
             };
-            var steamId = LocalIdentity.GetSteamId();
             if(steamId != 0) {
                 data["steamId"] = new PlayerDataObject(PlayerDataObject.VisibilityOptions.Member, steamId.ToString());
             }
@@ -338,15 +342,8 @@ namespace Network.Session {
                 ctx.ApplyRuntimeMode(mode, "PrivateMatchDraft", refreshUi: false);
             if(hostMapActions != null && !string.IsNullOrWhiteSpace(mapId))
                 hostMapActions.SetSelectedMapFromId(mapId);
-            var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings != null) {
-                matchSettings.matchDurationSeconds = Mathf.Max(0, matchTimerSeconds);
-                matchSettings.preMatchCountdownEnabled = usePreMatchCountdown;
-                matchSettings.swapWeaponsOnDeath = swapWeaponsOnDeath;
-                matchSettings.scoreToWin = Mathf.Max(0, scoreToWin);
-                matchSettings.kothHillSpeed = Mathf.Max(1, kothHillSpeed);
-                matchSettings.taggedPlayers = Mathf.Max(1, taggedPlayers);
-            }
+            // Game-specific match configuration now lives in Game.Match adapters.
+            // Here we only propagate the team assignments to PrivateMatchTeamAssignments as before.
             PrivateMatchTeamAssignments.Set(teamAssignments);
             if(Debug.isDebugBuild) {
                 Debug.Log(
