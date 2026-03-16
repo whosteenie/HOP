@@ -1,4 +1,4 @@
-using Game.Match;
+using Network.Core;
 using Network.Session;
 using UnityEngine;
 
@@ -10,6 +10,8 @@ namespace Game.Match {
     /// </summary>
     public sealed class SessionManagerGameAdapter : MonoBehaviour {
         private void Awake() {
+            CustomNetworkManager.IsGameplayScenePredicate = MatchMapService.IsGameplayScene;
+
             SessionManager.SetMatchSettingsHooks(
                 ResetMatchSettingsForNewMatch,
                 SetSelectedGameModeId);
@@ -30,9 +32,7 @@ namespace Game.Match {
             if(string.IsNullOrWhiteSpace(modeId)) return;
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings == null) return;
-            if(matchSettings.selectedGameModeId == modeId) return;
             matchSettings.selectedGameModeId = modeId;
         }
     }
 }
-

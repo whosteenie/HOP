@@ -20,6 +20,11 @@ namespace Network.Core {
         private static System.Action<ulong, ConnectionPayload> onClientApproved;
         private static System.Action<System.Collections.Generic.List<ulong>> prepareBatchSpawns;
         private static System.Func<ulong, NetworkObject, NetworkObject> spawnPlayerForClient;
+        public static System.Func<string, bool> IsGameplayScenePredicate { get; set; }
+
+        public static bool IsGameplaySceneName(string sceneName) {
+            return IsGameplayScenePredicate != null && IsGameplayScenePredicate(sceneName);
+        }
 
         /// <summary>
         /// Registers game-specific hooks for connection approval metadata and player spawning.
@@ -90,7 +95,7 @@ namespace Network.Core {
 
             if(_networkManager != null &&
                _networkManager.DistributedAuthorityMode &&
-               Session.SessionManager.IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+               IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
                 StartCoroutine(HandleDaClientStopped());
                 return;
             }
@@ -124,7 +129,7 @@ namespace Network.Core {
 
             if(_networkManager != null &&
                NetworkAuthority.HasGlobalAuthority(_networkManager) &&
-               Session.SessionManager.IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+               IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
                 _allowPlayerSpawns = true;
             }
 
@@ -149,7 +154,7 @@ namespace Network.Core {
 
             if(_networkManager != null &&
                _networkManager.IsListening &&
-               Session.SessionManager.IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+               IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
                 if(NetworkAuthority.HasGlobalAuthority(_networkManager)) {
                     _allowPlayerSpawns = true;
                 }
@@ -171,7 +176,7 @@ namespace Network.Core {
             }
 
             var activeScene = SceneManager.GetActiveScene();
-            if(!Session.SessionManager.IsGameplaySceneName(activeScene.name)) {
+            if(!IsGameplaySceneName(activeScene.name)) {
                 Debug.LogWarning($"[CustomNetworkManager] Wrong scene: {activeScene.name} (expected gameplay scene)");
                 return;
             }
