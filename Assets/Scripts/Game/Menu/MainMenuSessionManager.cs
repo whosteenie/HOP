@@ -748,6 +748,19 @@ namespace Game.Menu {
                     mode, mapId, matchTimerSeconds, usePreMatchCountdown, swapWeaponsOnDeath, scoreToWin, kothHillSpeed, taggedPlayers,
                     teamAssignments);
 
+                // Apply private match draft settings to MatchSettingsManager so game-side
+                // systems (e.g. pre-match countdown, score limit, KOTH speed, tagged players)
+                // respect the host's choices.
+                var privateMatchSettings = Match.MatchSettingsManager.Instance;
+                if(privateMatchSettings != null) {
+                    privateMatchSettings.matchDurationSeconds = matchTimerSeconds;
+                    privateMatchSettings.preMatchCountdownEnabled = usePreMatchCountdown;
+                    privateMatchSettings.swapWeaponsOnDeath = swapWeaponsOnDeath;
+                    privateMatchSettings.scoreToWin = scoreToWin;
+                    privateMatchSettings.kothHillSpeed = kothHillSpeed;
+                    privateMatchSettings.taggedPlayers = taggedPlayers;
+                }
+
                 if(Application.internetReachability == NetworkReachability.NotReachable) {
                     if(uiManager != null) {
                         uiManager.ShowToast("Offline. Starting offline private match.");
