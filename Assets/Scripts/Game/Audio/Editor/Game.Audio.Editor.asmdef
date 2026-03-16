@@ -1,0 +1,19 @@
+{
+  "name": "Game.Audio.Editor",
+  "rootNamespace": "",
+  "references": [
+    "Game",
+    "FPSAnimationPack.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

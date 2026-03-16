@@ -1,0 +1,17 @@
+{
+  "name": "Events",
+  "rootNamespace": "",
+  "references": [
+    "Unity.Netcode.Runtime",
+    "Unity.Services.Multiplayer"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

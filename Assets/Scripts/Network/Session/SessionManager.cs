@@ -235,7 +235,7 @@ namespace Network.Session {
             await SessionNetworkLifecycle.LeaveSessionAsync(activeSession, contextLabel);
         }
 
-        internal bool TryResolveDaPlayerMetadata(string ugsPlayerId, out string partyId,
+        public bool TryResolveDaPlayerMetadata(string ugsPlayerId, out string partyId,
             out ulong steamId) =>
             SessionNetworkLifecycle.TryResolveDaPlayerMetadata(
                 _ugsMatchLobby?.Players, _ugsPartyLobby?.Players, ugsPlayerId, out partyId, out steamId);
