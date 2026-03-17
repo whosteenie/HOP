@@ -60,9 +60,10 @@ namespace Tests.Editor {
 
         [Test]
         public void SettingsData_EventBusDiagnosticsAlias_RoundTripsToLegacyField() {
-            var social = new SettingsData.SocialSettings();
+            var social = new SettingsData.SocialSettings {
+                EventBusDiagnosticsEnabled = false
+            };
 
-            social.EventBusDiagnosticsEnabled = false;
             Assert.That(social.analyticsEnabled, Is.False);
 
             social.EventBusDiagnosticsEnabled = true;

@@ -10,7 +10,6 @@ namespace Game.Weapon.Kinemation {
         private readonly IKinDriverResolverContext _context;
         private readonly KinActiveWeaponResolver _resolver;
         private readonly KinDriverAudio _audio;
-        private int _pendingWeaponFireSoundEvents;
         private readonly List<int> _pendingWeaponEventSoundIndices = new();
 
         public KinDriverSoundEvents(IKinDriverResolverContext context, KinActiveWeaponResolver resolver,
@@ -53,7 +52,6 @@ namespace Game.Weapon.Kinemation {
             var activeWeapon = _resolver.ActiveWeapon;
             if(activeWeapon == null || activeWeapon.weaponSettings == null || activeWeapon.weaponSettings.fireSounds == null) return;
             if(!HasAnyValidClip(activeWeapon.weaponSettings.fireSounds)) return;
-            _pendingWeaponFireSoundEvents++;
         }
 
         public void NotifyWeaponEventSoundEvent(int clipIndex, FuncBool isRoutingEnabled) {
@@ -66,15 +64,10 @@ namespace Game.Weapon.Kinemation {
             _pendingWeaponEventSoundIndices.Add(clipIndex);
         }
 
-        public int ConsumeWeaponFireSoundEventCount() {
-            if(_pendingWeaponFireSoundEvents <= 0) return 0;
-            var count = _pendingWeaponFireSoundEvents;
-            _pendingWeaponFireSoundEvents = 0;
-            return count;
+        public void ConsumeWeaponFireSoundEventCount() {
         }
 
         public void ClearPendingWeaponSoundEvents() {
-            _pendingWeaponFireSoundEvents = 0;
             _pendingWeaponEventSoundIndices.Clear();
         }
 

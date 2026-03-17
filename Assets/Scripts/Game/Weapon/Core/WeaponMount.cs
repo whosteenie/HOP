@@ -405,11 +405,23 @@ namespace Game.Weapon.Core {
                 remapDepth));
         }
 
-        private static bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
-            mainSceneCamera = Camera.main;
+        private bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
+            mainSceneCamera = null;
+
+            var playerController = _weapon.PlayerController;
+            var weaponCameraController = playerController != null ? playerController.WeaponCameraController : null;
+            if(weaponCameraController == null) {
+                return false;
+            }
+
+            if(!weaponCameraController.TryGetMainSceneCamera(out mainSceneCamera)) {
+                return false;
+            }
+
             if(mainSceneCamera == weaponCamera) {
                 mainSceneCamera = null;
             }
+
             return mainSceneCamera != null;
         }
 

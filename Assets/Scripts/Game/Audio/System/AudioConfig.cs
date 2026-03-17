@@ -48,7 +48,7 @@ namespace Game.Audio.System {
             
             if(buses == null) return _busLookup.TryGetValue(bus, out cfg);
             foreach(var b in buses) {
-                if(!_busLookup.TryAdd(b.bus, b)) continue;
+                _busLookup.TryAdd(b.bus, b);
             }
             return _busLookup.TryGetValue(bus, out cfg);
         }

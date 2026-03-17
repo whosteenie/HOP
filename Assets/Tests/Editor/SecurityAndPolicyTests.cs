@@ -2,7 +2,6 @@ using System;
 using System.Reflection;
 using Events;
 using Game.Settings;
-using Network.Events;
 using NUnit.Framework;
 
 namespace Tests.Editor {

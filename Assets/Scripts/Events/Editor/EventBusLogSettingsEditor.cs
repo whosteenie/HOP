@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Events;
 using UnityEditor;
 using UnityEngine;
 
-namespace Network.Events.Editor {
+namespace Events.Editor {
     [CustomEditor(typeof(EventBusLogSettings))]
     public class EventBusLogSettingsEditor : UnityEditor.Editor {
         private const string CategoryCritical = "Critical / Failures";

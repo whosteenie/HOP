@@ -23,17 +23,17 @@ namespace Game.Weapon.Kinemation {
 
         private FPSPlayerSettings RuntimePlayerSettings { get; set; }
 
-        public bool InitializeIfNeeded(int renderLayer, GameObject fpsPlayerPrefab, GameObject weaponPrefab,
+        public void InitializeIfNeeded(int renderLayer, GameObject fpsPlayerPrefab, GameObject weaponPrefab,
             bool weaponSoundPlaybackDisabled, bool disableKinemationPlayerSounds,
             System.Action<GameObject, FPSPlayer, Animator> setPlayerInstance) {
             if(_driver.PlayerInstance != null) {
                 KinemationViewmodelUtility.SetLayerRecursive(_driver.PlayerInstance, renderLayer);
-                return true;
+                return;
             }
 
             if(fpsPlayerPrefab == null || weaponPrefab == null) {
                 Debug.LogError("[KinFpWeaponDriver] Missing prefabs. Cannot initialize KINEMATION viewmodel.", _driver);
-                return false;
+                return;
             }
 
             var playerInstance = Object.Instantiate(fpsPlayerPrefab, _driver.transform, false);
@@ -44,7 +44,7 @@ namespace Game.Weapon.Kinemation {
             if(fpsPlayer == null) {
                 Debug.LogError("[KinFpWeaponDriver] FPSPlayer component missing on KINEMATION player prefab hierarchy.", _driver);
                 Object.Destroy(playerInstance);
-                return false;
+                return;
             }
 
             var fpsAnimator = fpsPlayer.GetComponent<Animator>();
@@ -65,7 +65,6 @@ namespace Game.Weapon.Kinemation {
             }
 
             playerInstance.SetActive(true);
-            return true;
         }
 
         public void CleanupRuntimeSettings() {

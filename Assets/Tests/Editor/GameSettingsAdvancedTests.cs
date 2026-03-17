@@ -6,17 +6,17 @@ using UnityEngine;
 
 namespace Tests.Editor {
     public class GameSettingsAdvancedTests {
-        private static MethodInfo _validateAndClampMethod;
-        private static MethodInfo _migrateFromPlayerPrefsMethod;
+        private static MethodInfo validateAndClampMethod;
+        private static MethodInfo migrateFromPlayerPrefsMethod;
 
         [OneTimeSetUp]
         public void OneTimeSetUp() {
             var gameSettingsType = typeof(GameSettings);
-            _validateAndClampMethod = gameSettingsType.GetMethod("ValidateAndClamp", BindingFlags.NonPublic | BindingFlags.Static);
-            _migrateFromPlayerPrefsMethod = gameSettingsType.GetMethod("MigrateFromPlayerPrefs", BindingFlags.NonPublic | BindingFlags.Static);
+            validateAndClampMethod = gameSettingsType.GetMethod("ValidateAndClamp", BindingFlags.NonPublic | BindingFlags.Static);
+            migrateFromPlayerPrefsMethod = gameSettingsType.GetMethod("MigrateFromPlayerPrefs", BindingFlags.NonPublic | BindingFlags.Static);
 
-            Assert.That(_validateAndClampMethod, Is.Not.Null);
-            Assert.That(_migrateFromPlayerPrefsMethod, Is.Not.Null);
+            Assert.That(validateAndClampMethod, Is.Not.Null);
+            Assert.That(migrateFromPlayerPrefsMethod, Is.Not.Null);
         }
 
         [SetUp]
@@ -81,7 +81,7 @@ namespace Tests.Editor {
                 data.social.blockedPlayers.Add($"b{i}");
             }
 
-            _validateAndClampMethod.Invoke(null, new object[] { data });
+            validateAndClampMethod.Invoke(null, new object[] { data });
 
             Assert.That(data.audio.masterVolumeDb, Is.EqualTo(20f));
             Assert.That(data.audio.musicVolumeDb, Is.EqualTo(-80f));
@@ -134,7 +134,7 @@ namespace Tests.Editor {
             PlayerPrefs.Save();
 
             var data = new SettingsData();
-            _migrateFromPlayerPrefsMethod.Invoke(null, new object[] { data });
+            migrateFromPlayerPrefsMethod.Invoke(null, new object[] { data });
 
             Assert.That(data.audio.masterVolumeDb, Is.EqualTo(-12f));
             Assert.That(data.audio.musicVolumeDb, Is.EqualTo(-15f));

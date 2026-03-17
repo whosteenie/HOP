@@ -2,7 +2,7 @@
   "name": "Diagnostics",
   "rootNamespace": "",
   "references": [
-    "Events",
+    "GUID:d0301eb75be1c4f4cbe7588619144f2b",
     "Unity.Netcode.Runtime"
   ],
   "includePlatforms": [],

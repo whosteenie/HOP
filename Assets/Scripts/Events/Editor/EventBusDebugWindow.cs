@@ -2,11 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Events;
 using UnityEditor;
 using UnityEngine;
 
-namespace Network.Events.Editor {
+namespace Events.Editor {
     /// <summary>
     /// Editor window for debugging the Event Bus system.
     /// Shows real-time event stream, subscriptions, performance metrics, and event history.

@@ -60,7 +60,6 @@ namespace Tests.PlayMode {
                 "Duplicate controller object should be destroyed by Awake singleton guard.");
 
             // Keep reference clean in case Destroy() has not completed before test tear-down.
-            duplicateObject = null;
             _ = controller;
         }
 

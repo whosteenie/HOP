@@ -13,6 +13,7 @@ namespace Game.Weapon.Presentation {
 
         [Header("Camera Setup")]
         private Camera _weaponCamera;
+        private Camera _mainSceneCamera;
         private CinemachineCamera _fpCamera;
         [SerializeField] private bool syncWeaponFovWithFpCamera;
         [SerializeField, Range(1f, 179f)] private float fixedWeaponCameraFov = 70f;
@@ -26,6 +27,7 @@ namespace Game.Weapon.Presentation {
         [SerializeField] private AnimationCurve nearClipByFovCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
         private void Awake() {
+            CacheMainSceneCamera();
             ValidateComponents();
         }
 
@@ -83,10 +85,7 @@ namespace Game.Weapon.Presentation {
             }
 
             // Add weapon camera to main scene camera's camera stack
-            var mainSceneCamera = Camera.main;
-            if(mainSceneCamera == _weaponCamera) {
-                mainSceneCamera = null;
-            }
+            var mainSceneCamera = ResolveMainSceneCamera();
 
             if(mainSceneCamera == null) {
                 Debug.LogWarning("[WeaponCameraController] Main scene camera not found; weapon overlay stack setup skipped.");
@@ -149,6 +148,33 @@ namespace Game.Weapon.Presentation {
             }
         }
 
+        public bool TryGetMainSceneCamera(out Camera mainSceneCamera) {
+            mainSceneCamera = ResolveMainSceneCamera();
+            return mainSceneCamera != null;
+        }
+
+        private Camera ResolveMainSceneCamera() {
+            if(_mainSceneCamera != null &&
+               _mainSceneCamera != _weaponCamera &&
+               _mainSceneCamera.isActiveAndEnabled) {
+                return _mainSceneCamera;
+            }
+
+            CacheMainSceneCamera();
+            if(_mainSceneCamera == _weaponCamera) {
+                _mainSceneCamera = null;
+            }
+
+            return _mainSceneCamera;
+        }
+
+        private void CacheMainSceneCamera() {
+            _mainSceneCamera = Camera.main;
+            if(_mainSceneCamera == _weaponCamera) {
+                _mainSceneCamera = null;
+            }
+        }
+
         /// <summary>
         /// Removes the weapon camera from the main camera's stack before destruction.
         /// This prevents Unity warnings about missing camera overlays.
@@ -157,7 +183,7 @@ namespace Game.Weapon.Presentation {
             if(_weaponCamera == null) return;
 
             // Try to get main camera (may be null if scene is unloading)
-            var mainCam = Camera.main;
+            var mainCam = ResolveMainSceneCamera();
             if(mainCam == null) return;
 
             var mainCameraData = mainCam.GetUniversalAdditionalCameraData();

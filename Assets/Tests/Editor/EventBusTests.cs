@@ -1,5 +1,4 @@
 using Events;
-using Network.Events;
 using NUnit.Framework;
 
 namespace Tests.Editor {
@@ -49,27 +48,30 @@ namespace Tests.Editor {
             var callCount = 0;
             var subscriber = new object();
 
-            System.Action<CounterEvent> handlerA = _ => callCount++;
-            System.Action<RootEvent> handlerB = _ => callCount++;
-
             // Wrap handlers to ensure Target points at subscriber.
             System.Action<CounterEvent> boundA = evt => {
                 _ = subscriber;
-                handlerA(evt);
-            };
-            System.Action<RootEvent> boundB = evt => {
-                _ = subscriber;
-                handlerB(evt);
+                HandlerA();
             };
 
             EventBus.Subscribe(boundA);
-            EventBus.Subscribe(boundB);
+            EventBus.Subscribe((System.Action<RootEvent>)BoundB);
             EventBus.UnsubscribeAll(boundA.Target);
 
             EventBus.Publish(new CounterEvent());
             EventBus.Publish(new RootEvent());
 
             Assert.That(callCount, Is.EqualTo(0));
+            return;
+
+            void HandlerA() => callCount++;
+            
+            void HandlerB() => callCount++;
+            
+            void BoundB(RootEvent evt) {
+                _ = subscriber;
+                HandlerB();
+            }
         }
 
         [Test]

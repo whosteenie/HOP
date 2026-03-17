@@ -146,7 +146,7 @@ namespace Tests.PlayMode {
             var trigger = sceneFlowService != null
                 ? (Action<string>)(source => InvokeTriggerUnexpectedDisconnectFlow(sceneFlowService, source))
                 : _ => { };
-            method.Invoke(null, new object[] { sessionManager, networkManager, (Func<bool>)HasActiveSession, trigger });
+            method.Invoke(null, new[] { sessionManager, networkManager, (Func<bool>)HasActiveSession, trigger });
             return;
             bool HasActiveSession() =>
                 (bool)lifecycleType.GetProperty("HasActiveSession", BindingFlags.Public | BindingFlags.Static)
