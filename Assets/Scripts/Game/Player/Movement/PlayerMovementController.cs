@@ -21,6 +21,7 @@ namespace Game.Player.Movement {
         private GrappleController _grappleController;
         private SwingGrapple _swingGrapple;
         private WallRunController _wallRunController;
+        private MantleController _mantleController;
         private PlayerAnimationController _animationController;
         private NetworkAudioRelay _audioRelay;
         private Transform _playerTransform;
@@ -128,6 +129,7 @@ namespace Game.Player.Movement {
                     _wallRunController = GetComponent<WallRunController>();
                 }
             }
+            if(_mantleController == null) _mantleController = playerController.MantleController;
             if(_animationController == null) _animationController = playerController.AnimationController;
             if(_audioRelay == null) _audioRelay = playerController.AudioRelay;
 
@@ -151,6 +153,19 @@ namespace Game.Player.Movement {
             } else {
                 if(_grappleController != null) _grappleController.CancelGrapple(fromCollision: true);
             }
+        }
+
+        public bool TryMantle(Vector3? overrideForward = null) {
+            return _mantleController != null && _mantleController.TryMantle(overrideForward);
+        }
+
+        public bool CancelMantleForJumpPad() {
+            if(_mantleController == null || !_mantleController.IsMantling) {
+                return false;
+            }
+
+            _mantleController.CancelMantleForJumpPad();
+            return true;
         }
 
         public void PlayWalkSound() {
@@ -632,7 +647,7 @@ namespace Game.Player.Movement {
                 _grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
             }
 
-            var mantleWasActive = playerController != null && playerController.CancelMantleForJumpPadFromTraversal();
+            var mantleWasActive = CancelMantleForJumpPad();
 
             if(_characterController == null) {
                 Debug.LogError("[PlayerMovementController] CharacterController not found!");

@@ -5,14 +5,9 @@ using UnityEngine;
 namespace Game.Weapon.Core {
     internal sealed class WeaponMount {
         private readonly Weapon _weapon;
-        private Camera _camera;
 
         public WeaponMount(Weapon weapon) {
             _weapon = weapon;
-        }
-
-        private void Start() {
-            _camera = Camera.main;
         }
 
         public void SyncKinemationLocomotion() {
@@ -410,8 +405,8 @@ namespace Game.Weapon.Core {
                 remapDepth));
         }
 
-        private bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
-            mainSceneCamera = _camera;
+        private static bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
+            mainSceneCamera = Camera.main;
             if(mainSceneCamera == weaponCamera) {
                 mainSceneCamera = null;
             }

@@ -736,7 +736,7 @@ namespace Game.Player.Movement {
             var applyJumpPadLaunchCompensation = movementController.IsInJumpPadLaunch;
             EndGrapple(true, applyJumpPadLaunchCompensation: applyJumpPadLaunchCompensation);
 
-            var mantleWasActive = playerController.CancelMantleForJumpPadFromTraversal();
+            var mantleWasActive = movementController.CancelMantleForJumpPad();
 
             var padNormal = padCollider != null ? padCollider.transform.up : Vector3.up;
             var launchForce = isMegaPad ? 30f : 15f;

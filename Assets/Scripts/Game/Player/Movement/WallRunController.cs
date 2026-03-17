@@ -358,7 +358,7 @@ namespace Game.Player.Movement {
             
             var desiredDir = GetWallRunVelocity(transform.forward).normalized;
 
-            if(playerController.TryMantleFromTraversal(desiredDir)) {
+            if(_movementController != null && _movementController.TryMantle(desiredDir)) {
                 _stopReason = "low_speed_mantle";
                 StopWallRun();
             } else {
