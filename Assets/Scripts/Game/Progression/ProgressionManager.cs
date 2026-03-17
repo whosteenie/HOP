@@ -58,6 +58,9 @@ namespace Game.Progression {
             EventBus.Subscribe<MatchStartedEvent>(OnMatchStarted);
             EventBus.Subscribe<MatchEndedEvent>(OnMatchEnded);
             EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            EventBus.Subscribe<MatchProgressionResolvedEvent>(OnMatchProgressionResolved);
+            EventBus.Subscribe<MatchKingTimeAwardedEvent>(OnMatchKingTimeAwarded);
+            EventBus.Subscribe<RequestShowPostMatchXpEvent>(OnRequestShowPostMatchXp);
             EventBus.Subscribe<HopballHeldTimeAwardedEvent>(OnHopballHeldTimeAwarded);
             EventBus.Subscribe<HopballDissolvedEvent>(OnHopballDissolved);
             EventBus.Subscribe<PlayerKillProgressionEvent>(OnPlayerKillProgression);
@@ -77,6 +80,9 @@ namespace Game.Progression {
             EventBus.Unsubscribe<MatchStartedEvent>(OnMatchStarted);
             EventBus.Unsubscribe<MatchEndedEvent>(OnMatchEnded);
             EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            EventBus.Unsubscribe<MatchProgressionResolvedEvent>(OnMatchProgressionResolved);
+            EventBus.Unsubscribe<MatchKingTimeAwardedEvent>(OnMatchKingTimeAwarded);
+            EventBus.Unsubscribe<RequestShowPostMatchXpEvent>(OnRequestShowPostMatchXp);
             EventBus.Unsubscribe<HopballHeldTimeAwardedEvent>(OnHopballHeldTimeAwarded);
             EventBus.Unsubscribe<HopballDissolvedEvent>(OnHopballDissolved);
             EventBus.Unsubscribe<PlayerKillProgressionEvent>(OnPlayerKillProgression);
@@ -93,6 +99,7 @@ namespace Game.Progression {
 
         private void OnMatchStarted(MatchStartedEvent _) {
             _isMatchActive = true;
+            StartMatch();
         }
 
         private void OnMatchEnded(MatchEndedEvent _) {
@@ -101,6 +108,45 @@ namespace Game.Progression {
 
         private void OnPostMatchStarted(PostMatchStartedEvent _) {
             _isMatchActive = false;
+        }
+
+        private void OnMatchProgressionResolved(MatchProgressionResolvedEvent evt) {
+            if(evt == null || !IsLocalProgressionEvent(evt.PlayerClientId)) return;
+
+            if(evt.MatchCompletionXp > 0) AddXp(evt.MatchCompletionXp);
+            if(evt.BonusXp > 0) AddXp(evt.BonusXp);
+
+            if(evt.DidWin) {
+                RecordWin();
+            } else if(evt.DidLose) {
+                RecordLoss();
+            }
+
+            if(evt.RecordMatchCompletion && !string.IsNullOrEmpty(evt.GamemodeId)) {
+                RecordMatchComplete(evt.GamemodeId, evt.Placement);
+            }
+
+            if(evt.AverageSpeed > 0f) {
+                RecordMatchAverageSpeed(evt.AverageSpeed);
+            }
+
+            EndMatch();
+        }
+
+        private void OnMatchKingTimeAwarded(MatchKingTimeAwardedEvent evt) {
+            if(evt == null || evt.Seconds <= 0f || !IsLocalProgressionEvent(evt.PlayerClientId)) return;
+            AddTimeAsKing(evt.Seconds);
+        }
+
+        private void OnRequestShowPostMatchXp(RequestShowPostMatchXpEvent _) {
+            if(Data == null) return;
+
+            EventBus.Publish(new ShowPostMatchXpEvent(
+                StartMatchLevel,
+                StartMatchCurrentXp,
+                Data.level,
+                Data.currentXp,
+                CurrentMatchXp));
         }
 
         private void OnHopballHeldTimeAwarded(HopballHeldTimeAwardedEvent evt) {

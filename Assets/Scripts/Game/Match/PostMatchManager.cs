@@ -486,17 +486,19 @@ namespace Game.Match {
 
         [Rpc(SendTo.Everyone)]
         private void AnnounceMatchResultClientRpc(SpawnPoint.Team winningTeam) {
-            if(Progression.ProgressionManager.Instance == null) return;
+            if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) return;
 
-            // Match Completion XP
-            Progression.ProgressionManager.Instance.AddXp(100);
+            var localClientId = NetworkManager.Singleton.LocalClientId;
+            var matchCompletionXp = 100;
+            var bonusXp = 0;
+            var didWin = false;
+            var didLose = false;
+            var placement = 0;
+            var recordMatchCompletion = false;
+            var averageSpeed = 0f;
 
-            // Win Bonus
-            // We need to check our local team.
-            // Assumption: PlayerTeamManager sets the local player's team in a way we can access, or we check NetworkManager.LocalClient
             var localTeam = SpawnPoint.Team.None;
-            if(NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null &&
-               NetworkManager.Singleton.LocalClient.PlayerObject != null) {
+            if(NetworkManager.Singleton.LocalClient.PlayerObject != null) {
                 var teamManager = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerTeamManager>();
                 if(teamManager != null) {
                     localTeam = teamManager.netTeam.Value;
@@ -509,47 +511,38 @@ namespace Game.Match {
 
             if(isTrackedGamemode && localTeam != SpawnPoint.Team.None) {
                 if(localTeam == winningTeam) {
-                    Progression.ProgressionManager.Instance.AddXp(500); // Win Bonus
-                    Progression.ProgressionManager.Instance.RecordWin();
+                    bonusXp = 500;
+                    didWin = true;
                 } else if(winningTeam != SpawnPoint.Team.None) {
-                    // Only record loss if there was a winner (not a draw) and we didn't win
-                    Progression.ProgressionManager.Instance.RecordLoss();
+                    didLose = true;
                 }
 
-                // Track "Matches Played" for team modes, but NOT placement for now.
-                Progression.ProgressionManager.Instance.RecordMatchComplete(matchSettings.selectedGameModeId,
-                    0); // 0 = no placement context
+                recordMatchCompletion = matchSettings != null;
             } else {
-                // FFA Mode (Gun Tag, Deathmatch)
                 if(TryGetLocalFfaPlacement(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag",
                        out var rank, out _)) {
-                    // Award Win if Rank 1?
+                    placement = rank;
                     if(rank == 1) {
-                        Progression.ProgressionManager.Instance.AddXp(500);
-                        Progression.ProgressionManager.Instance.RecordWin();
+                        bonusXp = 500;
+                        didWin = true;
                     } else {
-                        Progression.ProgressionManager.Instance.RecordLoss();
+                        didLose = true;
                     }
 
-                    if(matchSettings != null) {
-                        Progression.ProgressionManager.Instance.RecordMatchComplete(matchSettings.selectedGameModeId,
-                            rank);
-                    }
+                    recordMatchCompletion = matchSettings != null;
                 }
             }
 
-            // Record Average Speed for this match
-
-            // Record Average Speed for this match
-            if(NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null &&
-               NetworkManager.Singleton.LocalClient.PlayerObject != null) {
+            if(NetworkManager.Singleton.LocalClient.PlayerObject != null) {
                 var statsCtrl = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerStatsController>();
                 if(statsCtrl != null) {
-                    Progression.ProgressionManager.Instance.RecordMatchAverageSpeed(statsCtrl.AverageVelocity.Value);
+                    averageSpeed = statsCtrl.AverageVelocity.Value;
                 }
             }
 
-            Progression.ProgressionManager.Instance.EndMatch();
+            EventBus.Publish(new MatchProgressionResolvedEvent(localClientId, matchCompletionXp, bonusXp, didWin,
+                didLose, matchSettings != null ? matchSettings.selectedGameModeId : null, placement,
+                recordMatchCompletion, averageSpeed));
         }
 
         /// <summary>Fades back in from black after podium (all clients).</summary>
@@ -615,20 +608,7 @@ namespace Game.Match {
             SetPodiumSlot(_podiumSecondSlot, _podiumSecondName, _podiumSecondKills, secondName, secondKills);
             SetPodiumSlot(_podiumThirdSlot, _podiumThirdName, _podiumThirdKills, thirdName, thirdKills);
 
-            // Show XP Bar for local player
-            if(Progression.ProgressionManager.Instance == null) return;
-            var pm = Progression.ProgressionManager.Instance;
-            pm.GetXpForLevel(pm.StartMatchLevel);
-
-            // Note: If we leveled up multiple times, the animation might be a bit weird with just start/end,
-            // but PostMatchXPDisplay handles basic level up logic.
-
-            EventBus.Publish(new ShowPostMatchXpEvent(
-                pm.StartMatchLevel,
-                pm.StartMatchCurrentXp,
-                pm.Data.level,
-                pm.Data.currentXp,
-                pm.CurrentMatchXp));
+            EventBus.Publish(new RequestShowPostMatchXpEvent());
         }
 
         private static void SetPodiumSlot(

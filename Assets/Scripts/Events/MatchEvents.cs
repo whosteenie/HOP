@@ -50,9 +50,47 @@ namespace Events {
     public class PostMatchStartedEvent : GameEvent {
     }
 
+    public class MatchProgressionResolvedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly int MatchCompletionXp;
+        public readonly int BonusXp;
+        public readonly bool DidWin;
+        public readonly bool DidLose;
+        public readonly string GamemodeId;
+        public readonly int Placement;
+        public readonly bool RecordMatchCompletion;
+        public readonly float AverageSpeed;
+
+        public MatchProgressionResolvedEvent(ulong playerClientId, int matchCompletionXp, int bonusXp, bool didWin,
+            bool didLose, string gamemodeId, int placement, bool recordMatchCompletion, float averageSpeed) {
+            PlayerClientId = playerClientId;
+            MatchCompletionXp = matchCompletionXp;
+            BonusXp = bonusXp;
+            DidWin = didWin;
+            DidLose = didLose;
+            GamemodeId = gamemodeId;
+            Placement = placement;
+            RecordMatchCompletion = recordMatchCompletion;
+            AverageSpeed = averageSpeed;
+        }
+    }
+
+    public class MatchKingTimeAwardedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly float Seconds;
+
+        public MatchKingTimeAwardedEvent(ulong playerClientId, float seconds) {
+            PlayerClientId = playerClientId;
+            Seconds = seconds;
+        }
+    }
+
+    public class RequestShowPostMatchXpEvent : GameEvent {
+    }
+
     /// <summary>
-    /// Event published when a player's podium visuals have been snapped and any dependent presentation should resync.
-    /// </summary>
+     /// Event published when a player's podium visuals have been snapped and any dependent presentation should resync.
+     /// </summary>
     public class PodiumVisualsSnappedEvent : GameEvent {
         public readonly ulong PlayerNetworkObjectId;
 

@@ -91,9 +91,6 @@ namespace Game.Match {
             _teamAScore.OnValueChanged += OnScoreChanged;
             _teamBScore.OnValueChanged += OnScoreChanged;
 
-            if(Progression.ProgressionManager.Instance != null) {
-                Progression.ProgressionManager.Instance.StartMatch();
-            }
         }
 
         public override void OnNetworkDespawn() {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Events;
 using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
@@ -49,7 +50,9 @@ namespace Game.Match {
         private bool _pendingTrackedPlayersRefresh;
         private float _nextTrackedPlayersRefreshTime;
         private const float TrackedPlayersRefreshIntervalSeconds = 1f;
+        private const float KingTimeProgressionChunkSeconds = 1f;
         private bool _sessionOwnerCallbacksRegistered;
+        private float _localKingProgressionSeconds;
         private float EffectiveMoveSpeed =>
             MatchSettingsManager.Instance != null
                 ? Mathf.Max(0.1f, MatchSettingsManager.Instance.GetKothHillSpeed())
@@ -87,6 +90,7 @@ namespace Game.Match {
         }
 
         public override void OnNetworkDespawn() {
+            FlushLocalKingProgression();
             base.OnNetworkDespawn();
             _currentState.OnValueChanged -= OnStateChanged;
 
@@ -149,12 +153,7 @@ namespace Game.Match {
                 _localPlayerInZone = PlayerController.LocalPlayer;
             }
 
-            if (_localPlayerInZone != null &&
-                _localPlayerInZone.NetIsDead is { Value: false } &&
-                IsPointInsideZone(_localPlayerInZone.transform.position) &&
-                Progression.ProgressionManager.Instance != null) {
-                 Progression.ProgressionManager.Instance.AddTimeAsKing(Time.deltaTime);
-            }
+            TrackLocalKingProgression();
 
             if (!HasHillAuthority) return;
             if(_pendingTrackedPlayersRefresh || Time.unscaledTime >= _nextTrackedPlayersRefreshTime) {
@@ -194,6 +193,36 @@ namespace Game.Match {
 
             // Control Logic
             UpdateControlState();
+        }
+
+        private void TrackLocalKingProgression() {
+            var isTrackingLocalKingTime = _localPlayerInZone != null &&
+                                          _localPlayerInZone.NetIsDead is { Value: false } &&
+                                          IsPointInsideZone(_localPlayerInZone.transform.position);
+
+            if(!isTrackingLocalKingTime) {
+                FlushLocalKingProgression();
+                return;
+            }
+
+            _localKingProgressionSeconds += Time.deltaTime;
+            if(_localKingProgressionSeconds < KingTimeProgressionChunkSeconds) return;
+
+            var wholeChunks = Mathf.Floor(_localKingProgressionSeconds / KingTimeProgressionChunkSeconds);
+            var awardedSeconds = wholeChunks * KingTimeProgressionChunkSeconds;
+            _localKingProgressionSeconds -= awardedSeconds;
+            EventBus.Publish(new MatchKingTimeAwardedEvent(NetworkManager.Singleton.LocalClientId, awardedSeconds));
+        }
+
+        private void FlushLocalKingProgression() {
+            if(_localKingProgressionSeconds <= 0f || NetworkManager.Singleton == null) {
+                _localKingProgressionSeconds = 0f;
+                return;
+            }
+
+            EventBus.Publish(new MatchKingTimeAwardedEvent(NetworkManager.Singleton.LocalClientId,
+                _localKingProgressionSeconds));
+            _localKingProgressionSeconds = 0f;
         }
 
         private void UpdateControlState() {
