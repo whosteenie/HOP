@@ -247,10 +247,7 @@ namespace Game.Match {
                 if(player.NetIsDead.Value) continue;
                 if(!IsPointInsideZone(player.transform.position)) continue;
 
-                var teamMgr = player.TeamManager;
-                if (teamMgr == null) continue;
-                
-                switch(teamMgr.netTeam.Value) {
+                switch(player.CurrentTeam) {
                     case SpawnPoint.Team.TeamA:
                         teamACount++;
                         break;
@@ -427,9 +424,7 @@ namespace Game.Match {
         }
 
         private void OnTriggerEnter(Collider other) {
-            var player = other.GetComponent<PlayerController>();
-            if (player == null) player = other.GetComponentInParent<PlayerController>(); // Check parent if collider is on child part
-
+            var player = ResolvePlayerController(other);
             if(player == null) return;
             // Client-side check for local player
             if (player.IsOwner) {
@@ -442,9 +437,7 @@ namespace Game.Match {
         }
 
         private void OnTriggerExit(Collider other) {
-            var player = other.GetComponent<PlayerController>();
-            if (player == null) player = other.GetComponentInParent<PlayerController>();
-
+            var player = ResolvePlayerController(other);
             if(player == null) return;
             // Client-side check for local player
             if (player.IsOwner) {
@@ -454,6 +447,13 @@ namespace Game.Match {
             // Server-side logic
             if(!HasHillAuthority) return;
             Debug.Log($"[HillController] Player {player.name} exited zone.");
+        }
+
+        private static PlayerController ResolvePlayerController(Component component) {
+            if(component == null) return null;
+
+            var player = component.GetComponent<PlayerController>();
+            return player != null ? player : component.GetComponentInParent<PlayerController>();
         }
 
         private void OnDrawGizmos() {

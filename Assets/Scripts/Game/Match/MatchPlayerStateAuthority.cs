@@ -1,4 +1,3 @@
-using Game.Player.Core;
 using Network.Core;
 using Network.Session;
 using Unity.Collections;
@@ -192,12 +191,11 @@ namespace Game.Match {
                 return;
             }
 
-            var player = playerObject.GetComponent<PlayerController>();
-            if(player == null || player.OwnerClientId != senderClientId) {
+            if(playerObject.OwnerClientId != senderClientId) {
                 return;
             }
 
-            ApplyIdentityForPlayer(player.OwnerClientId, submittedSteamId, submittedUgsId,
+            ApplyIdentityForPlayer(playerObject.OwnerClientId, submittedSteamId, submittedUgsId,
                 submittedPlayerName);
         }
     }
