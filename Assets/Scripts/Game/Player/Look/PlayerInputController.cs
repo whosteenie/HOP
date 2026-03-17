@@ -16,13 +16,13 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace Game.Player.Look {
-    public class PlayerInput : NetworkBehaviour {
+    public class PlayerInputController : NetworkBehaviour {
         #region Serialized Fields
 
         [Header("Components")]
         [SerializeField] private PlayerController playerController;
 
-        private UnityEngine.InputSystem.PlayerInput _playerInputComponent;
+        private PlayerInput _playerInputComponent;
         private InputActionMap _playerActionMap;
         private InputAction _moveAction;
         private InputAction _attackAction;

@@ -37,7 +37,7 @@ namespace Game.Player.Core {
         [SerializeField] private Transform playerTransform;
 
         [SerializeField] private CharacterController characterController;
-        [SerializeField] private PlayerInput playerInput;
+        [SerializeField] private PlayerInputController playerInputController;
         [SerializeField] private UnityEngine.InputSystem.PlayerInput unityPlayerInput;
         [SerializeField] private Animator playerAnimator;
         [SerializeField] private ClientNetworkTransform clientNetworkTransform;
@@ -307,7 +307,7 @@ namespace Game.Player.Core {
         }
 
         internal Vector2 ResampleHeldMovementInputFromRespawn(string reason = "Unknown") =>
-            playerInput != null ? playerInput.ResampleHeldMovementInput(reason) : Vector2.zero;
+            playerInputController != null ? playerInputController.ResampleHeldMovementInput(reason) : Vector2.zero;
 
         #endregion
 
@@ -845,7 +845,7 @@ namespace Game.Player.Core {
 
         public Transform PlayerTransform => playerTransform != null ? playerTransform : transform;
         public CharacterController CharacterController => characterController;
-        public PlayerInput PlayerInput => playerInput;
+        public PlayerInputController PlayerInputController => playerInputController;
         public UnityEngine.InputSystem.PlayerInput UnityPlayerInput => unityPlayerInput;
         public AudioListener AudioListener => audioListener;
         public Target PlayerTarget => playerTarget;

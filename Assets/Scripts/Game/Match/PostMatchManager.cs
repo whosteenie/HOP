@@ -471,8 +471,8 @@ namespace Game.Match {
                     var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
                     if(localPlayer != null) {
                         var localController = localPlayer.GetComponent<PlayerController>();
-                        if(localController != null && localController.PlayerInput != null) {
-                            localController.PlayerInput.ForceDisableSniperOverlay(false);
+                        if(localController != null && localController.PlayerInputController != null) {
+                            localController.PlayerInputController.ForceDisableSniperOverlay(false);
                         }
                     }
                 }

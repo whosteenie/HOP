@@ -467,8 +467,8 @@ namespace Game.Hopball {
             _currentHopballController = hopballController;
             EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, true));
             _putAwayAnimationTriggered = false;
-            if(playerController != null && playerController.PlayerInput != null) {
-                playerController.PlayerInput.ForceDisableSniperOverlay(false);
+            if(playerController != null && playerController.PlayerInputController != null) {
+                playerController.PlayerInputController.ForceDisableSniperOverlay(false);
             }
 
             SetupFpHopball();

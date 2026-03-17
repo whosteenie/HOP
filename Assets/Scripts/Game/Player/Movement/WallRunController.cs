@@ -182,7 +182,7 @@ namespace Game.Player.Movement {
             if(!CanWallRun()) return;
             
             var canInitiate = GameSettings.Data.controls.autoWallRun 
-                || (playerController.PlayerInput != null && playerController.PlayerInput.IsJumpHeld);
+                || (playerController.PlayerInputController != null && playerController.PlayerInputController.IsJumpHeld);
             
             if(!canInitiate || _movementController.HorizontalVelocity.magnitude < minWallRunSpeed) {
                 return;

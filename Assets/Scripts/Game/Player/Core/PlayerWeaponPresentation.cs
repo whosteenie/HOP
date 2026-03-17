@@ -44,7 +44,7 @@ namespace Game.Player.Core {
             }
 
             if(switchToWeapon0) {
-                _player.PlayerInput.SwitchWeapon(0);
+                _player.PlayerInputController.SwitchWeapon(0);
             }
         }
 

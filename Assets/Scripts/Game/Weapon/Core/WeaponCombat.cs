@@ -80,8 +80,8 @@ namespace Game.Weapon.Core {
             var shouldApplySpread = spreadDegrees > 0f;
 
             if(_weapon.CurrentWeaponData.useSniperOverlay &&
-               playerController.PlayerInput != null &&
-               playerController.PlayerInput.IsSniperOverlayActive) {
+               playerController.PlayerInputController != null &&
+               playerController.PlayerInputController.IsSniperOverlayActive) {
                 shouldApplySpread = false;
             }
 
@@ -185,8 +185,8 @@ namespace Game.Weapon.Core {
             RaycastHit hit = default;
             var useHybridSystem = _weapon.CurrentWeaponData != null && _weapon.CurrentWeaponData.useSphereCast
                                   || _weapon.CurrentWeaponData != null && _weapon.CurrentWeaponData.useSniperOverlay &&
-                                  _weapon.PlayerController != null && _weapon.PlayerController.PlayerInput != null &&
-                                  _weapon.PlayerController.PlayerInput.IsSniperOverlayActive;
+                                  _weapon.PlayerController != null && _weapon.PlayerController.PlayerInputController != null &&
+                                  _weapon.PlayerController.PlayerInputController.IsSniperOverlayActive;
 
             if(useHybridSystem) {
                 var hasWorldHit = Physics.Raycast(origin, direction, out var worldHit, maxDist, _weapon.WorldLayerMask);

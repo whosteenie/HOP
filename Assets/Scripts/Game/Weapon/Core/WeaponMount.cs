@@ -164,13 +164,13 @@ namespace Game.Weapon.Core {
             var playerController = _weapon.PlayerController;
             if(playerController != null &&
                playerController.IsOwner &&
-               playerController.PlayerInput != null &&
-               playerController.PlayerInput.IsSniperOverlayActive) {
+               playerController.PlayerInputController != null &&
+               playerController.PlayerInputController.IsSniperOverlayActive) {
                 var fpCameraTransform = playerController.FpCameraTransform;
                 if(fpCameraTransform == null) return false;
 
                 muzzlePosition =
-                    fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset);
+                    fpCameraTransform.TransformPoint(playerController.PlayerInputController.SniperMuzzleCameraOffset);
                 return true;
             }
 
@@ -198,7 +198,7 @@ namespace Game.Weapon.Core {
                 return TryGetMuzzlePosition(out muzzlePosition);
             }
 
-            if(playerController.PlayerInput == null || !playerController.PlayerInput.IsSniperOverlayActive) {
+            if(playerController.PlayerInputController == null || !playerController.PlayerInputController.IsSniperOverlayActive) {
                 if(!TryGetRequiredOwnerMuzzleTransform(out var muzzleTransform, "TryGetMuzzlePositionFromCamera")) {
                     return false;
                 }
@@ -212,7 +212,7 @@ namespace Game.Weapon.Core {
                 return false;
             }
 
-            muzzlePosition = fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset);
+            muzzlePosition = fpCameraTransform.TransformPoint(playerController.PlayerInputController.SniperMuzzleCameraOffset);
             return true;
         }
 
@@ -387,7 +387,7 @@ namespace Game.Weapon.Core {
             if(playerController == null) return;
             if(!playerController.IsOwner) return;
             if(_weapon.Manager != null && _weapon.Manager.IsPostMatchFlowActive) return;
-            if(playerController.PlayerInput != null && playerController.PlayerInput.IsSniperOverlayActive) return;
+            if(playerController.PlayerInputController != null && playerController.PlayerInputController.IsSniperOverlayActive) return;
 
             var weaponCamera = playerController.WeaponCamera;
             if(weaponCamera == null) return;

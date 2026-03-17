@@ -455,11 +455,11 @@ namespace Game.Weapon.Presentation {
             if(!enableLandingBob) return false;
             if(Time.time - _lastLandingBobTime < minimumLandingBobInterval) return false;
 
-            if(ignoreJumpHeld || _playerController == null || _playerController.PlayerInput == null) {
+            if(ignoreJumpHeld || _playerController == null || _playerController.PlayerInputController == null) {
                 return true;
             }
 
-            return !_playerController.PlayerInput.IsJumpHeld;
+            return !_playerController.PlayerInputController.IsJumpHeld;
         }
 
         private void StartLandingBob() {
