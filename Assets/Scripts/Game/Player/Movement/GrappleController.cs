@@ -11,7 +11,7 @@ using UnityEngine;
 namespace Game.Player.Movement {
     public class GrappleController : NetworkBehaviour {
         [Header("Components")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerMovementContext _playerContext;
         private PlayerMovementController _movementController;
@@ -747,7 +747,7 @@ namespace Game.Player.Movement {
             var applyJumpPadLaunchCompensation = movementController.IsInJumpPadLaunch;
             EndGrapple(true, applyJumpPadLaunchCompensation: applyJumpPadLaunchCompensation);
 
-            var mantleWasActive = movementController.CancelMantleForJumpPad();
+            movementController.CancelMantleForJumpPad();
 
             var padNormal = padCollider != null ? padCollider.transform.up : Vector3.up;
             var launchForce = isMegaPad ? 30f : 15f;
@@ -914,3 +914,4 @@ namespace Game.Player.Movement {
         #endregion
     }
 }
+

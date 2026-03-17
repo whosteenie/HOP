@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Game.Player.Input {
     public class UpperBodyPitch : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
         private IPlayerLookContext _playerContext;
         
         [Header("Kevin Iglesias Proxy Bone")]
@@ -99,3 +99,4 @@ namespace Game.Player.Input {
         }
     }
 }
+

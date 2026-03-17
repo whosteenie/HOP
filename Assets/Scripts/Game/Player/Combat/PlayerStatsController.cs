@@ -11,7 +11,7 @@ namespace Game.Player.Combat {
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerStatsController : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerStatsContext _playerContext;
 
@@ -111,3 +111,4 @@ namespace Game.Player.Combat {
         }
     }
 }
+

@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Game.Player.Combat {
     public class PlayerRagdoll : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerRagdollContext _playerContext;
 
@@ -247,3 +247,4 @@ namespace Game.Player.Combat {
         }
     }
 }
+

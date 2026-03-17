@@ -20,7 +20,7 @@ namespace Game.Player.Input {
         #region Serialized Fields
 
         [Header("Components")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerInputContext _playerContext;
 
@@ -1009,4 +1009,5 @@ namespace Game.Player.Input {
         #endregion
     }
 }
+
 

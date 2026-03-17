@@ -15,7 +15,7 @@ namespace Game.Player.Combat {
         private bool HasTagAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
         private IPlayerTagContext _playerContext;
         private MatchPlayerStateProxy _cachedPlayerState;
         private MatchPlayerStateProxy _boundPlayerState;
@@ -346,3 +346,4 @@ namespace Game.Player.Combat {
         }
     }
 }
+

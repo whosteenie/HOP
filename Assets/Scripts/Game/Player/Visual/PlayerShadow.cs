@@ -14,7 +14,7 @@ namespace Game.Player.Visual {
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerShadow : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerVisualContext _playerContext;
 
@@ -431,3 +431,4 @@ namespace Game.Player.Visual {
         }
     }
 }
+

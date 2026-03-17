@@ -9,7 +9,7 @@ namespace Game.Player.Movement {
         #region Fields: References
 
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private CharacterController _characterController;
         private CinemachineCamera _fpCamera;
@@ -622,3 +622,4 @@ namespace Game.Player.Movement {
         #endregion
     }
 }
+

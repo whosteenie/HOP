@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Game.Player.Movement {
     public class MantleController : MonoBehaviour {
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerMovementContext _playerContext;
         private PlayerMovementController _movementController;
@@ -324,3 +324,4 @@ namespace Game.Player.Movement {
 
     }
 }
+

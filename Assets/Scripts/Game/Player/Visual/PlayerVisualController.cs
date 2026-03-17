@@ -13,7 +13,7 @@ namespace Game.Player.Visual {
         private static readonly int OutlineColorId = Shader.PropertyToID("_OutlineColor");
 
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerVisualContext _playerContext;
 
@@ -345,3 +345,4 @@ namespace Game.Player.Visual {
         public GameObject GetWorldWeapon() => GetCurrentWorldWeapon();
     }
 }
+

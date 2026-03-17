@@ -7,7 +7,7 @@ namespace Game.Player.Visual {
     public class PlayerAnimationEvents : MonoBehaviour {
         public event Action OnPutAwayComplete;
 
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
         [SerializeField] private bool debugAnimationEvents;
         private IPlayerVisualContext _playerContext;
         private WeaponManager _weaponManager;
@@ -16,6 +16,7 @@ namespace Game.Player.Visual {
             if(playerContextSource == null) {
                 foreach(var behaviour in GetComponentsInParent<MonoBehaviour>(true)) {
                     if(behaviour == null) continue;
+                    // ReSharper disable once UseNegatedPatternMatching
                     var candidate = behaviour as IPlayerVisualContext;
                     if(candidate == null) continue;
                     playerContextSource = behaviour;
@@ -25,6 +26,7 @@ namespace Game.Player.Visual {
                 if(playerContextSource == null) {
                     foreach(var behaviour in transform.root.GetComponentsInChildren<MonoBehaviour>(true)) {
                         if(behaviour == null) continue;
+                        // ReSharper disable once UseNegatedPatternMatching
                         var candidate = behaviour as IPlayerVisualContext;
                         if(candidate == null) continue;
                         playerContextSource = behaviour;
@@ -33,14 +35,15 @@ namespace Game.Player.Visual {
                 }
             }
 
-            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[PlayerAnimationEvents] IPlayerVisualContext not found!");
-                enabled = false;
+            if(PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext) &&
+               _playerContext != null) {
+                _weaponManager = _playerContext.WeaponManager;
                 return;
             }
 
-            if(_playerContext != null) {
-                _weaponManager = _playerContext.WeaponManager;
+            _weaponManager = GetComponentInParent<WeaponManager>(true);
+            if(debugAnimationEvents && Debug.isDebugBuild) {
+                Debug.Log($"[PlayerAnimationEvents] No IPlayerVisualContext found on {name}; using local fallbacks only.");
             }
         }
 
@@ -68,7 +71,7 @@ namespace Game.Player.Visual {
         /// Called when the weapon pull out animation completes.
         /// Allows shooting and reloading again.
         /// </summary>
-        public void WeaponPullOutCompleted() {
+        private void WeaponPullOutCompleted() {
             if(_weaponManager != null) {
                 _weaponManager.HandleThirdPersonPullOutCompleted();
             }
@@ -112,3 +115,4 @@ namespace Game.Player.Visual {
         }
     }
 }
+

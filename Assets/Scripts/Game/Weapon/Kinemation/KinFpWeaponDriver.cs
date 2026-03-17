@@ -104,19 +104,20 @@ namespace Game.Weapon.Kinemation {
             equipUnlockNormalizedTime = Mathf.Clamp01(equipUnlockNormalizedProgress);
         }
 
-        public bool InitializeIfNeeded(int renderLayer) {
+        public void InitializeIfNeeded(int renderLayer) {
             _renderLayer = renderLayer;
             _weaponRuntimeContext = ResolveWeaponRuntimeContext();
             EnsureSubsystems();
             if(PlayerInstance != null) {
                 KinemationViewmodelUtility.SetLayerRecursive(PlayerInstance, _renderLayer);
-                return TryCacheActiveWeapon();
+                TryCacheActiveWeapon();
+                return;
             }
 
             var weaponSoundPlaybackDisabled = disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService;
-            return _bootstrap.InitializeIfNeeded(renderLayer, fpsPlayerPrefab, weaponPrefab,
-                       weaponSoundPlaybackDisabled, disableKinemationPlayerSounds, SetPlayerInstance) &&
-                   TryCacheActiveWeapon();
+            _bootstrap.InitializeIfNeeded(renderLayer, fpsPlayerPrefab, weaponPrefab,
+                weaponSoundPlaybackDisabled, disableKinemationPlayerSounds, SetPlayerInstance);
+            TryCacheActiveWeapon();
         }
 
         public Transform GetMuzzleTransform() {
@@ -221,7 +222,7 @@ namespace Game.Weapon.Kinemation {
             return false;
         }
 
-        public int ConsumeWeaponFireSoundEventCount() => _soundEvents?.ConsumeWeaponFireSoundEventCount() ?? 0;
+        public void ConsumeWeaponFireSoundEventCount() => _soundEvents?.ConsumeWeaponFireSoundEventCount();
         public void ClearPendingWeaponSoundEvents() => _soundEvents?.ClearPendingWeaponSoundEvents();
 
         public void ConsumeWeaponEventSoundIndices(List<int> destination) =>

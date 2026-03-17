@@ -11,7 +11,7 @@ namespace Game.Player.Input {
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerLookController : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerLookContext _playerContext;
         private UpperBodyPitch _upperBodyPitch;
@@ -189,3 +189,4 @@ namespace Game.Player.Input {
         public bool IsSniperZoomActive { get; private set; }
     }
 }
+

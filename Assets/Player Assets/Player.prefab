@@ -1381,7 +1381,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2644075980
+  GlobalObjectIdHash: 3921424009
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1512,7 +1512,7 @@ MonoBehaviour:
   grappleController: {fileID: 8382341124825033876}
   wallRunController: {fileID: -4102731384895396433}
   statsController: {fileID: -4895690177907744954}
-  healthController: {fileID: 3923420499004173512}
+  combatController: {fileID: 3923420499004173512}
   animationController: {fileID: -6537445453348264315}
   tagController: {fileID: 8858942629426496327}
   podiumController: {fileID: 203235595652891772}
@@ -1648,7 +1648,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Player
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   toggleSprint: 0
   toggleCrouch: 0
   sniperZoomFov: 20
@@ -1668,7 +1668,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerShadow
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
 --- !u!114 &-829917204645599099
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1682,7 +1682,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerRenderer
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
 --- !u!114 &1752355669680099318
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1786,7 +1786,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GrappleController
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   grappleOriginTp: {fileID: 6439500820232213193}
   lineMaterial: {fileID: 2100000, guid: f50215f9818c1924db88e6c9caba0627, type: 2}
   meshSegments: 8
@@ -1805,7 +1805,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeathCameraCinemachine
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
 --- !u!114 &2584550646514722606
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1819,7 +1819,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerRagdoll
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   chestRigidbody: {fileID: 5614062551498219175}
   headTag: Head
 --- !u!114 &6772666014369885431
@@ -1835,7 +1835,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpeedTrail
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   speedTrailEffect: {fileID: 1613657621557524583}
   trailObject: {fileID: 8604771443668152814}
   electricObject: {fileID: 5484917253289894444}
@@ -1856,7 +1856,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.UpperBodyPitch
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   spineProxy: {fileID: 7216231848221038707}
   localPitchAxis: {x: 1, y: 0, z: 0}
   invertAxis: 0
@@ -1878,7 +1878,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b89c413a00263664c971ad551cbc0c4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MantleController
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   mantleHeightCurve:
     serializedVersion: 2
     m_Curve:
@@ -1980,7 +1980,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerStatsController
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   velocitySampleInterval: 0.1
 --- !u!114 &8858942629426496327
 MonoBehaviour:
@@ -1995,7 +1995,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerTagController
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   lastTagStatsUpdateTime: 0
 --- !u!114 &-2894409740433754161
 MonoBehaviour:
@@ -2010,7 +2010,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerVisualController
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
 --- !u!114 &-6537445453348264315
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2024,7 +2024,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerAnimationController
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
 --- !u!114 &4731733018257820657
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2037,7 +2037,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a0a2527e913d0842b309c656b6a6e9c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerAnimationEvents
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   debugAnimationEvents: 0
 --- !u!114 &1659687221336305720
 MonoBehaviour:
@@ -2052,7 +2052,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerMovementController
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   maxSlideGroundGap: 0.5
   netIsCrouching:
     m_InternalValue: 0
@@ -2071,7 +2071,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerLookController
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   defaultLookSensitivity: {x: 0.1, y: 0.1}
   baseFov: 80
   sprintStartSpeed: 9
@@ -2092,7 +2092,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerHealthController
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   hurtSound: {fileID: 8300000, guid: 9264739833ad159439ccaf19dd3245b7, type: 3}
   netHealth:
     m_InternalValue: 0
@@ -2223,7 +2223,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.WallRunController
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   wallRunSpeed: 12
   maxWallRunTime: 3
   quickReattachWindow: 0.4
@@ -3034,7 +3034,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a0a2527e913d0842b309c656b6a6e9c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimationEvents
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   debugAnimationEvents: 0
 --- !u!114 &5706515478969999216
 MonoBehaviour:
@@ -5575,7 +5575,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7129668303251482571}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.024829209, y: 0.16649558, z: 0.013368209, w: 0.9856389}
+  m_LocalRotation: {x: 0.024829209, y: 0.16649558, z: 0.013368211, w: 0.9856389}
   m_LocalPosition: {x: 0, y: 0.08378157, z: -0.0000003860332}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0

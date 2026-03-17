@@ -559,10 +559,17 @@ namespace Game.Match {
 
         [Rpc(SendTo.Everyone)]
         private void ActivatePodiumCameraClientRpc() {
-            if(podiumCamera == null) return;
+            if(podiumCamera == null) {
+                Debug.LogWarning("[PostMatchManager][PodiumCameraDebug] Podium camera reference is null.");
+                return;
+            }
+
+            LogPodiumCameraState("BeforeActivate");
 
             // Enable podium camera
             podiumCamera.gameObject.SetActive(true);
+
+            LogPodiumCameraState("AfterActivate");
 
             // Optionally, give it the highest priority if you're using multiple cams
             // podiumCamera.Priority = 100;
@@ -921,6 +928,49 @@ namespace Game.Match {
 
             if(localController == null) return;
             localController.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
+        }
+
+        private void LogPodiumCameraState(string phase) {
+            var podiumGo = podiumCamera != null ? podiumCamera.gameObject : null;
+            var podiumTransform = podiumCamera != null ? podiumCamera.transform : null;
+            var mainCamera = Camera.main;
+            var brains = FindObjectsByType<CinemachineBrain>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var podiumName = podiumGo != null ? podiumGo.name : "(null)";
+            var podiumPosition = podiumTransform != null ? podiumTransform.position.ToString() : "(null)";
+            var mainCameraName = mainCamera != null ? mainCamera.name : "(null)";
+
+            Debug.Log(
+                $"[PostMatchManager][PodiumCameraDebug] phase={phase} " +
+                $"podiumName={podiumName} " +
+                $"podiumActiveSelf={(podiumGo != null && podiumGo.activeSelf)} " +
+                $"podiumActiveInHierarchy={(podiumGo != null && podiumGo.activeInHierarchy)} " +
+                $"podiumEnabled={(podiumCamera != null && podiumCamera.enabled)} " +
+                $"podiumPriority={(podiumCamera != null ? podiumCamera.Priority : int.MinValue)} " +
+                $"podiumPosition={podiumPosition} " +
+                $"cameraMain={mainCameraName} " +
+                $"brainCount={brains.Length}");
+
+            foreach(var brain in brains) {
+                if(brain == null) continue;
+
+                var brainCamera = brain.GetComponent<Camera>();
+                var activeVirtualCamera = brain.ActiveVirtualCamera;
+                var activeVirtualCameraName = activeVirtualCamera != null ? activeVirtualCamera.Name : "(none)";
+                var activeVirtualCameraType = activeVirtualCamera != null ? activeVirtualCamera.GetType().Name : "(none)";
+                var brainCameraName = brainCamera != null ? brainCamera.name : "(none)";
+
+                Debug.Log(
+                    $"[PostMatchManager][PodiumCameraDebug] phase={phase} " +
+                    $"brainObject={brain.gameObject.name} " +
+                    $"brainEnabled={brain.enabled} " +
+                    $"brainActiveInHierarchy={brain.gameObject.activeInHierarchy} " +
+                    $"brainCamera={brainCameraName} " +
+                    $"brainCameraEnabled={(brainCamera != null && brainCamera.enabled)} " +
+                    $"brainCameraDepth={(brainCamera != null ? brainCamera.depth : float.MinValue)} " +
+                    $"isMainCamera={(brainCamera != null && brainCamera == mainCamera)} " +
+                    $"activeVirtualCamera={activeVirtualCameraName} " +
+                    $"activeVirtualCameraType={activeVirtualCameraType}");
+            }
         }
     }
 }

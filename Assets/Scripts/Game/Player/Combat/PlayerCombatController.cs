@@ -23,7 +23,7 @@ namespace Game.Player.Combat {
         private bool HasCombatAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerCombatContext _playerContext;
 
@@ -40,7 +40,6 @@ namespace Game.Player.Combat {
         private WeaponCameraController _weaponCameraController;
         private CinemachineCamera _fpCamera;
         private CinemachineImpulseSource _impulseSource;
-        [SerializeField] private AudioClip hurtSound;
 
         // Health constants
         private const float RegenDelay = 10f;
@@ -928,3 +927,4 @@ namespace Game.Player.Combat {
         }
     }
 }
+

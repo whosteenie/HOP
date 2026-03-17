@@ -31,7 +31,7 @@ namespace Game.Weapon.Kinemation {
             resolved.NotifyAmmoEjectEvent();
         }
 
-        public void ShellShow() {
+        private void ShellShow() {
             var resolved = ResolveDriver();
             if(resolved == null) return;
             resolved.NotifyShellShowEvent();

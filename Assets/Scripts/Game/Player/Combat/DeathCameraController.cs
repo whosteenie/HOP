@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Game.Player.Combat {
     public class DeathCameraController : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerDeathCameraContext _playerContext;
 
@@ -49,3 +49,4 @@ namespace Game.Player.Combat {
         }
     }
 }
+

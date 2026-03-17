@@ -14,7 +14,7 @@ namespace Game.Player.Movement {
     [DefaultExecutionOrder(-90)]
     public class PlayerMovementController : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         private IPlayerMovementContext _playerContext;
 
@@ -944,3 +944,4 @@ namespace Game.Player.Movement {
         #endregion
     }
 }
+

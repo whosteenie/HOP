@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Game.Player.Movement {
     public class SpeedTrail : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private MonoBehaviour playerContextSource; // assign in inspector or auto-find
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource; // assign in inspector or auto-find
         [SerializeField] private GameObject speedTrailEffect; // The particle system effect GameObject
 
         [Header("Trail Material Objects")]
@@ -487,3 +487,4 @@ namespace Game.Player.Movement {
 
     }
 }
+
