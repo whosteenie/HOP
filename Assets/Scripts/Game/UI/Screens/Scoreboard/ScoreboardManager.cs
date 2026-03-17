@@ -14,7 +14,7 @@ namespace Game.UI.Screens.Scoreboard {
     /// Coordinates subsystems: registry, player data, header, top bar, row factory, table updater.
     /// </summary>
     public class ScoreboardManager : MonoBehaviour {
-        public static ScoreboardManager Instance { get; private set; }
+        private static ScoreboardManager Instance { get; set; }
 
         [Header("Player Icons")]
         [SerializeField] private Sprite[] playerIconSprites;
@@ -54,7 +54,7 @@ namespace Game.UI.Screens.Scoreboard {
         private ScoreboardRowFactory _rowFactory;
         private ScoreboardTableUpdater _tableUpdater;
 
-        public bool IsScoreboardVisible { get; private set; }
+        private bool IsScoreboardVisible { get; set; }
 
         private void Awake() {
             if(Instance != null && Instance != this) {

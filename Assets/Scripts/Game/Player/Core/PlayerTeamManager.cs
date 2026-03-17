@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Game.Player.Core {
     [RequireComponent(typeof(PlayerController))]
     public class PlayerTeamManager : NetworkBehaviour {
-        public static int OutlineColorID { get; } = Shader.PropertyToID("_OutlineColor");
+        private static int OutlineColorID { get; } = Shader.PropertyToID("_OutlineColor");
 
         private static readonly int Size = Shader.PropertyToID("_Size");
         [SerializeField] private PlayerController playerController;

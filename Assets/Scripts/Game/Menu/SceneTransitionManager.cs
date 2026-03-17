@@ -281,7 +281,7 @@ namespace Game.Menu {
         /// Used for game->podium transitions.
         /// </summary>
         /// <param name="customDuration">Optional custom duration. If null, uses default fadeDuration.</param>
-        public IEnumerator FadeOutRespawnOverlay(float? customDuration = null) {
+        private IEnumerator FadeOutRespawnOverlay(float? customDuration = null) {
             // Refresh respawn fade overlay reference in case GameMenuManager wasn't ready when OnEnable was called
             if(_respawnFadeOverlay == null) {
                 RefreshRespawnFadeOverlay();
@@ -311,7 +311,7 @@ namespace Game.Menu {
         /// Used for game->podium transitions.
         /// </summary>
         /// <param name="customDuration">Optional custom duration. If null, uses default fadeDuration.</param>
-        public IEnumerator FadeInRespawnOverlay(float? customDuration = null) {
+        private IEnumerator FadeInRespawnOverlay(float? customDuration = null) {
             if(_respawnFadeOverlay == null) {
                 RefreshRespawnFadeOverlay();
             }

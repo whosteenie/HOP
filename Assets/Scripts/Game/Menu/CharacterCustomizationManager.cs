@@ -12,7 +12,7 @@ namespace Game.Menu {
     /// Manages the character customization panel UI and material customization.
     /// </summary>
     public class CharacterCustomizationManager : UIElementBase {
-        public static CharacterCustomizationManager Instance { get; private set; }
+        private static CharacterCustomizationManager Instance { get; set; }
 
         [Header("References")]
         [SerializeField] private LoadoutManager loadoutManager;
@@ -720,7 +720,7 @@ namespace Game.Menu {
         /// <summary>
         /// Applies the current customization values. Called automatically when leaving loadout.
         /// </summary>
-        public void ApplyCustomization() {
+        private void ApplyCustomization() {
             // Save to PlayerPrefs
             var c = GameSettings.Data.player.customization;
             c.materialPacketIndex = Mathf.Max(0, _currentPacketIndex);
@@ -1020,7 +1020,7 @@ namespace Game.Menu {
             }
         }
 
-        public void ReloadSavedCustomization() {
+        private void ReloadSavedCustomization() {
             LoadSavedCustomization();
             BuildMaterialPacketGrid();
             UpdatePacketSelectionHighlight();

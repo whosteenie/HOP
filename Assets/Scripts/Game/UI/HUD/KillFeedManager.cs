@@ -12,7 +12,7 @@ namespace Game.UI.HUD {
     /// Manages the kill feed UI, including kill entries and tag transfer entries.
     /// </summary>
     public class KillFeedManager : MonoBehaviour {
-        public static KillFeedManager Instance { get; private set; }
+        private static KillFeedManager Instance { get; set; }
 
         [Header("Kill Feed Settings")]
         [SerializeField] private Sprite killIconSprite;

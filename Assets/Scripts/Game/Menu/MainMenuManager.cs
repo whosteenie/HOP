@@ -227,12 +227,12 @@ namespace Game.Menu {
                 privateMatchSetupManager.SetSessionManager(sessionManager);
         }
 
-        public void ShowLoadoutPanel() {
+        private void ShowLoadoutPanel() {
             OnLoadoutPanelRequested?.Invoke();
             TransitionToState(MainMenuPanelState.Loadout);
         }
 
-        public void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
+        private void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
             OnLoadoutProfileViewRequested?.Invoke(steamId, playerName, isEditable);
             TransitionToState(MainMenuPanelState.Loadout);
         }

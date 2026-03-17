@@ -36,7 +36,7 @@ namespace Game.UI.HUD {
         private bool _isWaitingForPlayersVisible;
         private const string OutOfBoundsStatusReturnClass = "out-of-bounds-status-return";
 
-        public static HUDManager Instance;
+        private static HUDManager instance;
 
         // Cached values to avoid unnecessary string allocations and UI updates
         private string _cachedHealthText = "";
@@ -49,12 +49,12 @@ namespace Game.UI.HUD {
         private bool _eventsBound;
 
         protected override void Awake() {
-            if(Instance != null && Instance != this) {
+            if(instance != null && instance != this) {
                 Destroy(gameObject);
                 return;
             }
 
-            Instance = this;
+            instance = this;
             base.Awake();
         }
 

@@ -255,7 +255,7 @@ namespace Game.Menu {
             base.OnDestroy();
         }
 
-        public void ShowLoadout() {
+        private void ShowLoadout() {
             Setup3DPreview();
 
             // Mark preview as active for brute force rendering
@@ -276,7 +276,7 @@ namespace Game.Menu {
             FinishShowLoadout();
         }
 
-        public void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
+        private void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
             _isInspectMode = !isEditable;
             _inspectTargetSteamId = steamId;
             _inspectTargetName = playerName;

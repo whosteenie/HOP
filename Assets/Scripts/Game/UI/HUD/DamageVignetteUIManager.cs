@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace Game.UI.HUD {
     public class DamageVignetteUIManager : UIElementBase {
-        public static DamageVignetteUIManager Instance { get; private set; }
+        private static DamageVignetteUIManager Instance { get; set; }
 
         [Header("Timing")]
         [SerializeField] private float flashDuration = 0.12f; // time at full alpha

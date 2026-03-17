@@ -117,9 +117,9 @@ namespace Game.Menu {
 
         #region Properties
 
-        public bool IsPaused { get; private set; }
+        private bool IsPaused { get; set; }
         public bool IsChatOpen => chatUIManager != null && chatUIManager.IsChatOpen;
-        public bool IsPostMatch { get; set; }
+        private bool IsPostMatch { get; set; }
         public static bool IsPreMatch => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
 
         #endregion
@@ -904,7 +904,7 @@ namespace Game.Menu {
             }
         }
 
-        public void TogglePause() {
+        private void TogglePause() {
             if(!IsGameplaySceneContext()) return;
 
             if(IsPaused) {

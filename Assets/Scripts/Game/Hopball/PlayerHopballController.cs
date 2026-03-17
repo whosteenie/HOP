@@ -21,7 +21,7 @@ namespace Game.Hopball {
     /// Manages weapon visibility and prevents shooting/reloading while holding the ball.
     /// </summary>
     public class PlayerHopballController : NetworkBehaviour {
-        public enum HopballDropReason {
+        private enum HopballDropReason {
             Manual,
             WeaponSwitch,
             PlayerDeath
@@ -71,8 +71,8 @@ namespace Game.Hopball {
         [SerializeField] private int rightHandHoldLayerIndex = -1;
 
         // State
-        public bool IsHoldingHopball => _currentHopballController != null;
-        public static bool IsRestoringAfterDissolve => false; // Flag to allow weapon switch after dissolve
+        private bool IsHoldingHopball => _currentHopballController != null;
+        private static bool IsRestoringAfterDissolve => false; // Flag to allow weapon switch after dissolve
         private HopballController _currentHopballController;
         
         // Animation layer indices (cached for performance)
@@ -408,7 +408,7 @@ namespace Game.Hopball {
         /// <summary>
         /// Tries to pick up a hopball within pickup range.
         /// </summary>
-        public void TryPickupHopball() {
+        private void TryPickupHopball() {
             if(!TryFindPickupCandidate(out var hopball)) return;
 
             var netObj = hopball.GetComponent<NetworkObject>();
@@ -423,7 +423,7 @@ namespace Game.Hopball {
         /// Returns whether this player can pick up a nearby hopball right now.
         /// Used by HUD prompt state.
         /// </summary>
-        public bool CanPickupNearbyHopball() {
+        private bool CanPickupNearbyHopball() {
             return TryFindPickupCandidate(out _);
         }
 
@@ -878,7 +878,7 @@ namespace Game.Hopball {
         /// <summary>
         /// Drops the hopball and restores weapons.
         /// </summary>
-        public void DropHopball(HopballDropReason reason = HopballDropReason.Manual) {
+        private void DropHopball(HopballDropReason reason = HopballDropReason.Manual) {
             if(_currentHopballController == null || !IsOwner) return;
 
             var hopball = _currentHopballController;
@@ -955,7 +955,7 @@ namespace Game.Hopball {
         /// <summary>
         /// Drops the hopball when the player dies.
         /// </summary>
-        public void DropHopballOnDeath() {
+        private void DropHopballOnDeath() {
             if(HopballSpawnManager.Instance == null || HopballSpawnManager.Instance.CurrentHopballController == null) return;
 
             var hopball = HopballSpawnManager.Instance.CurrentHopballController;
@@ -1139,7 +1139,7 @@ namespace Game.Hopball {
         /// Cancels local hopball dissolve/weapon transition visuals for post-match podium flow.
         /// This should be called while fade-to-black is active.
         /// </summary>
-        public void CancelPostMatchHopballTransitions() {
+        private void CancelPostMatchHopballTransitions() {
             _putAwayAnimationTriggered = true;
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
             HideFpHopballVisualImmediate();
@@ -1168,7 +1168,7 @@ namespace Game.Hopball {
         /// Hides hopball FP visuals without destroying. Used to defer visible teardown during
         /// unexpected disconnect, hide first so when NGO despawns the player, the teardown is invisible.
         /// </summary>
-        public void HideFpVisualsForDisconnectTransition() {
+        private void HideFpVisualsForDisconnectTransition() {
             if(!IsOwner) return;
             HideFpHopballVisualImmediate();
             DestroyArmImmediate();

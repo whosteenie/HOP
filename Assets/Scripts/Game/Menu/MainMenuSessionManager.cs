@@ -340,6 +340,13 @@ namespace Game.Menu {
                         ? MenuButtonMode.PartyTooLarge
                         : MenuButtonMode.Normal;
                 switch(menuButtonMode) {
+                    case MenuButtonMode.Unknown:
+                    case MenuButtonMode.Normal:
+                        if(_lastMenuButtonMode != MenuButtonMode.Normal || _lastMenuButtonsEnabled != canUseMenuButtons) {
+                            uiManager.SetMenuButtonsEnabled(canUseMenuButtons);
+                            _lastMenuButtonsEnabled = canUseMenuButtons;
+                        }
+                        break;
                     case MenuButtonMode.Offline:
                         if(_lastMenuButtonMode != MenuButtonMode.Offline || !_lastMenuButtonsEnabled) {
                             uiManager.SetMenuButtonsEnabled(true); // Play opens gamemode select; user picks Private Match there.
@@ -352,10 +359,6 @@ namespace Game.Menu {
                         }
                         break;
                     default:
-                        if(_lastMenuButtonMode != MenuButtonMode.Normal || _lastMenuButtonsEnabled != canUseMenuButtons) {
-                            uiManager.SetMenuButtonsEnabled(canUseMenuButtons);
-                            _lastMenuButtonsEnabled = canUseMenuButtons;
-                        }
                         break;
                 }
                 _lastMenuButtonMode = menuButtonMode;
