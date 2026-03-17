@@ -152,17 +152,28 @@ namespace Game.Settings {
         private static void MigrateFromPlayerPrefs(SettingsData d) {
             if(d == null) return;
 
-            // Audio
+            MigrateAudioFromPlayerPrefs(d);
+            MigrateControlsFromPlayerPrefs(d);
+            MigrateVideoFromPlayerPrefs(d);
+            MigratePlayerLoadoutFromPlayerPrefs(d);
+            MigrateCustomizationFromPlayerPrefs(d);
+            MigrateSocialFromPlayerPrefs(d);
+            MigrateKeybindsFromPlayerPrefs(d);
+        }
+
+        private static void MigrateAudioFromPlayerPrefs(SettingsData d) {
             if(PlayerPrefs.HasKey("MasterVolume")) d.audio.masterVolumeDb = PlayerPrefs.GetFloat("MasterVolume", d.audio.masterVolumeDb);
             if(PlayerPrefs.HasKey("MusicVolume")) d.audio.musicVolumeDb = PlayerPrefs.GetFloat("MusicVolume", d.audio.musicVolumeDb);
             if(PlayerPrefs.HasKey("SFXVolume")) d.audio.sfxVolumeDb = PlayerPrefs.GetFloat("SFXVolume", d.audio.sfxVolumeDb);
+        }
 
-            // Controls
+        private static void MigrateControlsFromPlayerPrefs(SettingsData d) {
             if(PlayerPrefs.HasKey("Sensitivity")) {
                 d.controls.sensitivity = PlayerPrefs.GetFloat("Sensitivity", d.controls.sensitivity);
             } else if(PlayerPrefs.HasKey("SensitivityX")) {
                 d.controls.sensitivity = PlayerPrefs.GetFloat("SensitivityX", d.controls.sensitivity);
             }
+
             if(PlayerPrefs.HasKey("InvertY")) d.controls.invertY = PlayerPrefs.GetInt("InvertY", d.controls.invertY ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("PlayerTrails")) d.controls.playerTrails = PlayerPrefs.GetInt("PlayerTrails", d.controls.playerTrails ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("HoldMantle")) d.controls.holdMantle = PlayerPrefs.GetInt("HoldMantle", d.controls.holdMantle ? 1 : 0) == 1;
@@ -170,8 +181,9 @@ namespace Game.Settings {
             if(PlayerPrefs.HasKey("GrappleIndicator")) d.controls.grappleIndicator = PlayerPrefs.GetInt("GrappleIndicator", d.controls.grappleIndicator);
             if(PlayerPrefs.HasKey("CrosshairStyle")) d.controls.crosshairStyle = PlayerPrefs.GetInt("CrosshairStyle", d.controls.crosshairStyle);
             if(PlayerPrefs.HasKey("CrosshairColor")) d.controls.crosshairColor = PlayerPrefs.GetInt("CrosshairColor", d.controls.crosshairColor);
+        }
 
-            // Video (best effort)
+        private static void MigrateVideoFromPlayerPrefs(SettingsData d) {
             if(PlayerPrefs.HasKey("WindowMode")) d.video.windowMode = PlayerPrefs.GetInt("WindowMode", d.video.windowMode);
             if(PlayerPrefs.HasKey("AspectRatio")) d.video.aspectRatio = PlayerPrefs.GetString("AspectRatio", d.video.aspectRatio);
             if(PlayerPrefs.HasKey("ResolutionWidth")) d.video.resolutionWidth = PlayerPrefs.GetInt("ResolutionWidth", d.video.resolutionWidth);
@@ -185,88 +197,53 @@ namespace Game.Settings {
             if(PlayerPrefs.HasKey("Vignette")) d.video.vignetteEnabled = PlayerPrefs.GetInt("Vignette", d.video.vignetteEnabled ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("VSync")) d.video.vsync = PlayerPrefs.GetInt("VSync", d.video.vsync ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("TargetFPS")) d.video.targetFpsIndex = PlayerPrefs.GetInt("TargetFPS", d.video.targetFpsIndex);
+        }
 
-            // Player
+        private static void MigratePlayerLoadoutFromPlayerPrefs(SettingsData d) {
             if(PlayerPrefs.HasKey("PrimaryWeaponIndex")) d.player.primaryWeaponIndex = PlayerPrefs.GetInt("PrimaryWeaponIndex", d.player.primaryWeaponIndex);
             if(PlayerPrefs.HasKey("SecondaryWeaponIndex")) d.player.secondaryWeaponIndex = PlayerPrefs.GetInt("SecondaryWeaponIndex", d.player.secondaryWeaponIndex);
             if(PlayerPrefs.HasKey("TertiaryWeaponIndex")) d.player.tertiaryWeaponIndex = PlayerPrefs.GetInt("TertiaryWeaponIndex", d.player.tertiaryWeaponIndex);
+        }
 
-            // Customization (best effort)
+        private static void MigrateCustomizationFromPlayerPrefs(SettingsData d) {
             if(PlayerPrefs.HasKey("PlayerMaterialPacketIndex")) d.player.customization.materialPacketIndex = PlayerPrefs.GetInt("PlayerMaterialPacketIndex", d.player.customization.materialPacketIndex);
 
-            if(PlayerPrefs.HasKey("PlayerBaseColorR") ||
-               PlayerPrefs.HasKey("PlayerBaseColorG") ||
-               PlayerPrefs.HasKey("PlayerBaseColorB") ||
-               PlayerPrefs.HasKey("PlayerBaseColorA")) {
-                var r = PlayerPrefs.GetFloat("PlayerBaseColorR", d.player.customization.baseColor.x);
-                var g = PlayerPrefs.GetFloat("PlayerBaseColorG", d.player.customization.baseColor.y);
-                var b = PlayerPrefs.GetFloat("PlayerBaseColorB", d.player.customization.baseColor.z);
-                var a = PlayerPrefs.GetFloat("PlayerBaseColorA", d.player.customization.baseColor.w);
-                d.player.customization.baseColor = new Vector4(r, g, b, a);
-            }
+            TryReadVector4FromPlayerPrefs(
+                "PlayerBaseColor",
+                d.player.customization.baseColor,
+                out d.player.customization.baseColor);
 
             if(PlayerPrefs.HasKey("PlayerSmoothness")) d.player.customization.smoothness = PlayerPrefs.GetFloat("PlayerSmoothness", d.player.customization.smoothness);
             if(PlayerPrefs.HasKey("PlayerMetallic")) d.player.customization.metallic = PlayerPrefs.GetFloat("PlayerMetallic", d.player.customization.metallic);
 
-            if(PlayerPrefs.HasKey("PlayerSpecularColorR") ||
-               PlayerPrefs.HasKey("PlayerSpecularColorG") ||
-               PlayerPrefs.HasKey("PlayerSpecularColorB") ||
-               PlayerPrefs.HasKey("PlayerSpecularColorA")) {
-                var r = PlayerPrefs.GetFloat("PlayerSpecularColorR", d.player.customization.specularColor.x);
-                var g = PlayerPrefs.GetFloat("PlayerSpecularColorG", d.player.customization.specularColor.y);
-                var b = PlayerPrefs.GetFloat("PlayerSpecularColorB", d.player.customization.specularColor.z);
-                var a = PlayerPrefs.GetFloat("PlayerSpecularColorA", d.player.customization.specularColor.w);
-                d.player.customization.specularColor = new Vector4(r, g, b, a);
-            }
+            TryReadVector4FromPlayerPrefs(
+                "PlayerSpecularColor",
+                d.player.customization.specularColor,
+                out d.player.customization.specularColor);
 
             if(PlayerPrefs.HasKey("PlayerHeightStrength")) d.player.customization.heightStrength = PlayerPrefs.GetFloat("PlayerHeightStrength", d.player.customization.heightStrength);
             if(PlayerPrefs.HasKey("PlayerEmissionEnabled")) d.player.customization.emissionEnabled = PlayerPrefs.GetInt("PlayerEmissionEnabled", 0) == 1;
 
-            if(PlayerPrefs.HasKey("PlayerEmissionColorR") ||
-               PlayerPrefs.HasKey("PlayerEmissionColorG") ||
-               PlayerPrefs.HasKey("PlayerEmissionColorB") ||
-               PlayerPrefs.HasKey("PlayerEmissionColorA")) {
-                var r = PlayerPrefs.GetFloat("PlayerEmissionColorR", d.player.customization.emissionColor.x);
-                var g = PlayerPrefs.GetFloat("PlayerEmissionColorG", d.player.customization.emissionColor.y);
-                var b = PlayerPrefs.GetFloat("PlayerEmissionColorB", d.player.customization.emissionColor.z);
-                var a = PlayerPrefs.GetFloat("PlayerEmissionColorA", d.player.customization.emissionColor.w);
-                d.player.customization.emissionColor = new Vector4(r, g, b, a);
-            }
+            TryReadVector4FromPlayerPrefs(
+                "PlayerEmissionColor",
+                d.player.customization.emissionColor,
+                out d.player.customization.emissionColor);
+        }
 
-            // Social
+        private static void MigrateSocialFromPlayerPrefs(SettingsData d) {
             if(PlayerPrefs.HasKey("Social_VoiceInputMode")) d.social.voiceInputMode = PlayerPrefs.GetInt("Social_VoiceInputMode", d.social.voiceInputMode);
             if(PlayerPrefs.HasKey("Social_VoiceVolume")) d.social.voiceVolume = PlayerPrefs.GetFloat("Social_VoiceVolume", d.social.voiceVolume);
             if(PlayerPrefs.HasKey("Social_VoiceInputVolume")) d.social.voiceInputVolume = PlayerPrefs.GetFloat("Social_VoiceInputVolume", d.social.voiceInputVolume);
             if(PlayerPrefs.HasKey("Social_VoiceInputDevice")) d.social.voiceInputDevice = PlayerPrefs.GetString("Social_VoiceInputDevice", d.social.voiceInputDevice);
             if(PlayerPrefs.HasKey("Social_ProfanityFilter")) d.social.profanityFilterEnabled = PlayerPrefs.GetInt("Social_ProfanityFilter", 0) == 1;
 
-            // Social lists (legacy CSV)
-            if(PlayerPrefs.HasKey("Social_MutedPlayers")) {
-                var csv = PlayerPrefs.GetString("Social_MutedPlayers", "");
-                if(!string.IsNullOrWhiteSpace(csv)) {
-                    var parts = csv.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach(var t in parts) {
-                        var id = t.Trim();
-                        if(string.IsNullOrWhiteSpace(id)) continue;
-                        d.social.mutedPlayers.Add(id);
-                    }
-                }
-            }
+            MigrateLegacyCsvList("Social_MutedPlayers", d.social.mutedPlayers);
+            MigrateLegacyCsvList("Social_BlockedPlayers", d.social.blockedPlayers);
+        }
 
-            if(PlayerPrefs.HasKey("Social_BlockedPlayers")) {
-                var csv = PlayerPrefs.GetString("Social_BlockedPlayers", "");
-                if(!string.IsNullOrWhiteSpace(csv)) {
-                    var parts = csv.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach(var t in parts) {
-                        var id = t.Trim();
-                        if(string.IsNullOrWhiteSpace(id)) continue;
-                        d.social.blockedPlayers.Add(id);
-                    }
-                }
-            }
-
-            // Keybinds (legacy PlayerPrefs keys: Keybind_{name}_{index})
+        private static void MigrateKeybindsFromPlayerPrefs(SettingsData d) {
             if(d.keybinds.entries == null) d.keybinds.entries = new List<SettingsData.KeybindEntry>();
+
             var keybindNames = new[] {
                 "forward", "back", "left", "right",
                 "jump", "interact", "shoot", "ads",
@@ -286,6 +263,38 @@ namespace Game.Settings {
                     binding1 = PlayerPrefs.GetString(key1, "")
                 };
                 d.keybinds.entries.Add(e);
+            }
+        }
+
+        private static void TryReadVector4FromPlayerPrefs(string keyPrefix, Vector4 fallback, out Vector4 value) {
+            var hasAnyComponent = PlayerPrefs.HasKey($"{keyPrefix}R") ||
+                                  PlayerPrefs.HasKey($"{keyPrefix}G") ||
+                                  PlayerPrefs.HasKey($"{keyPrefix}B") ||
+                                  PlayerPrefs.HasKey($"{keyPrefix}A");
+
+            if(!hasAnyComponent) {
+                value = fallback;
+                return;
+            }
+
+            var r = PlayerPrefs.GetFloat($"{keyPrefix}R", fallback.x);
+            var g = PlayerPrefs.GetFloat($"{keyPrefix}G", fallback.y);
+            var b = PlayerPrefs.GetFloat($"{keyPrefix}B", fallback.z);
+            var a = PlayerPrefs.GetFloat($"{keyPrefix}A", fallback.w);
+            value = new Vector4(r, g, b, a);
+        }
+
+        private static void MigrateLegacyCsvList(string key, List<string> target) {
+            if(target == null || !PlayerPrefs.HasKey(key)) return;
+
+            var csv = PlayerPrefs.GetString(key, "");
+            if(string.IsNullOrWhiteSpace(csv)) return;
+
+            var parts = csv.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach(var token in parts) {
+                var id = token.Trim();
+                if(string.IsNullOrWhiteSpace(id)) continue;
+                target.Add(id);
             }
         }
     }
