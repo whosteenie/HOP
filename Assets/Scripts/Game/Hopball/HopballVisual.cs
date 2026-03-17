@@ -64,7 +64,7 @@ namespace Game.Hopball {
         }
 
         if(_materialInstance == null) return;
-        var hopball = HopballController.Instance;
+        var hopball = ResolveActiveHopball();
         if(hopball == null) return;
         var newEmission = Mathf.Lerp(_materialInstance.GetFloat(hopball.IntensityID), _targetEmission,
             1f - Mathf.Exp(-emissionLerpSpeed * dt));
@@ -76,7 +76,7 @@ namespace Game.Hopball {
     }
 
     private void ApplyCurrentState() {
-        var hopball = HopballController.Instance;
+        var hopball = ResolveActiveHopball();
         if(hopball == null) return;
         OnVisualStateChanged(hopball.CurrentVisualState);
         // Force immediate application for initial state
@@ -91,6 +91,10 @@ namespace Game.Hopball {
         if(_materialInstance == null || hopball == null) return;
         _materialInstance.SetFloat(hopball.IntensityID, _targetEmission);
         _materialInstance.SetFloat(hopball.DissolveAmountID, _targetDissolve);
+    }
+
+    private static HopballController ResolveActiveHopball() {
+        return HopballSpawnManager.Instance != null ? HopballSpawnManager.Instance.CurrentHopballController : null;
     }
 
     /// <summary>Callback when hopball visual state (scale, intensity, dissolve) changes.</summary>

@@ -27,9 +27,7 @@ namespace Game.Hopball {
             PlayerDeath
         }
 
-        private static readonly List<PlayerHopballController> InstancesInternal = new();
         private static readonly int PutAwayHash = Animator.StringToHash("PutAway");
-        public static IReadOnlyList<PlayerHopballController> Instances => InstancesInternal;
 
         [Header("References")]
         [SerializeField] private PlayerController playerController;
@@ -47,12 +45,14 @@ namespace Game.Hopball {
 
         [Header("Hopball Settings")]
         [SerializeField] private GameObject hopballVisualPrefab; // Visual-only FP hopball prefab (no state tracking)
+
         [SerializeField] private GameObject hopballArmPrefab; // FP hopball arm prefab (for PutAway animation)
         [SerializeField] private float hopballParticleWarmupSeconds = 1f;
         [SerializeField] private bool prewarmHopballVisualsOnSpawn = true;
-        
+
         [Header("Hopball Float Motion")]
         [SerializeField] private bool enableHopballFloatMotion = true;
+
         [SerializeField] private float hopballFloatAmplitude = 0.008f;
         [SerializeField] private float hopballFloatCyclesPerSecond = 0.06f;
         [SerializeField, Range(0f, 1f)] private float hopballFloatApexDwell = 0.35f;
@@ -65,16 +65,21 @@ namespace Game.Hopball {
 
         [Header("Animation Layer Settings")]
         [SerializeField] private float layerTransitionDuration = 0.3f;
+
         [Tooltip("Layer index for 'Weapon Hold Layer' (both arms). Set in inspector or will auto-detect by name.")]
-        [SerializeField] private int weaponHoldLayerIndex = -1;
-        [Tooltip("Layer index for 'Right Hand Hold Layer' (right arm only). Set in inspector or will auto-detect by name.")]
-        [SerializeField] private int rightHandHoldLayerIndex = -1;
+        [SerializeField]
+        private int weaponHoldLayerIndex = -1;
+
+        [Tooltip(
+            "Layer index for 'Right Hand Hold Layer' (right arm only). Set in inspector or will auto-detect by name.")]
+        [SerializeField]
+        private int rightHandHoldLayerIndex = -1;
 
         // State
         private bool IsHoldingHopball => _currentHopballController != null;
         private static bool IsRestoringAfterDissolve => false; // Flag to allow weapon switch after dissolve
         private HopballController _currentHopballController;
-        
+
         // Animation layer indices (cached for performance)
         private int _weaponHoldLayerIndex = -1;
         private int _rightHandHoldLayerIndex = -1;
@@ -85,7 +90,7 @@ namespace Game.Hopball {
         /// <summary>
         /// Clears the hopball reference. Called by Hopball when it dissolves/respawns.
         /// </summary>
-        public void ClearHopballReference() {
+        private void ClearHopballReference() {
             _currentHopballController = null;
             PublishHopballHoldStateChanged(false);
             // Unsubscribe from visual state changes
@@ -101,19 +106,21 @@ namespace Game.Hopball {
         private float _hopballFloatPhase;
         private float _heldHopballProgressionSeconds;
         private Coroutine _restoreWeaponsCoroutine; // Track restore coroutine
-        public Collider PlayerCollider { get; private set; }
+        private Collider PlayerCollider { get; set; }
         private bool _fpParticlesPrewarmed;
         private bool _worldParticlesPrewarmed;
         private Material _cachedHopballArmCustomMaterial;
         private int _cachedHopballArmCustomSourceId;
         private readonly Dictionary<int, Material> _cachedHopballArmOutlineByRenderer = new();
         private PlayerAnimationEvents _armAnimationEvents;
+
         private static readonly MethodInfo VisualEffectSimulateFloatUIntMethod = typeof(VisualEffect).GetMethod(
             "Simulate",
             BindingFlags.Instance | BindingFlags.Public,
             null,
             new[] { typeof(float), typeof(uint) },
             null);
+
         private static readonly MethodInfo VisualEffectSimulateFloatMethod = typeof(VisualEffect).GetMethod(
             "Simulate",
             BindingFlags.Instance | BindingFlags.Public,
@@ -145,7 +152,8 @@ namespace Game.Hopball {
             }
 
             var sourceMaterial = playerMesh.materials[1];
-            if(_cachedHopballArmCustomMaterial != null && sourceMaterial.GetInstanceID() == _cachedHopballArmCustomSourceId) {
+            if(_cachedHopballArmCustomMaterial != null &&
+               sourceMaterial.GetInstanceID() == _cachedHopballArmCustomSourceId) {
                 return true;
             }
 
@@ -167,7 +175,8 @@ namespace Game.Hopball {
                 if(r == null) continue;
 
                 var rendererId = r.GetInstanceID();
-                if(_cachedHopballArmOutlineByRenderer.TryGetValue(rendererId, out var cachedOutline) && cachedOutline != null) {
+                if(_cachedHopballArmOutlineByRenderer.TryGetValue(rendererId, out var cachedOutline) &&
+                   cachedOutline != null) {
                     continue;
                 }
 
@@ -215,6 +224,7 @@ namespace Game.Hopball {
                     _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
                     _armAnimationEvents.OnPutAwayComplete += OnArmPutAwayAnimationComplete;
                 }
+
                 ApplyPlayerMaterialToArm();
                 _fpHopballArmInstance.SetActive(false);
             }
@@ -242,25 +252,20 @@ namespace Game.Hopball {
         }
 
         private void OnEnable() {
-            if(!InstancesInternal.Contains(this)) {
-                InstancesInternal.Add(this);
-            }
-
             EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
             EventBus.Subscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
             EventBus.Subscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
             EventBus.Subscribe<PlayerHopballDeathDropRequestedEvent>(OnPlayerHopballDeathDropRequested);
             EventBus.Subscribe<PlayerHopballPickupRequestedEvent>(OnPlayerHopballPickupRequested);
             EventBus.Subscribe<PlayerHopballManualDropRequestedEvent>(OnPlayerHopballManualDropRequested);
-            EventBus.Subscribe<PlayerHopballPickupPromptEvaluationRequestedEvent>(OnPlayerHopballPickupPromptEvaluationRequested);
+            EventBus.Subscribe<PlayerHopballPickupPromptEvaluationRequestedEvent>(
+                OnPlayerHopballPickupPromptEvaluationRequested);
             EventBus.Subscribe<PlayerDisconnectFpVisualHideRequestedEvent>(OnPlayerDisconnectFpVisualHideRequested);
             EventBus.Subscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
             EventBus.Subscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Subscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
-
-            if(HopballController.Instance != null) {
-                HopballController.Instance.OnControllerRegistered(this);
-            }
+            EventBus.Subscribe<HopballVisualCleanupRequestedEvent>(OnHopballVisualCleanupRequested);
+            EventBus.Subscribe<HopballHolderCleanupRequestedEvent>(OnHopballHolderCleanupRequested);
 
             if(_armAnimationEvents == null) return;
             _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
@@ -271,8 +276,11 @@ namespace Game.Hopball {
             base.OnNetworkSpawn();
             CacheHopballArmCustomMaterial();
             PrewarmHopballVisualPool();
+            if(HopballSpawnManager.Instance != null) {
+                HopballSpawnManager.Instance.RegisterPlayerController(OwnerClientId, PlayerCollider);
+            }
         }
-        
+
         private void Update() {
             TrackHeldHopballProgression();
             UpdateHopballFloatMotion();
@@ -280,21 +288,20 @@ namespace Game.Hopball {
 
         private void OnDisable() {
             FlushHeldHopballProgression();
-            if(HopballController.Instance != null) {
-                HopballController.Instance.OnControllerUnregistered(this);
-            }
             EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
             EventBus.Unsubscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
             EventBus.Unsubscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
             EventBus.Unsubscribe<PlayerHopballDeathDropRequestedEvent>(OnPlayerHopballDeathDropRequested);
             EventBus.Unsubscribe<PlayerHopballPickupRequestedEvent>(OnPlayerHopballPickupRequested);
             EventBus.Unsubscribe<PlayerHopballManualDropRequestedEvent>(OnPlayerHopballManualDropRequested);
-            EventBus.Unsubscribe<PlayerHopballPickupPromptEvaluationRequestedEvent>(OnPlayerHopballPickupPromptEvaluationRequested);
+            EventBus.Unsubscribe<PlayerHopballPickupPromptEvaluationRequestedEvent>(
+                OnPlayerHopballPickupPromptEvaluationRequested);
             EventBus.Unsubscribe<PlayerDisconnectFpVisualHideRequestedEvent>(OnPlayerDisconnectFpVisualHideRequested);
             EventBus.Unsubscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
             EventBus.Unsubscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Unsubscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
-            InstancesInternal.Remove(this);
+            EventBus.Unsubscribe<HopballVisualCleanupRequestedEvent>(OnHopballVisualCleanupRequested);
+            EventBus.Unsubscribe<HopballHolderCleanupRequestedEvent>(OnHopballHolderCleanupRequested);
             // Unsubscribe from visual state changes
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
             if(_armAnimationEvents != null) {
@@ -352,7 +359,8 @@ namespace Game.Hopball {
             DropHopball();
         }
 
-        private void OnPlayerHopballPickupPromptEvaluationRequested(PlayerHopballPickupPromptEvaluationRequestedEvent evt) {
+        private void OnPlayerHopballPickupPromptEvaluationRequested(
+            PlayerHopballPickupPromptEvaluationRequestedEvent evt) {
             if(evt == null || playerController == null || playerController.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
             evt.CanPickupNearbyHopball = CanPickupNearbyHopball();
@@ -374,6 +382,7 @@ namespace Game.Hopball {
                 Destroy(_cachedHopballArmCustomMaterial);
                 _cachedHopballArmCustomMaterial = null;
             }
+
             _cachedHopballArmCustomSourceId = 0;
 
             foreach(var kvp in _cachedHopballArmOutlineByRenderer) {
@@ -381,10 +390,15 @@ namespace Game.Hopball {
                     Destroy(kvp.Value);
                 }
             }
+
             _cachedHopballArmOutlineByRenderer.Clear();
         }
 
         public override void OnNetworkDespawn() {
+            if(HopballSpawnManager.Instance != null) {
+                HopballSpawnManager.Instance.UnregisterPlayerController(OwnerClientId);
+            }
+
             base.OnNetworkDespawn();
             // Network is shutting down / objects are despawning. Do not try to send ServerRpcs here.
             // Just cleanup local holder visuals so we don't throw when the hopball NetworkObject is already despawned.
@@ -439,7 +453,8 @@ namespace Game.Hopball {
                 }
             }
 
-            var hitCount = Physics.OverlapSphereNonAlloc(playerController.Position, PickupRange, _pickupHits, _hopballLayer);
+            var hitCount =
+                Physics.OverlapSphereNonAlloc(playerController.Position, PickupRange, _pickupHits, _hopballLayer);
             if(hitCount == 0) {
                 return false;
             }
@@ -534,6 +549,15 @@ namespace Game.Hopball {
             }
         }
 
+        private void OnHopballVisualCleanupRequested(HopballVisualCleanupRequestedEvent _) {
+            CleanupHopballVisuals();
+        }
+
+        private void OnHopballHolderCleanupRequested(HopballHolderCleanupRequestedEvent evt) {
+            if(evt == null || OwnerClientId != evt.HolderClientId) return;
+            RunCleanupAndRestoreWeapons();
+        }
+
         /// <summary>
         /// Enables the OSI Target for non-owners and sets team-based color.
         /// </summary>
@@ -576,6 +600,7 @@ namespace Game.Hopball {
             } else if(_fpHopballVisualInstance.transform.parent != swayHolder) {
                 _fpHopballVisualInstance.transform.SetParent(swayHolder, false);
             }
+
             _fpHopballBaseLocalPosition = fpEquippedLocalPosition;
             _fpHopballVisualInstance.transform.localPosition = _fpHopballBaseLocalPosition;
             _fpHopballVisualInstance.transform.localRotation = Quaternion.identity;
@@ -605,12 +630,14 @@ namespace Game.Hopball {
                 } else if(_fpHopballArmInstance.transform.parent != bobHolder) {
                     _fpHopballArmInstance.transform.SetParent(bobHolder, false);
                 }
+
                 _fpHopballArmInstance.SetActive(true);
                 var armAnimator = _fpHopballArmInstance.GetComponent<Animator>();
                 if(armAnimator != null) {
                     armAnimator.Rebind();
                     armAnimator.Update(0f);
                 }
+
                 SetGameObjectAndChildrenLayer(_fpHopballArmInstance, layer);
                 ApplyPlayerMaterialToArm();
             } else {
@@ -626,6 +653,7 @@ namespace Game.Hopball {
             if(swayCamera == null && playerController != null) {
                 swayCamera = playerController.FpCamera;
             }
+
             var weaponCamera = playerController != null ? playerController.WeaponCamera : null;
 
             if(_weaponManager != null) {
@@ -636,6 +664,7 @@ namespace Game.Hopball {
                         if(parent.name == "BobHolder") {
                             return parent;
                         }
+
                         parent = parent.parent;
                     }
                 }
@@ -689,14 +718,17 @@ namespace Game.Hopball {
                     if(materials is { Length: > 0 }) {
                         resizedMaterials[0] = materials[0];
                     }
+
                     materials = resizedMaterials;
                 }
 
-                if(_cachedHopballArmOutlineByRenderer.TryGetValue(rendererId, out var cachedOutline) && cachedOutline != null) {
+                if(_cachedHopballArmOutlineByRenderer.TryGetValue(rendererId, out var cachedOutline) &&
+                   cachedOutline != null) {
                     materials[0] = cachedOutline;
                 } else if(materials[0] == null && r.sharedMaterial != null) {
                     materials[0] = r.sharedMaterial;
                 }
+
                 materials[1] = _cachedHopballArmCustomMaterial;
                 r.materials = materials;
             }
@@ -710,6 +742,7 @@ namespace Game.Hopball {
             if(swayCamera == null && playerController != null) {
                 swayCamera = playerController.FpCamera;
             }
+
             if(swayCamera != null) {
                 foreach(Transform child in swayCamera.transform) {
                     if(child.name == "SwayHolder") {
@@ -760,6 +793,7 @@ namespace Game.Hopball {
             } else if(_worldHopballVisualInstance.transform.parent != _worldWeaponSocket) {
                 _worldHopballVisualInstance.transform.SetParent(_worldWeaponSocket, false);
             }
+
             _worldHopballVisualInstance.SetActive(true);
             _worldHopballBaseLocalPosition = worldEquippedLocalPosition;
             _worldHopballVisualInstance.transform.localPosition = _worldHopballBaseLocalPosition;
@@ -773,7 +807,8 @@ namespace Game.Hopball {
             // For non-holders viewing the holder: ensure mesh renderer is enabled and visible
             var worldVisual = _worldHopballVisualInstance.GetComponent<HopballVisual>();
             if(worldVisual == null) {
-                Debug.LogError("[HopballController] SetupWorldHopballVisual: HopballVisual component not found on prefab!");
+                Debug.LogError(
+                    "[HopballController] SetupWorldHopballVisual: HopballVisual component not found on prefab!");
                 return;
             }
 
@@ -823,6 +858,7 @@ namespace Game.Hopball {
                         for(var i = 0; i < stepCount; i++) {
                             VisualEffectSimulateFloatMethod.Invoke(vfx, new object[] { stepDelta });
                         }
+
                         sampled = true;
                     }
                 } catch {
@@ -839,7 +875,11 @@ namespace Game.Hopball {
 
         /// <summary>Resolves current hopball visual energy ratio for warmup.</summary>
         private float ResolveHopballVisualEnergyRatio() {
-            var hopball = _currentHopballController != null ? _currentHopballController : HopballController.Instance;
+            var hopball = _currentHopballController != null
+                ? _currentHopballController
+                : HopballSpawnManager.Instance != null
+                    ? HopballSpawnManager.Instance.CurrentHopballController
+                    : null;
             return hopball == null ? 1f : hopball.VisualEnergyRatio;
         }
 
@@ -907,13 +947,13 @@ namespace Game.Hopball {
             }
 
             HandleArmPutAwayAnimation();
-            
+
             // Get player velocity to transfer to ball
             var playerVelocity = Vector3.zero;
             if(playerController != null) {
                 playerVelocity = playerController.GetFullVelocity;
             }
-            
+
             var canSendDrop = true;
             if(NetworkManager.Singleton == null) {
                 canSendDrop = false;
@@ -941,6 +981,7 @@ namespace Game.Hopball {
                 if(_weaponManager != null) {
                     _weaponManager.RefreshHolsterVisibility();
                 }
+
                 if(playerController != null && playerController.PlayerShadow != null) {
                     playerController.PlayerShadow.ApplyHopballShadowState(false, playerController.IsOwner);
                     playerController.PlayerShadow.ApplyOwnerDefaultShadowState();
@@ -954,7 +995,8 @@ namespace Game.Hopball {
         /// Drops the hopball when the player dies.
         /// </summary>
         private void DropHopballOnDeath() {
-            if(HopballSpawnManager.Instance == null || HopballSpawnManager.Instance.CurrentHopballController == null) return;
+            if(HopballSpawnManager.Instance == null ||
+               HopballSpawnManager.Instance.CurrentHopballController == null) return;
 
             var hopball = HopballSpawnManager.Instance.CurrentHopballController;
 
@@ -966,7 +1008,7 @@ namespace Game.Hopball {
 
             var dropPosition = playerController.Position + Vector3.up * 1.5f;
             var dropRotation = playerController.Rotation;
-            
+
             // On death, use zero velocity (player is dead, no momentum transfer)
             var deathVelocity = Vector3.zero;
 
@@ -974,6 +1016,7 @@ namespace Game.Hopball {
                 HopballSpawnManager.Instance.RequestDropAuthority(hopball.NetworkObject, dropPosition,
                     dropRotation, deathVelocity, HopballDropReason.PlayerDeath.ToString());
             }
+
             CleanupAndRestoreWeaponsClientRpc();
         }
 
@@ -996,7 +1039,7 @@ namespace Game.Hopball {
         /// <summary>
         /// Runs cleanup and restore-weapons logic locally. Used by the state-update path (DA-compatible).
         /// </summary>
-        public void RunCleanupAndRestoreWeapons() {
+        private void RunCleanupAndRestoreWeapons() {
             var postMatchTransitionActive = IsPostMatchTransitionActive();
 
             _currentHopballController = null;
@@ -1053,37 +1096,6 @@ namespace Game.Hopball {
             }
 
             EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, isHoldingHopball));
-        }
-
-        /// <summary>
-        /// Client RPC called when hopball is released (e.g., on respawn).
-        /// Handles delayed arm hiding after PutAway animation completes.
-        /// </summary>
-        [ClientRpc]
-        public void OnHopballReleasedClientRpc() {
-            if(IsOwner) {
-                HideFpHopballVisualImmediate();
-                if(IsPostMatchTransitionActive()) {
-                    DestroyArmImmediate();
-                    if(_weaponManager != null) {
-                        _weaponManager.CancelPendingPullOutForPostMatch();
-                    }
-                } else {
-                    HandleArmPutAwayAnimation();
-                }
-            } else {
-                if(_weaponManager != null) {
-                    _weaponManager.RefreshHolsterVisibility();
-                    var currentWeapon = _weaponManager.CurrentWorldWeaponInstance;
-                    if(currentWeapon != null) {
-                        currentWeapon.SetActive(true);
-                    }
-                }
-
-                if(playerController == null || playerController.PlayerShadow == null) return;
-                playerController.PlayerShadow.ApplyHopballShadowState(false, false);
-                playerController.PlayerShadow.ApplyVisibleShadowState();
-            }
         }
 
         /// <summary>
@@ -1202,14 +1214,14 @@ namespace Game.Hopball {
         /// </summary>
         private void ShowBothHolsters() {
             if(_weaponManager == null) return;
-            
+
             var primaryHolster = _weaponManager.PrimaryHolster;
             var secondaryHolster = _weaponManager.SecondaryHolster;
-            
+
             if(primaryHolster != null && !primaryHolster.activeSelf) {
                 primaryHolster.SetActive(true);
             }
-            
+
             if(secondaryHolster != null && !secondaryHolster.activeSelf) {
                 secondaryHolster.SetActive(true);
             }
@@ -1248,7 +1260,7 @@ namespace Game.Hopball {
             _hopballLayer = playerController.HopballLayer;
             if(_playerTarget == null) _playerTarget = playerController.PlayerTarget;
             if(_characterController == null) _characterController = playerController.CharacterController;
-            
+
             // Validate PlayerRenderer (required for material and renderer operations)
             if(_playerRenderer == null) _playerRenderer = playerController.PlayerRenderer;
             if(_playerRenderer == null) {
@@ -1256,7 +1268,7 @@ namespace Game.Hopball {
                 enabled = false;
                 return;
             }
-            
+
             // Cache animator and layer indices
             if(_playerAnimator == null && playerController != null) {
                 _playerAnimator = playerController.PlayerAnimator;
@@ -1266,18 +1278,19 @@ namespace Game.Hopball {
 
             if(_playerAnimator == null) return;
             // Use inspector values if set, otherwise auto-detect by name
-            _weaponHoldLayerIndex = weaponHoldLayerIndex >= 0 
-                ? weaponHoldLayerIndex 
+            _weaponHoldLayerIndex = weaponHoldLayerIndex >= 0
+                ? weaponHoldLayerIndex
                 : _playerAnimator.GetLayerIndex("Weapon Hold Layer");
-                
-            _rightHandHoldLayerIndex = rightHandHoldLayerIndex >= 0 
-                ? rightHandHoldLayerIndex 
+
+            _rightHandHoldLayerIndex = rightHandHoldLayerIndex >= 0
+                ? rightHandHoldLayerIndex
                 : _playerAnimator.GetLayerIndex("Right Hand Hold Layer");
-                
+
             // Log layer indices for debugging
             if(_weaponHoldLayerIndex < 0) {
                 Debug.LogWarning("[HopballController] Weapon Hold Layer not found!");
             }
+
             if(_rightHandHoldLayerIndex < 0) {
                 Debug.LogWarning("[HopballController] Right Hand Hold Layer not found!");
             }
@@ -1300,7 +1313,7 @@ namespace Game.Hopball {
 
             // TODO: Uncomment when HopballHold animation is added
             // _playerAnimator.CrossFadeInFixedTime("HopballHold", layerTransitionDuration, _rightHandHoldLayerIndex);
-            
+
             // Start the weight transition coroutine
             _layerTransitionCoroutine = StartCoroutine(TransitionLayerWeights(true, layerTransitionDuration));
         }
@@ -1334,31 +1347,31 @@ namespace Game.Hopball {
             var elapsed = 0f;
             var startWeaponWeight = _playerAnimator.GetLayerWeight(_weaponHoldLayerIndex);
             var startRightHandWeight = _playerAnimator.GetLayerWeight(_rightHandHoldLayerIndex);
-            
+
             var targetWeaponWeight = toHopball ? 0f : 1f;
             var targetRightHandWeight = toHopball ? 1f : 0f;
 
             while(elapsed < duration) {
                 elapsed += Time.deltaTime;
                 var t = Mathf.Clamp01(elapsed / duration);
-                
+
                 // Smooth interpolation (you could use AnimationCurve here for custom easing)
                 var smoothT = t * t * (3f - 2f * t); // Smooth-step function
-                
+
                 // Interpolate layer weights
                 var currentWeaponWeight = Mathf.Lerp(startWeaponWeight, targetWeaponWeight, smoothT);
                 var currentRightHandWeight = Mathf.Lerp(startRightHandWeight, targetRightHandWeight, smoothT);
-                
+
                 _playerAnimator.SetLayerWeight(_weaponHoldLayerIndex, currentWeaponWeight);
                 _playerAnimator.SetLayerWeight(_rightHandHoldLayerIndex, currentRightHandWeight);
-                
+
                 yield return null;
             }
 
             // Ensure final weights are set exactly
             _playerAnimator.SetLayerWeight(_weaponHoldLayerIndex, targetWeaponWeight);
             _playerAnimator.SetLayerWeight(_rightHandHoldLayerIndex, targetRightHandWeight);
-            
+
             _layerTransitionCoroutine = null;
         }
 
@@ -1385,7 +1398,7 @@ namespace Game.Hopball {
         /// Cleans up all hopball visuals. Called when ball respawns to ensure no visuals remain.
         /// Note: visuals are pooled; cleanup just disables them.
         /// </summary>
-        public void CleanupHopballVisuals() {
+        private void CleanupHopballVisuals() {
             // Only cleanup if we're not currently holding the ball
             if(IsHoldingHopball) return;
             DestroyFpVisual();

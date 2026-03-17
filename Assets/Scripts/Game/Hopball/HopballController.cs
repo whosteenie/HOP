@@ -46,7 +46,6 @@ namespace Game.Hopball {
     [SerializeField] private GameObject godrayEffect;
 
     private NetworkTransform _networkTransform;
-    private PlayerHopballController _equippedController; // Store reference to controller when equipped
     private readonly HashSet<Collider> _ignoredPlayerColliders = new();
     private bool _isIgnoringPlayerCollisions;
 
@@ -175,9 +174,6 @@ namespace Game.Hopball {
         // Set up dropped visuals initially (since hopball spawns dropped)
         SetupDroppedVisuals(isDrop: false); // Respawn - keep godray enabled
 
-        foreach(var controller in PlayerHopballController.Instances) {
-            OnControllerRegistered(controller);
-        }
     }
 
     public override void OnNetworkDespawn() {
@@ -232,8 +228,8 @@ namespace Game.Hopball {
         // Award scoring points as energy depletes (server only, while equipped)
         if(!HasHopballAuthority || !IsEquipped || !(previous > current)) return;
         var energyDepleted = previous - current;
-        if(_equippedController == null) return;
-        EventBus.Publish(new HopballEnergyDepletedEvent(_equippedController.OwnerClientId, energyDepleted));
+        if(HolderController == null) return;
+        EventBus.Publish(new HopballEnergyDepletedEvent(HolderController.OwnerClientId, energyDepleted));
     }
 
     private void Update() {
@@ -354,13 +350,11 @@ namespace Game.Hopball {
 
             IsDissolving = false;
             HolderController = controller;
-            _equippedController = controller != null ? controller.GetComponent<PlayerHopballController>() : null;
             _nextDrainAt = -1f;
             if(controller != null) {
                 EventBus.Publish(new HopballPickedUpEvent(controller.OwnerClientId));
             }
         } else {
-            _equippedController = null;
             HolderController = null;
         }
         FlowLog.Emit(FlowEventIds.HopballHoldStateChanged,
@@ -373,19 +367,15 @@ namespace Game.Hopball {
     /// Respawns the hopball at a new location with full energy.
     /// Called by HopballSpawnManager after dissolve completes.
     /// </summary>
-    public void RespawnAtLocation(Vector3 position, Quaternion rotation) {
-        if(!EnsureServerAuthority(nameof(RespawnAtLocation))) return;
-        // Clear equipped state FIRST to ensure controllers know they're not holding it
-        // Also disable the previous holder's Target indicator and clean up visuals
-        ulong? dissolveHolderId = null;
-        if(_equippedController != null) {
-            var controller = _equippedController; // Cache before clearing
-            dissolveHolderId = controller.OwnerClientId;
-            controller.ClearHopballReference();
-            controller.OnHopballReleasedClientRpc();
-            _equippedController = null;
-            HolderController = null;
-        }
+        public void RespawnAtLocation(Vector3 position, Quaternion rotation) {
+            if(!EnsureServerAuthority(nameof(RespawnAtLocation))) return;
+            // Clear equipped state FIRST to ensure controllers know they're not holding it
+            // Also disable the previous holder's Target indicator and clean up visuals
+            ulong? dissolveHolderId = null;
+            if(HolderController != null) {
+                dissolveHolderId = HolderController.OwnerClientId;
+                HolderController = null;
+            }
 
         IsEquipped = false;
 
@@ -419,7 +409,7 @@ namespace Game.Hopball {
     /// Repositions the hopball at a location (for OOB handling).
     /// Retains current energy.
     /// </summary>
-    public void RepositionAtLocation(Vector3 position, Quaternion rotation) {
+        public void RepositionAtLocation(Vector3 position, Quaternion rotation) {
         if(!EnsureServerAuthority(nameof(RepositionAtLocation))) return;
         // Just move it, don't reset energy
         var hopballTransform = transform;
@@ -430,8 +420,6 @@ namespace Game.Hopball {
         transform.SetParent(null);
         IsEquipped = false;
         IsDropped = true;
-        _equippedController = null;
-
         BroadcastStateUpdate(new HopballStateUpdate {
             Flags = HopballStateFlags.ShowRealImmediate,
             TargetStateSpecified = true,
@@ -472,7 +460,6 @@ namespace Game.Hopball {
         var previousHolderId = HolderController != null ? HolderController.OwnerClientId : 0UL;
         IsEquipped = false;
         IsDropped = true;
-        _equippedController = null; // Clear controller reference when dropped
         HolderController = null;
         if(previousHolderId != 0) {
             EventBus.Publish(new HopballDroppedEvent(previousHolderId));
@@ -544,20 +531,12 @@ namespace Game.Hopball {
         ApplyHopballState(update);
     }
 
-    private void ApplyHopballState(HopballStateUpdate update) {
+        private void ApplyHopballState(HopballStateUpdate update) {
         if((update.Flags & HopballStateFlags.CleanupVisuals) != 0) {
-            if(update.DissolveHolderClientIdSpecified && NetworkManager != null &&
-               NetworkManager.LocalClientId == update.DissolveHolderClientId) {
-                foreach(var controller in PlayerHopballController.Instances) {
-                    if(controller == null || controller.OwnerClientId != update.DissolveHolderClientId) continue;
-                    controller.RunCleanupAndRestoreWeapons();
-                    break;
-                }
+            if(update.DissolveHolderClientIdSpecified) {
+                EventBus.Publish(new HopballHolderCleanupRequestedEvent(update.DissolveHolderClientId));
             }
-            foreach(var controller in PlayerHopballController.Instances) {
-                if(controller == null) continue;
-                controller.CleanupHopballVisuals();
-            }
+            EventBus.Publish(new HopballVisualCleanupRequestedEvent());
         }
 
         if(update.PositionSpecified) {
@@ -599,19 +578,15 @@ namespace Game.Hopball {
         }
     }
 
-    public void OnControllerRegistered(PlayerHopballController controller) {
+    public void OnPlayerColliderRegistered(Collider col) {
         if(!_isIgnoringPlayerCollisions || hopballCollider == null) return;
-        if(controller == null) return;
-        var col = controller.PlayerCollider;
         if(col == null) return;
         if(_ignoredPlayerColliders.Add(col)) {
             Physics.IgnoreCollision(hopballCollider, col, true);
         }
     }
 
-    public void OnControllerUnregistered(PlayerHopballController controller) {
-        if(controller == null) return;
-        var col = controller.PlayerCollider;
+    public void OnPlayerColliderUnregistered(Collider col) {
         if(col == null) return;
         if(_ignoredPlayerColliders.Remove(col) && hopballCollider != null) {
             Physics.IgnoreCollision(hopballCollider, col, false);
@@ -623,14 +598,12 @@ namespace Game.Hopball {
         if(_isIgnoringPlayerCollisions == ignore) return;
 
         _isIgnoringPlayerCollisions = ignore;
+        if(IsSpawned) {
+            EventBus.Publish(new HopballCollisionIgnoreStateChangedEvent(NetworkObjectId, ignore));
+        }
 
         if(ignore) {
-            foreach(var controller in PlayerHopballController.Instances) {
-                if(controller == null) continue;
-                var col = controller.PlayerCollider;
-                if(col == null || !_ignoredPlayerColliders.Add(col)) continue;
-                Physics.IgnoreCollision(hopballCollider, col, true);
-            }
+            return;
         } else {
             foreach(var col in _ignoredPlayerColliders) {
                 if(col != null) Physics.IgnoreCollision(hopballCollider, col, false);
@@ -725,9 +698,9 @@ namespace Game.Hopball {
             ("respawnDelay", "ConfiguredBySpawnManager"));
 
         // If equipped, notify the holder client to clean up visuals and restore weapons (via state update; DA-compatible)
-        var controller = _equippedController; // Cache reference before clearing
-        if(IsEquipped && controller != null) {
-            var ownerId = controller.OwnerClientId;
+        var holderController = HolderController;
+        if(IsEquipped && holderController != null) {
+            var ownerId = holderController.OwnerClientId;
             BroadcastStateUpdate(new HopballStateUpdate {
                 Flags = HopballStateFlags.CleanupVisuals,
                 DissolveHolderClientIdSpecified = true,
@@ -737,7 +710,7 @@ namespace Game.Hopball {
 
         // Clear equipped state to prevent any lingering references
         IsEquipped = false;
-        _equippedController = null;
+        HolderController = null;
 
         // Ensure ball is marked as dropped
         if(!IsDropped) {
@@ -804,7 +777,6 @@ namespace Game.Hopball {
 
         IsEquipped = false;
         IsDropped = false;
-        _equippedController = null;
         _nextDrainAt = -1f;
 
         ShowRealHopball();

@@ -178,6 +178,36 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when all player-side hopball visuals should be cleaned up.
+    /// </summary>
+    public class HopballVisualCleanupRequestedEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when the former hopball holder should run full cleanup and weapon restore.
+    /// </summary>
+    public class HopballHolderCleanupRequestedEvent : GameEvent {
+        public readonly ulong HolderClientId;
+
+        public HopballHolderCleanupRequestedEvent(ulong holderClientId) {
+            HolderClientId = holderClientId;
+        }
+    }
+
+    /// <summary>
+    /// Event published when a hopball toggles player collision-ignore mode so the spawn manager can sync registered colliders.
+    /// </summary>
+    public class HopballCollisionIgnoreStateChangedEvent : GameEvent {
+        public readonly ulong HopballNetworkObjectId;
+        public readonly bool IgnorePlayerCollisions;
+
+        public HopballCollisionIgnoreStateChangedEvent(ulong hopballNetworkObjectId, bool ignorePlayerCollisions) {
+            HopballNetworkObjectId = hopballNetworkObjectId;
+            IgnorePlayerCollisions = ignorePlayerCollisions;
+        }
+    }
+
+    /// <summary>
     /// Event published when weapon systems need player-side world-weapon visuals to refresh after a switch/presentation change.
     /// </summary>
     public class PlayerWorldWeaponPresentationRefreshRequestedEvent : GameEvent {

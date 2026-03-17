@@ -48,6 +48,7 @@ namespace Game.Hopball {
         private float _cachedOutOfBoundsY;
         private bool _cachedUseYLevelOutOfBoundsKill = true;
         private bool _sessionOwnerCallbacksRegistered;
+        private readonly Dictionary<ulong, Collider> _registeredPlayerColliders = new();
 
         public HopballController CurrentHopballController { get; private set; }
         private bool HasHopballAuthority => NetworkAuthority.HasGlobalAuthority(this);
@@ -72,6 +73,7 @@ namespace Game.Hopball {
             EventBus.Subscribe<HopballDroppedEvent>(OnHopballDroppedEvent);
             EventBus.Subscribe<HopballEnergyDepletedEvent>(OnHopballEnergyDepletedEvent);
             EventBus.Subscribe<HopballRespawnRequestedEvent>(OnHopballRespawnRequestedEvent);
+            EventBus.Subscribe<HopballCollisionIgnoreStateChangedEvent>(OnHopballCollisionIgnoreStateChangedEvent);
 
             if(HasHopballAuthority) {
                 // Reset scores
@@ -104,6 +106,7 @@ namespace Game.Hopball {
             EventBus.Unsubscribe<HopballDroppedEvent>(OnHopballDroppedEvent);
             EventBus.Unsubscribe<HopballEnergyDepletedEvent>(OnHopballEnergyDepletedEvent);
             EventBus.Unsubscribe<HopballRespawnRequestedEvent>(OnHopballRespawnRequestedEvent);
+            EventBus.Unsubscribe<HopballCollisionIgnoreStateChangedEvent>(OnHopballCollisionIgnoreStateChangedEvent);
             _teamAScore.OnValueChanged -= OnTeamAScoreChanged;
             _teamBScore.OnValueChanged -= OnTeamBScoreChanged;
             CleanupActiveHopball();
@@ -484,6 +487,17 @@ namespace Game.Hopball {
             RespawnAtNewLocation();
         }
 
+        private void OnHopballCollisionIgnoreStateChangedEvent(HopballCollisionIgnoreStateChangedEvent evt) {
+            if(evt == null || CurrentHopballController == null) return;
+            if(CurrentHopballController.NetworkObjectId != evt.HopballNetworkObjectId) return;
+            if(!evt.IgnorePlayerCollisions) return;
+
+            foreach(var playerCollider in _registeredPlayerColliders.Values) {
+                if(playerCollider == null) continue;
+                CurrentHopballController.OnPlayerColliderRegistered(playerCollider);
+            }
+        }
+
         /// <summary>
         /// Awards a point to the specified team and checks for win condition.
         /// </summary>
@@ -585,6 +599,22 @@ namespace Game.Hopball {
             }
 
             RequestDropAuthorityServerRpc(hopballRef, dropPosition, dropRotation, playerVelocity, dropReason);
+        }
+
+        public IEnumerable<Collider> RegisteredPlayerColliders => _registeredPlayerColliders.Values;
+
+        public void RegisterPlayerController(ulong ownerClientId, Collider playerCollider) {
+            if(playerCollider == null) return;
+            _registeredPlayerColliders[ownerClientId] = playerCollider;
+            CurrentHopballController?.OnPlayerColliderRegistered(playerCollider);
+        }
+
+        public void UnregisterPlayerController(ulong ownerClientId) {
+            if(!_registeredPlayerColliders.TryGetValue(ownerClientId, out var playerCollider)) return;
+            _registeredPlayerColliders.Remove(ownerClientId);
+            if(playerCollider != null) {
+                CurrentHopballController?.OnPlayerColliderUnregistered(playerCollider);
+            }
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
