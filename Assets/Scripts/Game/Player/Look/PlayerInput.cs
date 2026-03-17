@@ -173,10 +173,12 @@ namespace Game.Player.Look {
             EventBus.Unsubscribe<PauseMenuStateChangedEvent>(OnPauseMenuStateChanged);
             EventBus.Unsubscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
             EventBus.Unsubscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
+            EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
             EventBus.Subscribe<BindingsAppliedEvent>(OnBindingsApplied);
             EventBus.Subscribe<PauseMenuStateChangedEvent>(OnPauseMenuStateChanged);
             EventBus.Subscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
             EventBus.Subscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
+            EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
             RefreshCachedScrollBindings();
         }
 
@@ -238,6 +240,11 @@ namespace Game.Player.Look {
             ApplySniperOverlayEffects(false, playZoomSound: false);
 
             ApplyHopballInteractPrompt(false, "PRESS INTERACT");
+        }
+
+        private void OnPlayerDied(PlayerDiedEvent evt) {
+            if(evt == null || !IsOwner || evt.PlayerId != OwnerClientId) return;
+            ForceDisableSniperOverlay(false);
         }
 
         private IEnumerator RefreshOwnerAmmoHudDeferred() {

@@ -5,7 +5,6 @@ using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Core;
-using Game.Player.Look;
 using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.Spawning;
@@ -39,7 +38,6 @@ namespace Game.Player.Combat {
         private CharacterController _characterController;
         private ClientNetworkTransform _clientNetworkTransform;
         private Transform _playerTransform;
-        private PlayerLookController _lookController;
         private PlayerMovementController _movementController;
         private PlayerTeamManager _teamManager;
         private GameObject _playerModelRoot;
@@ -119,7 +117,6 @@ namespace Game.Player.Combat {
             if(_weaponManager == null) _weaponManager = playerController.WeaponManager;
             if(_characterController == null) _characterController = playerController.CharacterController;
             if(_clientNetworkTransform == null) _clientNetworkTransform = playerController.ClientNetworkTransform;
-            if(_lookController == null) _lookController = playerController.LookController;
             if(_movementController == null) _movementController = playerController.MovementController;
             if(_teamManager == null) _teamManager = playerController.TeamManager;
             if(_playerModelRoot == null) _playerModelRoot = playerController.PlayerModelRoot;
@@ -434,9 +431,6 @@ namespace Game.Player.Combat {
                     ("player", OwnerClientId),
                     ("enabled", false),
                     ("reason", "DeathEntered"));
-                if(playerController != null && playerController.PlayerInput != null) {
-                    playerController.PlayerInput.ForceDisableSniperOverlay(false);
-                }
                 if(_weaponManager != null && _weaponCameraController != null) {
                     _weaponCameraController.SetWeaponCameraEnabled(false);
                 }
@@ -452,11 +446,7 @@ namespace Game.Player.Combat {
                 }
 
                 if(IsOwner && _fpCamera != null) {
-                    var baseFov = 80f;
-                    if(_lookController != null) {
-                        baseFov = _lookController.BaseFov;
-                    }
-                    _fpCamera.Lens.FieldOfView = baseFov;
+                    _fpCamera.Lens.FieldOfView = playerController != null ? playerController.BaseFov : 80f;
                 }
             }
 
@@ -667,9 +657,7 @@ namespace Game.Player.Combat {
                 ("enabled", true),
                 ("reason", "RespawnComplete"));
 
-            if(_lookController != null) {
-                _lookController.ResetPitch();
-            }
+            if(playerController != null) playerController.ResetLookPitchFromRespawn();
 
             if(playerController != null) {
                 playerController.lookInput = Vector2.zero;
@@ -697,8 +685,8 @@ namespace Game.Player.Combat {
                 _weaponManager.ApplyTpWeaponStateOnRespawn();
             }
 
-            if(playerController == null || playerController.PlayerInput == null) return;
-            var sampledMove = playerController.PlayerInput.ResampleHeldMovementInput("RespawnControlRestore");
+            if(playerController == null) return;
+            var sampledMove = playerController.ResampleHeldMovementInputFromRespawn("RespawnControlRestore");
             FlowLog.Emit(FlowEventIds.PlayerControlState,
                 ("player", OwnerClientId),
                 ("enabled", true),

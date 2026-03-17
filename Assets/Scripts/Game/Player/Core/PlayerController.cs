@@ -262,8 +262,9 @@ namespace Game.Player.Core {
         #endregion
 
         #region Public Properties
-
+ 
         public float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
+        public float BaseFov => lookController != null ? lookController.BaseFov : 80f;
         public WallRunController WallRunController => wallRunController;
         public bool IsWallRunning => wallRunController != null && wallRunController.IsWallRunning;
         public bool IsRightWallRunning => wallRunController != null && wallRunController.IsRightWallRun;
@@ -299,6 +300,14 @@ namespace Game.Player.Core {
         internal void LoadMaterialCustomizationFromPrefsForSpawn() => LoadMaterialCustomizationFromPrefs();
         internal void ClearTriggerOobCountdownFromPresentation() => ClearTriggerOobCountdownServer();
         internal void HideTriggerOobCountdownLocalFromPresentation() => HideTriggerOobCountdownLocal();
+        internal void ResetLookPitchFromRespawn() {
+            if(lookController != null) {
+                lookController.ResetPitch();
+            }
+        }
+
+        internal Vector2 ResampleHeldMovementInputFromRespawn(string reason = "Unknown") =>
+            playerInput != null ? playerInput.ResampleHeldMovementInput(reason) : Vector2.zero;
 
         #endregion
 
