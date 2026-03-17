@@ -158,7 +158,7 @@ namespace Game.Player.Movement {
             }
 
             playerController.ResetVelocity();
-            if(playerController.MovementController != null) playerController.MovementController.SetMantling(true);
+            playerController.SetMantlingFromTraversal(true);
 
             if(_mantleRoutine != null) {
                 StopCoroutine(_mantleRoutine);
@@ -214,7 +214,7 @@ namespace Game.Player.Movement {
             IsMantling = false;
 
             playerController.ResetVelocity();
-            if(playerController.MovementController != null) playerController.MovementController.SetMantling(false);
+            playerController.SetMantlingFromTraversal(false);
 
             _postMantleJumpCooldown = applyJumpCooldown ? PostMantleJumpDelay : 0f;
         }

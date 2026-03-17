@@ -632,11 +632,7 @@ namespace Game.Player.Movement {
                 _grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
             }
 
-            var mantleController = playerController != null ? playerController.MantleController : null;
-            var mantleWasActive = mantleController != null && mantleController.IsMantling;
-            if(mantleWasActive) {
-                mantleController.CancelMantleForJumpPad();
-            }
+            var mantleWasActive = playerController != null && playerController.CancelMantleForJumpPadFromTraversal();
 
             if(_characterController == null) {
                 Debug.LogError("[PlayerMovementController] CharacterController not found!");

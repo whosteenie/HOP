@@ -319,6 +319,25 @@ namespace Game.Player.Core {
             }
         }
 
+        internal bool TryMantleFromTraversal(Vector3? overrideForward = null) {
+            return mantleController != null && mantleController.TryMantle(overrideForward);
+        }
+
+        internal void SetMantlingFromTraversal(bool isMantling) {
+            if(movementController != null) {
+                movementController.SetMantling(isMantling);
+            }
+        }
+
+        internal bool CancelMantleForJumpPadFromTraversal() {
+            if(mantleController == null || !mantleController.IsMantling) {
+                return false;
+            }
+
+            mantleController.CancelMantleForJumpPad();
+            return true;
+        }
+
         internal Vector2 ResampleHeldMovementInputFromRespawn(string reason = "Unknown") =>
             playerInputController != null ? playerInputController.ResampleHeldMovementInput(reason) : Vector2.zero;
 
