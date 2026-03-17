@@ -16,6 +16,9 @@ namespace Game.Player.Contracts {
         bool IsMantling { get; }
         bool CanMantleJump { get; }
         bool IsGrappling { get; }
+        bool IsPreMatchMovementLocked { get; }
+        bool IsPostMatchMovementLocked { get; }
+        bool IsPostMatchFlowStarted { get; }
         bool LockLook { get; set; }
         bool SprintInputState { get; set; }
         bool CrouchInputState { get; set; }

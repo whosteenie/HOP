@@ -1065,6 +1065,11 @@ namespace Game.Player.Core {
         public bool IsDead => NetIsDead is { Value: true };
         public bool IsCrouching => netIsCrouching is { Value: true };
         public bool IsGrounded => movementController != null && movementController.IsGrounded;
+        public bool IsPreMatchMovementLocked => MatchTimerManager.Instance is { IsPreMatch: true };
+        public bool IsPostMatchMovementLocked => PostMatchManager.IsPostMatchMovementLockedLocal;
+        public bool IsPostMatchFlowStarted => PostMatchManager.Instance is { PostMatchFlowStarted: true };
+        public bool IsGunTagMode => MatchSettingsManager.Instance != null &&
+                                    MatchSettingsManager.Instance.selectedGameModeId == "Gun Tag";
 
         #endregion
 
@@ -1167,6 +1172,8 @@ namespace Game.Player.Core {
         bool IPlayerMovementContext.SprintInput => sprintInput;
         bool IPlayerMovementContext.CrouchInput => crouchInput;
         Vector3 IPlayerMovementContext.FullVelocity => GetFullVelocity;
+        bool IPlayerMovementContext.IsPreMatchMovementLocked => IsPreMatchMovementLocked;
+        bool IPlayerMovementContext.IsGunTagMode => IsGunTagMode;
         NetworkVariable<Vector4> IPlayerMovementContext.PlayerBaseColorNetwork => playerBaseColor;
         UnityEngine.InputSystem.PlayerInput IPlayerInputContext.UnityPlayerInput => unityPlayerInput;
         AudioListener IPlayerInputContext.AudioListener => audioListener;
@@ -1176,6 +1183,9 @@ namespace Game.Player.Core {
         bool IPlayerInputContext.IsMantling => mantleController != null && mantleController.IsMantling;
         bool IPlayerInputContext.CanMantleJump => mantleController != null && mantleController.CanJump;
         bool IPlayerInputContext.IsGrappling => grappleController != null && grappleController.IsGrappling;
+        bool IPlayerInputContext.IsPreMatchMovementLocked => IsPreMatchMovementLocked;
+        bool IPlayerInputContext.IsPostMatchMovementLocked => IsPostMatchMovementLocked;
+        bool IPlayerInputContext.IsPostMatchFlowStarted => IsPostMatchFlowStarted;
         bool IPlayerInputContext.SprintInputState {
             get => sprintInput;
             set => sprintInput = value;

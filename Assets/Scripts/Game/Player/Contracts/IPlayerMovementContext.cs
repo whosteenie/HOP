@@ -28,6 +28,8 @@ namespace Game.Player.Contracts {
         bool IsGrounded { get; }
         bool IsHoldingHopball { get; }
         bool IsTagged { get; }
+        bool IsPreMatchMovementLocked { get; }
+        bool IsGunTagMode { get; }
         Vector3 Position { get; }
         Vector3 FullVelocity { get; }
         Color CurrentBaseColor { get; }

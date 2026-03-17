@@ -2,7 +2,6 @@ using System.Collections;
 using Diagnostics;
 using Events;
 using Game.Audio.System;
-using Game.Match;
 using Game.Player.Contracts;
 using Game.Settings;
 using Game.Social;
@@ -56,8 +55,8 @@ namespace Game.Player.Input {
             }
         }
 
-        private static bool IsPreMatch => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
-        private bool IsPreMatchOrPausedOrDead => IsPreMatch || IsPausedOrDead;
+        private bool IsPreMatchMovementLocked => _playerContext is { IsPreMatchMovementLocked: true };
+        private bool IsPreMatchOrPausedOrDead => IsPreMatchMovementLocked || IsPausedOrDead;
 
         private WeaponManager WeaponManager {
             get {
@@ -393,7 +392,7 @@ namespace Game.Player.Input {
             var canShowPrompt = false;
             var promptText = "PRESS INTERACT";
 
-            var canCheckPickup = !IsPausedOrDead && !IsPreMatch &&
+            var canCheckPickup = !IsPausedOrDead && !IsPreMatchMovementLocked &&
                                  NetworkObject != null &&
                                  _playerContext is { IsHoldingHopball: false };
             if(canCheckPickup) {
@@ -491,7 +490,7 @@ namespace Game.Player.Input {
         [UsedImplicitly]
         private void OnMove(InputValue value) {
             if(!IsOwner) return;
-            if(IsPausedOrDead || PostMatchManager.IsPostMatchMovementLockedLocal) {
+            if(IsPausedOrDead || _playerContext is { IsPostMatchMovementLocked: true }) {
                 _playerContext?.SetMoveInput(Vector2.zero);
                 return;
             }
@@ -633,8 +632,7 @@ namespace Game.Player.Input {
 
         [UsedImplicitly]
         private void OnGrapple(InputValue value) {
-            if(!IsOwner || IsPreMatchOrPausedOrDead ||
-               (PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted)) return;
+            if(!IsOwner || IsPreMatchOrPausedOrDead || _playerContext is { IsPostMatchFlowStarted: true }) return;
             var isMantling = IsMantling;
             if(isMantling) return;
 
