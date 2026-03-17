@@ -14,6 +14,7 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityPlayerInputComponent = UnityEngine.InputSystem.PlayerInput;
 
 namespace Game.Player.Look {
     public class PlayerInputController : NetworkBehaviour {
@@ -22,7 +23,7 @@ namespace Game.Player.Look {
         [Header("Components")]
         [SerializeField] private PlayerController playerController;
 
-        private PlayerInput _playerInputComponent;
+        private UnityPlayerInputComponent _playerInputComponent;
         private InputActionMap _playerActionMap;
         private InputAction _moveAction;
         private InputAction _attackAction;
@@ -151,7 +152,7 @@ namespace Game.Player.Look {
             }
 
             if(playerController == null) {
-                Debug.LogError("[PlayerInput] PlayerController not found!");
+                Debug.LogError("[PlayerInputController] PlayerController not found!");
                 enabled = false;
                 return;
             }
