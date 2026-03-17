@@ -98,6 +98,7 @@ namespace Game.Player.Look {
         private bool _crouchBtnDown;
         private bool _voiceBtnDown;
         private bool _attackBtnDown;
+        private bool _jumpBtnDown;
         private bool _lastHopballPromptVisible;
         private string _lastHopballPromptText = "";
         private Coroutine _deferredAmmoHudRefreshRoutine;
@@ -123,7 +124,26 @@ namespace Game.Player.Look {
                     RefreshCachedInputActions();
                 }
 
-                return _jumpAction != null && _jumpAction.IsPressed();
+                var jumpPressed = _jumpBtnDown || _jumpAction != null && _jumpAction.IsPressed();
+                if(jumpPressed) {
+                    return true;
+                }
+
+                if(Mouse.current == null || Mouse.current.scroll.value.magnitude <= 0f) {
+                    return false;
+                }
+
+                var scrollY = Mouse.current.scroll.value.y;
+                var nextWeaponScrollPressed =
+                    IsScrollBindingTriggered(_nextWeaponScrollUpBound, _nextWeaponScrollDownBound, scrollY);
+                var previousWeaponScrollPressed =
+                    IsScrollBindingTriggered(_previousWeaponScrollUpBound, _previousWeaponScrollDownBound, scrollY);
+
+                if(nextWeaponScrollPressed || previousWeaponScrollPressed) {
+                    return false;
+                }
+
+                return IsScrollBindingTriggered(_jumpScrollUpBound, _jumpScrollDownBound, scrollY);
             }
         }
 
@@ -226,6 +246,7 @@ namespace Game.Player.Look {
         private void OnDisable() {
             this.UnsubscribeFromEventBus();
             _queuedWeaponCycleOffset = 0;
+            _jumpBtnDown = false;
             if(_deferredAmmoHudRefreshRoutine != null) {
                 StopCoroutine(_deferredAmmoHudRefreshRoutine);
                 _deferredAmmoHudRefreshRoutine = null;
@@ -633,6 +654,7 @@ namespace Game.Player.Look {
         [UsedImplicitly]
         private void OnJump(InputValue value) {
             if(!IsOwner || IsPausedOrDead) return;
+            _jumpBtnDown = value.isPressed;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
 

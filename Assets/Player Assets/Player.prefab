@@ -1482,7 +1482,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   playerTransform: {fileID: 1874585666564569488}
   characterController: {fileID: 4157602163556837535}
-  playerInput: {fileID: 1564543611840940099}
+  playerInputController: {fileID: 1564543611840940099}
   unityPlayerInput: {fileID: 7417474499678138227}
   playerAnimator: {fileID: 7910596075621510296}
   clientNetworkTransform: {fileID: 7906322676815125306}
@@ -1516,7 +1516,6 @@ MonoBehaviour:
   animationController: {fileID: -6537445453348264315}
   tagController: {fileID: 8858942629426496327}
   podiumController: {fileID: 203235595652891772}
-  playerHopballController: {fileID: 6778961089975042311}
   playerTeamManager: {fileID: 9125949885910601887}
   weaponCameraController: {fileID: 2936479342035201981}
   deathCameraController: {fileID: 6297701186958565404}
@@ -1562,18 +1561,6 @@ MonoBehaviour:
   outOfBoundsMarkerName: OOB
   outOfBoundsMarkerTag: OOB
   defaultOutOfBoundsY: 600
-  netHealth:
-    m_InternalValue: 100
-  netIsDead:
-    m_InternalValue: 0
-  kills:
-    m_InternalValue: 0
-  deaths:
-    m_InternalValue: 0
-  assists:
-    m_InternalValue: 0
-  damageDealt:
-    m_InternalValue: 0
   playerMaterialIndex:
     m_InternalValue: 0
   playerMaterialPacketIndex:
@@ -1592,218 +1579,26 @@ MonoBehaviour:
     m_InternalValue: 0
   playerEmissionColor:
     m_InternalValue: {x: 0, y: 0, z: 0, w: 1}
-  steamId:
-    m_InternalValue: 0
-  ugsId:
-    m_InternalValue:
-      utf8LengthInBytes: 0
-      bytes:
-        offset0000:
-          byte0000: 0
-          byte0001: 0
-          byte0002: 0
-          byte0003: 0
-          byte0004: 0
-          byte0005: 0
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        offset0016:
-          byte0000: 0
-          byte0001: 0
-          byte0002: 0
-          byte0003: 0
-          byte0004: 0
-          byte0005: 0
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        offset0032:
-          byte0000: 0
-          byte0001: 0
-          byte0002: 0
-          byte0003: 0
-          byte0004: 0
-          byte0005: 0
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        offset0048:
-          byte0000: 0
-          byte0001: 0
-          byte0002: 0
-          byte0003: 0
-          byte0004: 0
-          byte0005: 0
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        offset0064:
-          byte0000: 0
-          byte0001: 0
-          byte0002: 0
-          byte0003: 0
-          byte0004: 0
-          byte0005: 0
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        offset0080:
-          byte0000: 0
-          byte0001: 0
-          byte0002: 0
-          byte0003: 0
-          byte0004: 0
-          byte0005: 0
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        offset0096:
-          byte0000: 0
-          byte0001: 0
-          byte0002: 0
-          byte0003: 0
-          byte0004: 0
-          byte0005: 0
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        byte0112: 0
-        byte0113: 0
-        byte0114: 0
-        byte0115: 0
-        byte0116: 0
-        byte0117: 0
-        byte0118: 0
-        byte0119: 0
-        byte0120: 0
-        byte0121: 0
-        byte0122: 0
-        byte0123: 0
-        byte0124: 0
-        byte0125: 0
-  playerName:
-    m_InternalValue:
-      utf8LengthInBytes: 6
-      bytes:
-        offset0000:
-          byte0000: 80
-          byte0001: 108
-          byte0002: 97
-          byte0003: 121
-          byte0004: 101
-          byte0005: 114
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        offset0016:
-          byte0000: 0
-          byte0001: 0
-          byte0002: 0
-          byte0003: 0
-          byte0004: 0
-          byte0005: 0
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        offset0032:
-          byte0000: 0
-          byte0001: 0
-          byte0002: 0
-          byte0003: 0
-          byte0004: 0
-          byte0005: 0
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        byte0048: 0
-        byte0049: 0
-        byte0050: 0
-        byte0051: 0
-        byte0052: 0
-        byte0053: 0
-        byte0054: 0
-        byte0055: 0
-        byte0056: 0
-        byte0057: 0
-        byte0058: 0
-        byte0059: 0
-        byte0060: 0
-        byte0061: 0
   netIsCrouching:
     m_InternalValue: 0
   netIsSliding:
     m_InternalValue: 0
+  netIsJumping:
+    m_InternalValue: 0
+  netIsFalling:
+    m_InternalValue: 0
+  jumpAnimationSequence:
+    m_InternalValue: 0
+  landAnimationSequence:
+    m_InternalValue: 0
+  mantleAnimationSequence:
+    m_InternalValue: 0
+  netIsWallRunning:
+    m_InternalValue: 0
+  netIsRightWallRun:
+    m_InternalValue: 0
+  netWallRunDirection:
+    m_InternalValue: 1
   primaryWeaponIndex:
     m_InternalValue: 0
   secondaryWeaponIndex:
@@ -1978,8 +1773,6 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   playerController: {fileID: 5088684734431513618}
   currentAmmo: 0
-  netCurrentDamageMultiplier:
-    m_InternalValue: 1
 --- !u!114 &8382341124825033876
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2189,10 +1982,6 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   playerController: {fileID: 5088684734431513618}
   velocitySampleInterval: 0.1
-  averageVelocity:
-    m_InternalValue: 0
-  pingMs:
-    m_InternalValue: 0
 --- !u!114 &8858942629426496327
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2207,14 +1996,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerTagController
   ShowTopMostFoldoutHeaderGroup: 1
   playerController: {fileID: 5088684734431513618}
-  tags:
-    m_InternalValue: 0
-  tagged:
-    m_InternalValue: 0
-  timeTagged:
-    m_InternalValue: 0
-  isTagged:
-    m_InternalValue: 0
   lastTagStatsUpdateTime: 0
 --- !u!114 &-2894409740433754161
 MonoBehaviour:
@@ -2464,6 +2245,8 @@ MonoBehaviour:
   velocityIntentMinSpeed: 0.25
   highSpeedDirectionLockSpeed: 16
   highSpeedFlipOverrideStrength: 0.85
+  lowSpeedForwardBiasThreshold: 14
+  lowSpeedBackwardVelocityOverride: 11
   curvedSurfaceMaxDistance: 1.2
   curvedStickStrength: 10
   curvedStickTargetDistance: 0.4
@@ -5792,7 +5575,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7129668303251482571}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.024829209, y: 0.16649558, z: 0.013368207, w: 0.9856389}
+  m_LocalRotation: {x: 0.024829209, y: 0.16649558, z: 0.013368209, w: 0.9856389}
   m_LocalPosition: {x: 0, y: 0.08378157, z: -0.0000003860332}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
