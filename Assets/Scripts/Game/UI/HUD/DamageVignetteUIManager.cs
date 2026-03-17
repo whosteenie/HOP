@@ -69,45 +69,6 @@ namespace Game.UI.HUD {
             base.OnCleanup();
         }
 
-        /// <summary>
-        /// Call on local player to show directional hit from a world-space point.
-        /// </summary>
-        public void ShowHitFromWorldPoint(Vector3 worldHitPos, Transform cameraTransform, float intensity = 1f) {
-            if(_indicators == null || cameraTransform == null)
-                return;
-
-            // Direction from camera to hit, flattened on XZ
-            var toHit = worldHitPos - cameraTransform.position;
-            var flatDir = Vector3.ProjectOnPlane(toHit, Vector3.up);
-            if(flatDir.sqrMagnitude < 0.0001f)
-                return;
-
-            flatDir.Normalize();
-
-            // SignedAngle:
-            // +angle = hit is to the LEFT of forward
-            // -angle = hit is to the RIGHT of forward
-            var angle = Vector3.SignedAngle(cameraTransform.forward, flatDir, Vector3.up);
-
-            // We want 0° = front, increase clockwise (right)
-            var clockwise = angle; // now + is to the right
-            if(clockwise < 0f) clockwise += 360f; // 0..360
-
-            // 8 sectors of 45°
-            var sector = Mathf.RoundToInt(clockwise / 45f) % 8;
-            // 0 = front
-            // 1 = front-right
-            // 2 = right
-            // 3 = back-right
-            // 4 = back
-            // 5 = back-left
-            // 6 = left
-            // 7 = front-left
-
-            intensity = Mathf.Clamp01(intensity);
-            TriggerIndicator(sector, intensity);
-        }
-
         private void OnShowDamageVignetteFromWorldHit(ShowDamageVignetteFromWorldHitEvent evt) {
             if(evt == null || _indicators == null) return;
 

@@ -51,6 +51,7 @@ namespace Game.Player.Visual {
 
             // Use packet defaults if not provided
             var finalSpecularColor = specularColor ?? packet.defaultSpecularColor;
+            var finalNormalStrength = packet.normalMapStrength;
             var finalHeightStrength = heightStrength ?? packet.heightMapStrength;
             var finalEmissionColor = emissionColor ?? packet.defaultEmissionColor;
             var supportsEmission = packet.emissionMap != null;
@@ -92,7 +93,7 @@ namespace Game.Player.Visual {
             // Normal Map
             if(packet.normalMap != null) {
                 material.SetTexture(NormalMapId, packet.normalMap);
-                material.SetFloat(NormalScaleId, 1f); // Default normal strength
+                material.SetFloat(NormalScaleId, finalNormalStrength);
                 material.SetTextureScale(NormalMapId, packet.tiling);
                 material.SetTextureOffset(NormalMapId, packet.offset);
             }

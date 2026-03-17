@@ -112,32 +112,6 @@ namespace Game.UI.Core {
             }
         }
 
-        /// <summary>
-        /// Hides the topmost modal (most recently shown).
-        /// </summary>
-        public void HideTopModal() {
-            if(_modalStack.Count == 0) return;
-            var modal = _modalStack.Pop();
-            HideModal(modal);
-            
-            foreach(var kvp in _activeModals) {
-                if(kvp.Value != modal) continue;
-                _activeModals.Remove(kvp.Key);
-                break;
-            }
-        }
-
-        /// <summary>
-        /// Hides all active modals.
-        /// </summary>
-        public void HideAllModals() {
-            while(_modalStack.Count > 0) {
-                var modal = _modalStack.Pop();
-                HideModal(modal);
-            }
-            _activeModals.Clear();
-        }
-
         private static void ShowModal(VisualElement modal) {
             if(modal == null) return;
             modal.RemoveFromClassList("hidden");

@@ -261,13 +261,6 @@ namespace Game.UI.HUD {
             _cachedAmmoTotal = total;
         }
 
-        public void DisableHUD() {
-            if(Root != null) {
-                Root.style.display = DisplayStyle.None;
-            }
-            SetHopballInteractPrompt(false);
-        }
-
         // Event handler - called via EventBus
         private void HideHUD() {
             _healthContainer.style.visibility = Visibility.Hidden;
