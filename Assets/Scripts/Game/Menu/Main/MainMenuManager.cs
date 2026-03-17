@@ -5,6 +5,7 @@ using Game.Menu.Loadout;
 using Game.Social;
 using Game.Match;
 using Game.Menu.PrivateMatch;
+using Game.Menu.Shared;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;

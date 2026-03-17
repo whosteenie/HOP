@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Audio;
 
-namespace Game.Menu.Main {
+namespace Game.Menu.Shared {
     public class MainMenuMusicPlayer : MonoBehaviour {
         public static MainMenuMusicPlayer Instance { get; private set; }
 
@@ -205,4 +205,5 @@ namespace Game.Menu.Main {
         }
     }
 }
+
 
