@@ -8,8 +8,6 @@ namespace Game.Hopball {
     /// Creates/destroys indicator, tracks hopball holder, and updates indicator state.
     /// </summary>
     public class HopballIndicatorManager : MonoBehaviour {
-        private static HopballIndicatorManager Instance { get; set; }
-
         [Header("Indicator Prefab")]
         [SerializeField] private GameObject indicatorPrefab;
 
@@ -17,15 +15,6 @@ namespace Game.Hopball {
         private HopballController _currentHopballController;
         private bool _wasEquipped;
         private bool _wasDropped;
-
-        private void Awake() {
-            if(Instance != null && Instance != this) {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
-        }
 
         private void Update() {
             // Only update in Game scene and if hopball mode is active

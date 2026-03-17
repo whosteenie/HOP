@@ -12,8 +12,6 @@ namespace Game.Menu.Loadout {
     /// Manages the character customization panel UI and material customization.
     /// </summary>
     public class CharacterCustomizationManager : UIElementBase {
-        private static CharacterCustomizationManager Instance { get; set; }
-
         [Header("References")]
         [SerializeField] private LoadoutManager loadoutManager;
 
@@ -90,11 +88,6 @@ namespace Game.Menu.Loadout {
 
         protected override void Awake() {
             base.Awake();
-            if(Instance != null && Instance != this) {
-                Debug.LogWarning("[CharacterCustomizationManager] Multiple instances detected. Using the most recently awakened instance.");
-            }
-            Instance = this;
-
             if(uiDocument == null) {
                 uiDocument = GetComponent<UIDocument>();
             }
@@ -103,7 +96,11 @@ namespace Game.Menu.Loadout {
             }
 
             if(loadoutManager == null) {
-                loadoutManager = LoadoutManager.Instance;
+                loadoutManager = GetComponentInParent<LoadoutManager>();
+            }
+
+            if(loadoutManager == null) {
+                loadoutManager = FindFirstObjectByType<LoadoutManager>();
             }
         }
 
@@ -138,13 +135,6 @@ namespace Game.Menu.Loadout {
                 loadoutManager.OnReloadCustomizationRequested -= ReloadSavedCustomization;
             }
             base.OnDisable();
-        }
-
-        protected override void OnDestroy() {
-            if(Instance == this) {
-                Instance = null;
-            }
-            base.OnDestroy();
         }
 
         protected override void OnInitialize() {

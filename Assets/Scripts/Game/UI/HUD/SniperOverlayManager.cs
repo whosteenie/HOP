@@ -4,8 +4,6 @@ using UnityEngine.UIElements;
 
 namespace Game.UI.HUD {
     public class SniperOverlayManager : MonoBehaviour {
-        private static SniperOverlayManager Instance { get; set; }
-
         #region Serialized Fields
 
         [Header("Sniper Overlay")]
@@ -33,15 +31,6 @@ namespace Game.UI.HUD {
         private int _cachedTextureHeight = -1;
 
         #endregion
-
-        private void Awake() {
-            if(Instance != null && Instance != this) {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
-        }
 
         /// <summary>
         /// Initializes the sniper overlay manager with UI element references.

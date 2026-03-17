@@ -12,8 +12,6 @@ namespace Game.UI.HUD {
     /// Manages the kill feed UI, including kill entries and tag transfer entries.
     /// </summary>
     public class KillFeedManager : MonoBehaviour {
-        private static KillFeedManager Instance { get; set; }
-
         [Header("Kill Feed Settings")]
         [SerializeField] private Sprite killIconSprite;
         [SerializeField] private Sprite taggedIconSprite; // Icon for tag transfers in Tag mode
@@ -33,15 +31,6 @@ namespace Game.UI.HUD {
         private bool _cachedIsTeamBased;
         private bool _cachedIsTagMode;
         private bool _gameModeCacheValid;
-
-        private void Awake() {
-            if(Instance != null && Instance != this) {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
-        }
 
         private void OnEnable() {
             // Subscribe to UI and gameplay events

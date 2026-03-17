@@ -122,16 +122,9 @@ namespace Game.Menu.Game {
 
         #endregion
 
-        public static GameMenuManager Instance { get; private set; }
-
         #region Unity Lifecycle
 
         protected override void Awake() {
-            if(Instance != null && Instance != this) {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
             base.Awake();
             EventBus.Publish(new GameMenuReadyEvent());
         }
@@ -168,10 +161,6 @@ namespace Game.Menu.Game {
         }
 
         protected override void OnDestroy() {
-            if(Instance == this) {
-                Instance = null;
-            }
-
             base.OnDestroy();
         }
 

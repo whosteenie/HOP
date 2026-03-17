@@ -15,7 +15,6 @@ namespace Game.Menu.Main {
     /// Syncs "GameMode" key in Lobby Data.
     /// </summary>
     public class MainMenuGamemodeManager : UIElementBase {
-        private static MainMenuGamemodeManager Instance { get; set; }
         private Label _gamemodeDisplayLabel;
         private VisualElement _gamemodeArrow;
         private VisualElement _gamemodeDropdownMenu;
@@ -24,11 +23,6 @@ namespace Game.Menu.Main {
         private bool _isHost;
 
         protected override void Awake() {
-            if(Instance != null && Instance != this) {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
             base.Awake();
         }
 
@@ -39,11 +33,6 @@ namespace Game.Menu.Main {
 
         protected override Dictionary<string, Type> GetRequiredElements() {
             return new Dictionary<string, Type>();
-        }
-
-        protected override void OnDestroy() {
-            if(Instance == this) Instance = null;
-            base.OnDestroy();
         }
 
         protected override void OnEnable() {

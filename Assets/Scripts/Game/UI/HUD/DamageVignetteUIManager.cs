@@ -7,8 +7,6 @@ using UnityEngine.UIElements;
 
 namespace Game.UI.HUD {
     public class DamageVignetteUIManager : UIElementBase {
-        private static DamageVignetteUIManager Instance { get; set; }
-
         [Header("Timing")]
         [SerializeField] private float flashDuration = 0.12f; // time at full alpha
         [SerializeField] private float fadeDuration = 0.3f; // fade-out
@@ -19,13 +17,6 @@ namespace Game.UI.HUD {
         private Coroutine[] _runningCoroutines;
 
         protected override void Awake() {
-            if(Instance != null && Instance != this) {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
-
             if(uiDocument == null) {
                 uiDocument = GetComponent<UIDocument>();
             }

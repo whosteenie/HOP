@@ -11,8 +11,6 @@ using UnityEngine.UIElements;
 
 namespace Game.Menu.Loadout {
     public class LoadoutManager : UIElementBase {
-        public static LoadoutManager Instance { get; private set; }
-
         [Header("Weapon Data")]
         [SerializeField] private WeaponData[] primaryWeapons;
 
@@ -164,10 +162,6 @@ namespace Game.Menu.Loadout {
 
         protected override void Awake() {
             base.Awake();
-            if(Instance != null && Instance != this) {
-                Debug.LogWarning("[LoadoutManager] Multiple instances detected. Using the most recently awakened instance.");
-            }
-            Instance = this;
             ResetPreviewCameraTarget();
         }
 
@@ -249,9 +243,6 @@ namespace Game.Menu.Loadout {
         }
 
         protected override void OnDestroy() {
-            if(Instance == this) {
-                Instance = null;
-            }
             ReleasePreviewRenderTexture();
             base.OnDestroy();
         }
@@ -2177,4 +2168,3 @@ namespace Game.Menu.Loadout {
         }
     }
 }
-
