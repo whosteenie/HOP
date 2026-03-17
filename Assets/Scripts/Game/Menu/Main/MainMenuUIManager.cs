@@ -184,10 +184,10 @@ namespace Game.Menu.Main {
             MainMenuPanel = QRequired<VisualElement>("main-menu-panel");
             PlayGamemodePanel = QOptional<VisualElement>("play-gamemode-panel");
             _playerNameLabel = QOptional<Label>("player-name-label");
-            QOptional<VisualElement>("lobby-panel");
-            QOptional<VisualElement>("loadout-panel");
-            QOptional<VisualElement>("options-panel");
-            QOptional<VisualElement>("credits-panel");
+            _ = QOptional<VisualElement>("lobby-panel");
+            _ = QOptional<VisualElement>("loadout-panel");
+            _ = QOptional<VisualElement>("options-panel");
+            _ = QOptional<VisualElement>("credits-panel");
 
             // Buttons (required)
             _playButtonMatchmaking = QRequired<Button>("play-button-matchmaking");
