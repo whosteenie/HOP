@@ -19,6 +19,8 @@ namespace Game.Player.Contracts {
         CinemachineCamera FpCamera { get; }
         WeaponCameraController WeaponCameraController { get; }
         CinemachineImpulseSource ImpulseSource { get; }
+        Vector3 FullVelocity { get; }
+        bool IsGrounded { get; }
         NetworkVariable<float> NetHealth { get; }
         NetworkVariable<bool> NetIsDead { get; }
         NetworkVariable<int> Deaths { get; }
@@ -35,6 +37,7 @@ namespace Game.Player.Contracts {
         void ClearLookInput();
         Vector2 ResampleHeldMovementInputFromRespawn(string reason = "Unknown");
         void ResetWeaponState(bool resetAllAmmo = false, bool switchToWeapon0 = false, bool updateHUD = false);
+        void ResetVelocity();
         void PlayHitEffects(Vector3 hitPoint, float amount);
         float GetOutOfBoundsKillY();
         bool IsYLevelOutOfBoundsKillEnabled();

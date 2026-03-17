@@ -1257,6 +1257,8 @@ namespace Game.Player.Core {
         CinemachineCamera IPlayerCombatContext.FpCamera => fpCamera;
         WeaponCameraController IPlayerCombatContext.WeaponCameraController => weaponCameraController;
         CinemachineImpulseSource IPlayerCombatContext.ImpulseSource => impulseSource;
+        Vector3 IPlayerCombatContext.FullVelocity => movementController != null ? movementController.FullVelocity : Vector3.zero;
+        bool IPlayerCombatContext.IsGrounded => movementController != null && movementController.IsGrounded;
         NetworkVariable<float> IPlayerCombatContext.NetHealth => NetHealth;
         NetworkVariable<bool> IPlayerCombatContext.NetIsDead => NetIsDead;
         NetworkVariable<int> IPlayerCombatContext.Deaths => Deaths;
@@ -1276,6 +1278,11 @@ namespace Game.Player.Core {
             ResampleHeldMovementInputFromRespawn(reason);
         void IPlayerCombatContext.ResetWeaponState(bool resetAllAmmo, bool switchToWeapon0, bool updateHUD) =>
             ResetWeaponState(resetAllAmmo, switchToWeapon0, updateHUD);
+        void IPlayerCombatContext.ResetVelocity() {
+            if(movementController != null) {
+                movementController.ResetVelocity();
+            }
+        }
         void IPlayerCombatContext.PlayHitEffects(Vector3 hitPoint, float amount) => PlayHitEffectsClientRpc(hitPoint, amount);
         float IPlayerCombatContext.GetOutOfBoundsKillY() => GetOutOfBoundsKillY();
         bool IPlayerCombatContext.IsYLevelOutOfBoundsKillEnabled() => IsYLevelOutOfBoundsKillEnabled();

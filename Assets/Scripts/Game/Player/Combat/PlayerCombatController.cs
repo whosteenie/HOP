@@ -5,7 +5,6 @@ using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Contracts;
-using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.Spawning;
 using Game.Weapon.Core;
@@ -40,7 +39,6 @@ namespace Game.Player.Combat {
         private CharacterController _characterController;
         private ClientNetworkTransform _clientNetworkTransform;
         private Transform _playerTransform;
-        private PlayerMovementController _movementController;
         private GameObject _playerModelRoot;
         private Transform _worldWeaponSocket;
         private Animator _playerAnimator;
@@ -114,7 +112,6 @@ namespace Game.Player.Combat {
             if(_weaponManager == null) _weaponManager = _playerContext.WeaponManager;
             if(_characterController == null) _characterController = _playerContext.CharacterController;
             if(_clientNetworkTransform == null) _clientNetworkTransform = _playerContext.ClientNetworkTransform;
-            if(_movementController == null) _movementController = GetComponent<PlayerMovementController>();
             if(_playerModelRoot == null) _playerModelRoot = _playerContext.PlayerModelRoot;
             if(_worldWeaponSocket == null) _worldWeaponSocket = _playerContext.WorldWeaponSocket;
             if(_playerAnimator == null) _playerAnimator = _playerContext.PlayerAnimator;
@@ -371,9 +368,9 @@ namespace Game.Player.Combat {
                     var killerSpeed = 0f;
                     var isGrounded = true;
 
-                    if(_movementController != null) {
-                        killerSpeed = _movementController.FullVelocity.magnitude;
-                        isGrounded = _movementController.IsGrounded;
+                    if(_playerContext != null) {
+                        killerSpeed = _playerContext.FullVelocity.magnitude;
+                        isGrounded = _playerContext.IsGrounded;
                     } else if(_characterController != null) {
                         killerSpeed = _characterController.velocity.magnitude;
                         isGrounded = _characterController.isGrounded;
@@ -633,9 +630,7 @@ namespace Game.Player.Combat {
             _playerContext?.ResetLookPitchFromRespawn();
             _playerContext?.ClearLookInput();
 
-            if(_movementController != null) {
-                _movementController.ResetVelocity();
-            }
+            _playerContext?.ResetVelocity();
 
             if(_fpCamera != null) {
                 _fpCamera.transform.localRotation = Quaternion.identity;
