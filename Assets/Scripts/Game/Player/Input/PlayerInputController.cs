@@ -76,7 +76,6 @@ namespace Game.Player.Input {
 
         private bool _sprintBtnDown;
         private bool _crouchBtnDown;
-        private bool _voiceBtnDown;
         private bool _attackBtnDown;
         private bool _jumpBtnDown;
         private bool _lastHopballPromptVisible;
@@ -294,7 +293,6 @@ namespace Game.Player.Input {
                 var isPressed = _voiceAction.IsPressed();
                 VoiceManager.Instance.SetPttActive(isPressed && !_isChatOpen);
 
-                _voiceBtnDown = isPressed;
             }
 
             var attackPressed = _attackAction != null && _attackAction.IsPressed();

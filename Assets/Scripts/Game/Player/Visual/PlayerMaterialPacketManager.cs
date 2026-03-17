@@ -35,11 +35,8 @@ namespace Game.Player.Visual {
             _nonePacket = ScriptableObject.CreateInstance<PlayerMaterialPacket>();
             _nonePacket.packetName = "None";
             _nonePacket.useMetallicWorkflow = true;
-            _nonePacket.defaultSmoothness = 0f;
-            _nonePacket.defaultMetallic = 0f;
             _nonePacket.tiling = Vector2.one;
             _nonePacket.offset = Vector2.zero;
-            _nonePacket.defaultEmissionEnabled = false;
             _nonePacket.defaultEmissionColor = new Color(0f, 0f, 0f, 1f);
 
             // Build packet list: None at index 0, then all loaded packets
@@ -90,14 +87,10 @@ namespace Game.Player.Visual {
             var packet = ScriptableObject.CreateInstance<PlayerMaterialPacket>();
             packet.packetName = "None";
             packet.useMetallicWorkflow = true;
-            packet.defaultSmoothness = 0f;
-            packet.defaultMetallic = 0f;
             packet.tiling = Vector2.one;
             packet.offset = Vector2.zero;
-            packet.defaultEmissionEnabled = false;
             packet.defaultEmissionColor = new Color(0f, 0f, 0f, 1f);
             return packet;
         }
     }
 }
-

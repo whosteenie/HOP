@@ -10,7 +10,6 @@ namespace Game.Weapon.Kinemation {
         private bool _hasCached;
         private Transform _clavicleLeft;
         private Transform _wristDebugUpperarmLeft;
-        private Transform _wristDebugLowerarmLeft;
         private Transform _wristDebugTwistLeft;
         private Transform _wristDebugHandLeft;
         private Transform _ikHandLeft;
@@ -30,7 +29,6 @@ namespace Game.Weapon.Kinemation {
             var root = _context.PlayerInstance.transform;
             TryFindChildByName(root, "clavicle_l", out _clavicleLeft);
             TryFindChildByName(root, "upperarm_l", out _wristDebugUpperarmLeft);
-            TryFindChildByName(root, "lowerarm_l", out _wristDebugLowerarmLeft);
             TryFindChildByName(root, "lowerarm_twist_01_l", out _wristDebugTwistLeft);
             TryFindChildByName(root, "hand_l", out _wristDebugHandLeft);
             TryFindChildByName(root, "ik_hand_l", out _ikHandLeft);

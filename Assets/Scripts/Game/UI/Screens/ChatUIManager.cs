@@ -10,7 +10,6 @@ using Cursor = UnityEngine.Cursor;
 
 namespace Game.UI.Screens {
     public class ChatUIManager : UIElementBase {
-        private VisualElement _chatContainer;
         private VisualElement _chatBackground;
         private ScrollView _chatScroll;
         private VisualElement _chatMessageList;
@@ -33,7 +32,6 @@ namespace Game.UI.Screens {
         public bool IsChatOpen { get; private set; }
 
         protected override void OnInitialize() {
-            _chatContainer = QOptional<VisualElement>("chat-container");
             _chatBackground = QOptional<VisualElement>("chat-background");
             _chatScroll = QOptional<ScrollView>("chat-scroll");
             _chatMessageList = QOptional<VisualElement>("chat-message-list");

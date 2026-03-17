@@ -66,10 +66,13 @@ namespace Game.Menu {
 
         // Events
         public Action<bool, bool> OnHostStatusChanged; // isHost, wasHost
+
         /// <summary> When set, returns whether to show "Switch Team" in the party context menu (e.g. when on Private Match Setup with a team gamemode). </summary>
         public Func<bool> ShouldShowSwitchTeamInContextMenu;
+
         /// <summary> Fired when the host chooses "Switch Team" for a player in the private match setup (team modes only). </summary>
         public Action<SteamId> OnSwitchTeamRequested;
+
         public Action OnLocalProfileRequested;
         public Action<ulong, string, bool> OnProfileRequested;
 
@@ -84,7 +87,7 @@ namespace Game.Menu {
             // Auto-host a Steam private lobby when online (used for party/invite UX).
             // When Steam is offline, we stay solo and allow "offline private match" when selecting a gamemode.
             if(SessionManager.Instance != null && !SessionManager.Instance.CurrentLobby.HasValue
-               && SteamClient.IsValid && SteamClient.IsLoggedOn) {
+                                               && SteamClient.IsValid && SteamClient.IsLoggedOn) {
                 BeginSilentAutoHost();
             }
         }
@@ -192,6 +195,7 @@ namespace Game.Menu {
             if(uiManager != null && uiManager.PartyContainer != null) {
                 uiManager.PartyContainer.style.display = DisplayStyle.Flex;
             }
+
             ApplyInviteVisibility();
             DrawSoloPlayer();
         }
@@ -220,6 +224,7 @@ namespace Game.Menu {
                 if(uiManager != null) {
                     uiManager.ShowToast("Steam is offline. Invites unavailable.", _inviteButton);
                 }
+
                 return;
             }
 
@@ -270,7 +275,7 @@ namespace Game.Menu {
 
         private void Update() {
             if(SessionManager.Instance == null) return;
-            
+
             // Handle Matchmaking Status & Locking
             var isSearching = SessionManager.Instance.IsSearching;
             var showStatus = SessionManager.Instance.ShowMatchmakingStatus;
@@ -339,28 +344,33 @@ namespace Game.Menu {
                     : currentPartySize > 5
                         ? MenuButtonMode.PartyTooLarge
                         : MenuButtonMode.Normal;
+
+                // ReSharper disable once SwitchStatementMissingSomeEnumCasesNoDefault
                 switch(menuButtonMode) {
-                    case MenuButtonMode.Unknown:
                     case MenuButtonMode.Normal:
-                        if(_lastMenuButtonMode != MenuButtonMode.Normal || _lastMenuButtonsEnabled != canUseMenuButtons) {
+                        if(_lastMenuButtonMode != MenuButtonMode.Normal ||
+                           _lastMenuButtonsEnabled != canUseMenuButtons) {
                             uiManager.SetMenuButtonsEnabled(canUseMenuButtons);
                             _lastMenuButtonsEnabled = canUseMenuButtons;
                         }
+
                         break;
                     case MenuButtonMode.Offline:
                         if(_lastMenuButtonMode != MenuButtonMode.Offline || !_lastMenuButtonsEnabled) {
-                            uiManager.SetMenuButtonsEnabled(true); // Play opens gamemode select; user picks Private Match there.
+                            uiManager.SetMenuButtonsEnabled(
+                                true); // Play opens gamemode select; user picks Private Match there.
                             _lastMenuButtonsEnabled = true;
                         }
+
                         break;
                     case MenuButtonMode.PartyTooLarge:
                         if(_lastMenuButtonMode != MenuButtonMode.PartyTooLarge && playMatchmakingButton != null) {
                             MainMenuUIManager.DisableButton(playMatchmakingButton);
                         }
-                        break;
-                    default:
+
                         break;
                 }
+
                 _lastMenuButtonMode = menuButtonMode;
 
                 if(uiManager.StatusContainer != null) {
@@ -372,6 +382,7 @@ namespace Game.Menu {
                             uiManager.StatusContainer.AddToClassList("hidden");
                             uiManager.StatusContainer.style.display = DisplayStyle.None;
                         }
+
                         _lastStatusVisible = showStatus;
                     }
 
@@ -507,6 +518,7 @@ namespace Game.Menu {
                 if(el.name.StartsWith("ctx-", StringComparison.Ordinal) || el.name == "context-menu-backdrop")
                     return el.name;
             }
+
             return target.name;
         }
 
@@ -541,10 +553,12 @@ namespace Game.Menu {
             if(uiManager.CtxSwitchTeam != null) {
                 uiManager.CtxSwitchTeam.style.display = showSwitchTeam ? DisplayStyle.Flex : DisplayStyle.None;
                 if(Debug.isDebugBuild) {
-                    Debug.Log($"[PrivateMatchSetup] ShowContextMenu: showSwitchTeam={showSwitchTeam} CtxSwitchTeam.display={uiManager.CtxSwitchTeam.style.display}");
+                    Debug.Log(
+                        $"[PrivateMatchSetup] ShowContextMenu: showSwitchTeam={showSwitchTeam} CtxSwitchTeam.display={uiManager.CtxSwitchTeam.style.display}");
                 }
             } else if(Debug.isDebugBuild && showSwitchTeam) {
-                Debug.LogWarning("[PrivateMatchSetup] ShowContextMenu: showSwitchTeam=true but CtxSwitchTeam (ctx-switch-team) is null. Check UXML.");
+                Debug.LogWarning(
+                    "[PrivateMatchSetup] ShowContextMenu: showSwitchTeam=true but CtxSwitchTeam (ctx-switch-team) is null. Check UXML.");
             }
 
             var showSeparator = showLeave || canManage || showSwitchTeam;
@@ -596,8 +610,10 @@ namespace Game.Menu {
                         if(uiManager != null) {
                             uiManager.ShowToast("You're not in a party.");
                         }
+
                         break;
                     }
+
                     // Trigger Leave Logic
                     SessionManager.Instance.LeaveLobby();
                     // TODO: This might need confirmation modal?
@@ -675,6 +691,7 @@ namespace Game.Menu {
                           $"targetId={targetId.Value} showSwitchTeam={showSwitchTeam} isMe={isMe} amIHost={amIHost} " +
                           $"CtxSwitchTeamElement={uiManager != null && uiManager.CtxSwitchTeam != null}");
             }
+
             ShowContextMenu(position, targetId, isMe, amIHost, showSwitchTeam);
         }
 
@@ -747,7 +764,8 @@ namespace Game.Menu {
             _privateMatchStartInFlight = true;
             try {
                 SessionManager.Instance.ApplyPrivateMatchSettings(
-                    mode, mapId, matchTimerSeconds, usePreMatchCountdown, swapWeaponsOnDeath, scoreToWin, kothHillSpeed, taggedPlayers,
+                    mode, mapId, matchTimerSeconds, usePreMatchCountdown, swapWeaponsOnDeath, scoreToWin, kothHillSpeed,
+                    taggedPlayers,
                     teamAssignments);
 
                 // Apply private match draft settings to MatchSettingsManager so game-side
@@ -767,6 +785,7 @@ namespace Game.Menu {
                     if(uiManager != null) {
                         uiManager.ShowToast("Offline. Starting offline private match.");
                     }
+
                     await SessionManager.Instance.StartOfflinePrivateMatchAsync(mode);
                     return;
                 }
@@ -783,6 +802,7 @@ namespace Game.Menu {
                         if(uiManager != null) {
                             uiManager.ShowToast("Preparing private match. Please try again.");
                         }
+
                         return;
                     }
                 }
@@ -797,6 +817,7 @@ namespace Game.Menu {
                 if(!SessionManager.Instance.HasPartyLobby) {
                     await SessionManager.Instance.CreatePartyLobbyAsync(maxPlayers, true);
                 }
+
                 await SessionManager.Instance.StartPrivateMatchAsync(mode, maxPlayers);
             } catch(OperationCanceledException) {
                 // Menu view no longer active.
@@ -912,7 +933,8 @@ namespace Game.Menu {
             var displayId = steamOnline ? SteamClient.SteamId : default;
 
             var hide = !steamOnline || StreamerMode.Enabled;
-            var iconId = PlayerIconPicker.PickIconIdFromBaseColor(GameSettings.Data.player.customization.baseColor, hide);
+            var iconId =
+                PlayerIconPicker.PickIconIdFromBaseColor(GameSettings.Data.player.customization.baseColor, hide);
             LaunchUiTask(CreatePlayerRow(displayName, displayId, iconId, true, _localProfileContainer),
                 "DrawSoloPlayer/CreatePlayerRow");
 
@@ -952,7 +974,8 @@ namespace Game.Menu {
                 }
 
                 if(member.Id == SteamClient.SteamId) {
-                    await CreatePlayerRow(displayName, member.Id, iconId, true, _localProfileContainer, member.Id == hostId,
+                    await CreatePlayerRow(displayName, member.Id, iconId, true, _localProfileContainer,
+                        member.Id == hostId,
                         inMyParty, avatarHidden);
                 } else {
                     await CreatePlayerRow(displayName, member.Id, iconId, false, _partyMembersList, member.Id == hostId,
@@ -1010,6 +1033,7 @@ namespace Game.Menu {
             } else {
                 row.style.marginRight = 0;
             }
+
             row.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 0.4f));
 
             var showHostIndicator = isHost;
@@ -1028,7 +1052,9 @@ namespace Game.Menu {
             float borderSize = showHostIndicator ? 2 : isPartyMember && !isLocal ? 1 : 0;
             var borderColor = showHostIndicator
                 ? new StyleColor(hostColor)
-                : isPartyMember ? new StyleColor(partyColor) : new StyleColor(StyleKeyword.Null);
+                : isPartyMember
+                    ? new StyleColor(partyColor)
+                    : new StyleColor(StyleKeyword.Null);
 
             avatarBox.style.borderTopWidth = borderSize;
             avatarBox.style.borderBottomWidth = borderSize;
@@ -1043,7 +1069,8 @@ namespace Game.Menu {
             nameLabel.text = playerName;
             row.RegisterCallback<PointerDownEvent>(evt => {
                 if(evt.button != 1) return;
-                var showSwitchTeam = ShouldShowSwitchTeamInContextMenu != null && ShouldShowSwitchTeamInContextMenu.Invoke();
+                var showSwitchTeam = ShouldShowSwitchTeamInContextMenu != null &&
+                                     ShouldShowSwitchTeamInContextMenu.Invoke();
                 ShowContextMenu(evt.position, id, isLocal, IsHost, showSwitchTeam);
                 evt.StopPropagation();
             });

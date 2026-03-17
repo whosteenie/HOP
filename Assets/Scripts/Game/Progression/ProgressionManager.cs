@@ -463,9 +463,7 @@ namespace Game.Progression {
                 var filterToUse = !string.IsNullOrEmpty(challenge.filterID) ? challenge.filterID : def.weaponID;
 
                 var requiresContextMatch =
-                    type == ChallengeType.WeaponKill ||
-                    type == ChallengeType.MatchesPlayed ||
-                    type == ChallengeType.Placement;
+                    type is ChallengeType.WeaponKill or ChallengeType.MatchesPlayed or ChallengeType.Placement;
                 if(requiresContextMatch &&
                    !string.IsNullOrEmpty(filterToUse) &&
                    contextId != filterToUse) {

@@ -47,15 +47,6 @@ namespace Game.Player.Visual {
                  "Specular: Has Smoothness + Specular Color (for non-metals like skin, fabric).")]
         public bool useMetallicWorkflow = true;
 
-        [Tooltip("Suggested smoothness value (0-1). Controls how reflective/shiny the surface is.")]
-        [Range(0f, 1f)]
-        public float defaultSmoothness = 0.5f;
-
-        [Tooltip("Suggested metallic value (0-1). Only used if useMetallicWorkflow is true.\n" +
-                 "0 = non-metal (dielectric), 1 = metal (conductor).")]
-        [Range(0f, 1f)]
-        public float defaultMetallic;
-
         [Tooltip("Suggested specular color. Only used if useMetallicWorkflow is false.\n" +
                  "Controls the color of specular highlights for non-metallic surfaces.")]
         public Color defaultSpecularColor = new(0.2f, 0.2f, 0.2f, 1f);
@@ -67,9 +58,6 @@ namespace Game.Player.Visual {
         public float heightMapStrength = 0.02f;
 
         [Header("Emission Settings")]
-        [Tooltip("Whether emission should be enabled by default when this packet is selected.")]
-        public bool defaultEmissionEnabled;
-
         [Tooltip("Default emission color used when emission is enabled.")]
         public Color defaultEmissionColor = new(0f, 0f, 0f, 1f);
 

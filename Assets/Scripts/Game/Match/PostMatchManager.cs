@@ -487,6 +487,7 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Everyone)]
+        // ReSharper disable once MemberCanBeMadeStatic.Local
         private void AnnounceMatchResultClientRpc(SpawnPoint.Team winningTeam) {
             if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) return;
 
@@ -522,7 +523,7 @@ namespace Game.Match {
                 recordMatchCompletion = matchSettings != null;
             } else {
                 if(TryGetLocalFfaPlacement(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag",
-                       out var rank, out _)) {
+                       out var rank)) {
                     placement = rank;
                     if(rank == 1) {
                         bonusXp = 500;
@@ -621,9 +622,8 @@ namespace Game.Match {
             killsLabel.text = hasPlayer ? kills.ToString() : "0";
         }
 
-        private static bool TryGetLocalFfaPlacement(bool isTagMode, out int placement, out int totalPlayers) {
+        private static bool TryGetLocalFfaPlacement(bool isTagMode, out int placement) {
             placement = 0;
-            totalPlayers = 0;
 
             var localClient = NetworkManager.Singleton.LocalClient;
             if(localClient?.PlayerObject == null) return false;
@@ -634,7 +634,7 @@ namespace Game.Match {
                 .ThenBy(p => p.OwnerClientId)
                 .ToList();
 
-            totalPlayers = sortedPlayers.Count;
+            var totalPlayers = sortedPlayers.Count;
             if(totalPlayers == 0) return false;
 
             for(var i = 0; i < sortedPlayers.Count; i++) {
