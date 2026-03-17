@@ -154,6 +154,30 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published in batched chunks while the local player holds the hopball so progression systems can track hold duration.
+    /// </summary>
+    public class HopballHeldTimeAwardedEvent : GameEvent {
+        public readonly ulong PlayerOwnerClientId;
+        public readonly float SecondsHeld;
+
+        public HopballHeldTimeAwardedEvent(ulong playerOwnerClientId, float secondsHeld) {
+            PlayerOwnerClientId = playerOwnerClientId;
+            SecondsHeld = secondsHeld;
+        }
+    }
+
+    /// <summary>
+    /// Event published when the local player's hopball dissolves/cleans up so progression systems can award dissolve progress.
+    /// </summary>
+    public class HopballDissolvedEvent : GameEvent {
+        public readonly ulong PlayerOwnerClientId;
+
+        public HopballDissolvedEvent(ulong playerOwnerClientId) {
+            PlayerOwnerClientId = playerOwnerClientId;
+        }
+    }
+
+    /// <summary>
     /// Event published when weapon systems need player-side world-weapon visuals to refresh after a switch/presentation change.
     /// </summary>
     public class PlayerWorldWeaponPresentationRefreshRequestedEvent : GameEvent {

@@ -89,7 +89,7 @@ namespace Game.Hopball {
         /// </summary>
         public void ClearHopballReference() {
             _currentHopballController = null;
-            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, false));
+            PublishHopballHoldStateChanged(false);
             // Unsubscribe from visual state changes
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
         }
@@ -101,6 +101,7 @@ namespace Game.Hopball {
         private Vector3 _fpHopballBaseLocalPosition;
         private Vector3 _worldHopballBaseLocalPosition;
         private float _hopballFloatPhase;
+        private float _heldHopballProgressionSeconds;
         private Coroutine _restoreWeaponsCoroutine; // Track restore coroutine
         public Collider PlayerCollider { get; private set; }
         private bool _fpParticlesPrewarmed;
@@ -123,6 +124,7 @@ namespace Game.Hopball {
             null);
 
         private readonly Collider[] _pickupHits = new Collider[10];
+        private const float HopballHeldTimeProgressionChunkSeconds = 1f;
 
         private void Awake() {
             InitializeComponentReferences();
@@ -273,14 +275,12 @@ namespace Game.Hopball {
         }
         
         private void Update() {
-            // Progression: Track time holding hopball
-            if (IsOwner && IsHoldingHopball && Progression.ProgressionManager.Instance != null) {
-                Progression.ProgressionManager.Instance.AddTimeHoldingHopball(Time.deltaTime);
-            }
+            TrackHeldHopballProgression();
             UpdateHopballFloatMotion();
         }
 
         private void OnDisable() {
+            FlushHeldHopballProgression();
             if(HopballController.Instance != null) {
                 HopballController.Instance.OnControllerUnregistered(this);
             }
@@ -465,7 +465,7 @@ namespace Game.Hopball {
             if(hopballController == null || !IsOwner) return;
 
             _currentHopballController = hopballController;
-            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, true));
+            PublishHopballHoldStateChanged(true);
             _putAwayAnimationTriggered = false;
             if(playerController != null && playerController.PlayerInputController != null) {
                 playerController.PlayerInputController.ForceDisableSniperOverlay(false);
@@ -878,7 +878,7 @@ namespace Game.Hopball {
 
             var hopball = _currentHopballController;
             _currentHopballController = null;
-            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, false));
+            PublishHopballHoldStateChanged(false);
 
             Vector3 dropPosition;
             Quaternion dropRotation;
@@ -959,7 +959,7 @@ namespace Game.Hopball {
                hopball.HolderController.OwnerClientId != OwnerClientId) return;
 
             _currentHopballController = null;
-            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, false));
+            PublishHopballHoldStateChanged(false);
 
             var dropPosition = playerController.Position + Vector3.up * 1.5f;
             var dropRotation = playerController.Rotation;
@@ -997,13 +997,11 @@ namespace Game.Hopball {
             var postMatchTransitionActive = IsPostMatchTransitionActive();
 
             _currentHopballController = null;
-            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, false));
+            PublishHopballHoldStateChanged(false);
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
 
             if(IsOwner) {
-                if(Progression.ProgressionManager.Instance != null) {
-                    Progression.ProgressionManager.Instance.RecordHopballDissolve();
-                }
+                EventBus.Publish(new HopballDissolvedEvent(OwnerClientId));
                 DestroyFpVisual();
                 DestroyWorldVisual();
                 if(postMatchTransitionActive) DestroyArmImmediate();
@@ -1020,6 +1018,38 @@ namespace Game.Hopball {
             }
 
             if(_weaponManager != null) _weaponManager.TriggerPullOutAnimation();
+        }
+
+        private void TrackHeldHopballProgression() {
+            if(!IsOwner || !IsHoldingHopball) return;
+
+            _heldHopballProgressionSeconds += Time.deltaTime;
+            if(_heldHopballProgressionSeconds < HopballHeldTimeProgressionChunkSeconds) return;
+
+            var wholeChunks = Mathf.Floor(_heldHopballProgressionSeconds / HopballHeldTimeProgressionChunkSeconds);
+            var awardedSeconds = wholeChunks * HopballHeldTimeProgressionChunkSeconds;
+            _heldHopballProgressionSeconds -= awardedSeconds;
+            EventBus.Publish(new HopballHeldTimeAwardedEvent(OwnerClientId, awardedSeconds));
+        }
+
+        private void FlushHeldHopballProgression() {
+            if(!IsOwner || _heldHopballProgressionSeconds <= 0f) {
+                _heldHopballProgressionSeconds = 0f;
+                return;
+            }
+
+            EventBus.Publish(new HopballHeldTimeAwardedEvent(OwnerClientId, _heldHopballProgressionSeconds));
+            _heldHopballProgressionSeconds = 0f;
+        }
+
+        private void PublishHopballHoldStateChanged(bool isHoldingHopball) {
+            if(!isHoldingHopball) {
+                FlushHeldHopballProgression();
+            } else {
+                _heldHopballProgressionSeconds = 0f;
+            }
+
+            EventBus.Publish(new HopballHoldStateChangedEvent(OwnerClientId, isHoldingHopball));
         }
 
         /// <summary>

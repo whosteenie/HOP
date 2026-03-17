@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Events;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Progression {
@@ -57,6 +58,8 @@ namespace Game.Progression {
             EventBus.Subscribe<MatchStartedEvent>(OnMatchStarted);
             EventBus.Subscribe<MatchEndedEvent>(OnMatchEnded);
             EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            EventBus.Subscribe<HopballHeldTimeAwardedEvent>(OnHopballHeldTimeAwarded);
+            EventBus.Subscribe<HopballDissolvedEvent>(OnHopballDissolved);
             _eventsBound = true;
         }
 
@@ -65,6 +68,8 @@ namespace Game.Progression {
             EventBus.Unsubscribe<MatchStartedEvent>(OnMatchStarted);
             EventBus.Unsubscribe<MatchEndedEvent>(OnMatchEnded);
             EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            EventBus.Unsubscribe<HopballHeldTimeAwardedEvent>(OnHopballHeldTimeAwarded);
+            EventBus.Unsubscribe<HopballDissolvedEvent>(OnHopballDissolved);
             _eventsBound = false;
         }
 
@@ -78,6 +83,22 @@ namespace Game.Progression {
 
         private void OnPostMatchStarted(PostMatchStartedEvent _) {
             _isMatchActive = false;
+        }
+
+        private void OnHopballHeldTimeAwarded(HopballHeldTimeAwardedEvent evt) {
+            if(evt == null || evt.SecondsHeld <= 0f) return;
+            if(!IsLocalProgressionEvent(evt.PlayerOwnerClientId)) return;
+            AddTimeHoldingHopball(evt.SecondsHeld);
+        }
+
+        private void OnHopballDissolved(HopballDissolvedEvent evt) {
+            if(evt == null) return;
+            if(!IsLocalProgressionEvent(evt.PlayerOwnerClientId)) return;
+            RecordHopballDissolve();
+        }
+
+        private static bool IsLocalProgressionEvent(ulong playerOwnerClientId) {
+            return NetworkManager.Singleton != null && playerOwnerClientId == NetworkManager.Singleton.LocalClientId;
         }
         
         // --- Core Data ---
