@@ -201,6 +201,99 @@ namespace Events {
         }
     }
 
+    public class PlayerKillProgressionEvent : GameEvent {
+        public readonly ulong KillerClientId;
+        public readonly float KillerSpeed;
+        public readonly bool IsGrounded;
+        public readonly string WeaponId;
+        public readonly int KillStreak;
+        public readonly int XpAwarded;
+
+        public PlayerKillProgressionEvent(ulong killerClientId, float killerSpeed, bool isGrounded, string weaponId,
+            int killStreak, int xpAwarded) {
+            KillerClientId = killerClientId;
+            KillerSpeed = killerSpeed;
+            IsGrounded = isGrounded;
+            WeaponId = weaponId;
+            KillStreak = killStreak;
+            XpAwarded = xpAwarded;
+        }
+    }
+
+    public class PlayerDeathProgressionEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly bool IsOutOfBounds;
+
+        public PlayerDeathProgressionEvent(ulong playerClientId, bool isOutOfBounds) {
+            PlayerClientId = playerClientId;
+            IsOutOfBounds = isOutOfBounds;
+        }
+    }
+
+    public class PlayerGrappleUsedProgressionEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+
+        public PlayerGrappleUsedProgressionEvent(ulong playerClientId) {
+            PlayerClientId = playerClientId;
+        }
+    }
+
+    public class PlayerWallRunChainProgressionEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly int ChainCount;
+
+        public PlayerWallRunChainProgressionEvent(ulong playerClientId, int chainCount) {
+            PlayerClientId = playerClientId;
+            ChainCount = chainCount;
+        }
+    }
+
+    public class PlayerDistanceTraveledProgressionEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly float Distance;
+
+        public PlayerDistanceTraveledProgressionEvent(ulong playerClientId, float distance) {
+            PlayerClientId = playerClientId;
+            Distance = distance;
+        }
+    }
+
+    public class PlayerAirtimeProgressionEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly float Seconds;
+
+        public PlayerAirtimeProgressionEvent(ulong playerClientId, float seconds) {
+            PlayerClientId = playerClientId;
+            Seconds = seconds;
+        }
+    }
+
+    public class PlayerJumpPadUsedProgressionEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+
+        public PlayerJumpPadUsedProgressionEvent(ulong playerClientId) {
+            PlayerClientId = playerClientId;
+        }
+    }
+
+    public class PlayerTimeTaggedProgressionEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly float Seconds;
+
+        public PlayerTimeTaggedProgressionEvent(ulong playerClientId, float seconds) {
+            PlayerClientId = playerClientId;
+            Seconds = seconds;
+        }
+    }
+
+    public class PlayerTagRecordedProgressionEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+
+        public PlayerTagRecordedProgressionEvent(ulong playerClientId) {
+            PlayerClientId = playerClientId;
+        }
+    }
+
     /// <summary>
      /// Event published when a player starts grappling.
      /// </summary>

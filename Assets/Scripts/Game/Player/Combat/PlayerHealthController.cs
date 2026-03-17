@@ -376,40 +376,30 @@ namespace Game.Player.Combat {
             ulong victimClientId, string weaponId) { // Added weaponId
             var isLocalKiller = NetworkManager.Singleton.LocalClientId == killerClientId;
             
-            // Progression: Award XP for kills & Update Killstreak
             if (isLocalKiller) {
                 if (killerClientId != victimClientId) {
-                    // It's a kill
                     _currentKillStreak++;
-                    if (Progression.ProgressionManager.Instance != null) {
-                        Progression.ProgressionManager.Instance.AddXp(100);
-                        
-                        // Collect Kill Context
-                        var killerSpeed = 0f;
-                        var isGrounded = true;
-                        
-                        if(_movementController != null) {
-                            killerSpeed = _movementController.FullVelocity.magnitude;
-                            isGrounded = _movementController.IsGrounded;
-                        } else if(_characterController != null) {
-                             killerSpeed = _characterController.velocity.magnitude;
-                             isGrounded = _characterController.isGrounded;
-                        }
-                        
-                        Progression.ProgressionManager.Instance.RecordKill(killerSpeed, isGrounded, weaponId);
-                        Progression.ProgressionManager.Instance.UpdateKillStreak(_currentKillStreak);
+
+                    var killerSpeed = 0f;
+                    var isGrounded = true;
+
+                    if(_movementController != null) {
+                        killerSpeed = _movementController.FullVelocity.magnitude;
+                        isGrounded = _movementController.IsGrounded;
+                    } else if(_characterController != null) {
+                        killerSpeed = _characterController.velocity.magnitude;
+                        isGrounded = _characterController.isGrounded;
                     }
+
+                    EventBus.Publish(new PlayerKillProgressionEvent(killerClientId, killerSpeed, isGrounded, weaponId,
+                        _currentKillStreak, 100));
                 }
             }
             
-            // Progression: Reset streak on death
             if(NetworkManager.Singleton.LocalClientId != victimClientId) return;
             _currentKillStreak = 0;
-            // Record Death (Normal or OOB)
-            if(Progression.ProgressionManager.Instance == null) return;
-            // Check if OOB (killer is "HOP")
             var isOob = killerName == "HOP";
-            Progression.ProgressionManager.Instance.RecordDeath(isOob);
+            EventBus.Publish(new PlayerDeathProgressionEvent(victimClientId, isOob));
 
         }
 

@@ -134,8 +134,8 @@ namespace Game.Player.Combat {
         
         private void LateUpdate() {
             // Client-side progression tracking
-            if (IsOwner && IsTagged.Value && Progression.ProgressionManager.Instance != null) {
-                 Progression.ProgressionManager.Instance.AddTimeTagged(Time.deltaTime);
+            if(IsOwner && IsTagged.Value) {
+                EventBus.Publish(new PlayerTimeTaggedProgressionEvent(OwnerClientId, Time.deltaTime));
             }
         }
 
@@ -282,9 +282,7 @@ namespace Game.Player.Combat {
             if(AudioService.Instance != null) {
                 AudioService.Instance.Play("ui.tag.tagger", Vector3.zero);
             }
-            if (Progression.ProgressionManager.Instance != null) {
-                Progression.ProgressionManager.Instance.RecordTag();
-            }
+            EventBus.Publish(new PlayerTagRecordedProgressionEvent(OwnerClientId));
         }
 
         /// <summary>

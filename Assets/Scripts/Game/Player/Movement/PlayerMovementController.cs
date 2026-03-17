@@ -1,8 +1,8 @@
+using Events;
 using Game.Audio.System;
 using Game.Match;
 using Game.Player.Core;
 using Game.Player.Visual;
-using Game.Progression;
 using Game.Weapon.Presentation;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -214,8 +214,8 @@ namespace Game.Player.Movement {
                 if(_wallRunController.IsWallRunning) {
                     if (!_wasWallRunningLastFrame) {
                         _currentWallRunChain++;
-                        if (IsOwner && ProgressionManager.Instance != null) {
-                            ProgressionManager.Instance.RecordWallRunChain(_currentWallRunChain);
+                        if(IsOwner) {
+                            EventBus.Publish(new PlayerWallRunChainProgressionEvent(OwnerClientId, _currentWallRunChain));
                         }
                     }
                     _wasWallRunningLastFrame = true;
@@ -451,15 +451,15 @@ namespace Game.Player.Movement {
             _characterController.Move(_moveVelocity * Time.deltaTime);
             var positionAfter = tr.position;
             
-            if (IsOwner && ProgressionManager.Instance != null) {
-                if (IsGrounded) {
-                    var dist = Vector3.Distance(new Vector3(positionBefore.x, 0, positionBefore.z), 
-                                               new Vector3(positionAfter.x, 0, positionAfter.z));
-                    if (dist > 0) {
-                         ProgressionManager.Instance.AddDistanceTraveled(dist);
+            if(IsOwner) {
+                if(IsGrounded) {
+                    var dist = Vector3.Distance(new Vector3(positionBefore.x, 0, positionBefore.z),
+                        new Vector3(positionAfter.x, 0, positionAfter.z));
+                    if(dist > 0f) {
+                        EventBus.Publish(new PlayerDistanceTraveledProgressionEvent(OwnerClientId, dist));
                     }
                 } else {
-                    ProgressionManager.Instance.RecordAirtime(Time.deltaTime);
+                    EventBus.Publish(new PlayerAirtimeProgressionEvent(OwnerClientId, Time.deltaTime));
                 }
             }
 
@@ -602,8 +602,8 @@ namespace Game.Player.Movement {
                     allowOverlap: true);
             }
 
-            if (IsOwner && ProgressionManager.Instance != null) {
-                ProgressionManager.Instance.RecordJumpPadUsed();
+            if(IsOwner) {
+                EventBus.Publish(new PlayerJumpPadUsedProgressionEvent(OwnerClientId));
             }
 
             if(!(VerticalVelocity > 0f)) return;

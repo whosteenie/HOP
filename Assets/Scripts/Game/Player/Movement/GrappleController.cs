@@ -3,7 +3,6 @@ using Events;
 using Game.Audio.System;
 using Game.Match;
 using Game.Player.Core;
-using Game.Progression;
 using Game.Weapon.Kinemation;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -550,8 +549,8 @@ namespace Game.Player.Movement {
             // Publish grapple started event
             EventBus.Publish(new GrappleStartedEvent(targetPoint, _useAnimatedFirstPersonGrappleVisuals));
             
-            if (IsOwner && ProgressionManager.Instance != null) {
-                ProgressionManager.Instance.RecordGrappleUsed();
+            if(IsOwner) {
+                EventBus.Publish(new PlayerGrappleUsedProgressionEvent(OwnerClientId));
             }
         }
 
