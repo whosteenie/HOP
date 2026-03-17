@@ -19,6 +19,7 @@ namespace Tests.PlayMode {
         public void SetUp() {
             _mutedBackgroundBehaviours = PlayModeTestUtils.MuteSceneBehaviours(
                 "Game.Menu.Main.MainMenuSessionManager");
+            ConfigureMainMenuReadyProvider();
         }
 
         [TearDown]
@@ -28,6 +29,7 @@ namespace Tests.PlayMode {
             _sessionManagerComponent = null;
             PlayModeTestUtils.RestoreBehaviours(_mutedBackgroundBehaviours);
             _mutedBackgroundBehaviours = null;
+            ConfigureMainMenuReadyProvider(() => false);
         }
 
         [UnityTest]
@@ -156,6 +158,13 @@ namespace Tests.PlayMode {
         private static bool GetUnexpectedDisconnectInFlight(object sceneFlowService) {
             Assert.That(sceneFlowService, Is.Not.Null, "Scene flow service should not be null.");
             return PlayModeTestUtils.GetPrivateField<bool>(sceneFlowService, "_unexpectedDisconnectInFlight");
+        }
+
+        private static void ConfigureMainMenuReadyProvider(Func<bool> provider = null) {
+            var sceneFlowType = PlayModeTestUtils.ResolveTypeOrAssert("Network.Session.SessionSceneFlow");
+            var method = sceneFlowType.GetMethod("SetMainMenuReadyProvider", BindingFlags.Public | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null, "SessionSceneFlow.SetMainMenuReadyProvider");
+            method.Invoke(null, new object[] { provider ?? (() => SceneManager.GetActiveScene().name == "MainMenu") });
         }
     }
 }
