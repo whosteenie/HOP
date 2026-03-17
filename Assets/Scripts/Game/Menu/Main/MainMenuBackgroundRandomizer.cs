@@ -5,7 +5,7 @@ using Game.Player.Visual;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Game.Menu {
+namespace Game.Menu.Main {
     /// <summary>
     /// Picks one map geometry and one mannequin setup at random for main menu background presentation.
     /// All non-selected registered objects are disabled.
@@ -563,3 +563,4 @@ namespace Game.Menu {
     }
 
 }
+

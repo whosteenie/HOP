@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Events;
 using Game.Match;
+using Game.Menu.Main;
 using Game.Social;
 using Game.UI.Core;
 using Network.Steam;
@@ -11,7 +12,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using SessionManager = Network.Session.SessionManager;
 
-namespace Game.Menu {
+namespace Game.Menu.PrivateMatch {
     /// <summary>
     /// WS-C skeleton manager for private match setup.
     /// WS-D: map filtering, Gun Tag conditional visibility, validation and disabled start guardrails.
@@ -990,3 +991,4 @@ namespace Game.Menu {
         }
     }
 }
+

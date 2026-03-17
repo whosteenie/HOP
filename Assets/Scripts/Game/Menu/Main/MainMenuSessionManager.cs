@@ -17,7 +17,7 @@ using Color = UnityEngine.Color;
 using Image = UnityEngine.UIElements.Image;
 using SessionManager = Network.Session.SessionManager;
 
-namespace Game.Menu {
+namespace Game.Menu.Main {
     /// <summary>
     /// Manages session creation (Steam Lobbies) and player list display in the Main Menu.
     /// Adapted for Steamworks: Join Code Logic replaced by Steam Invites.

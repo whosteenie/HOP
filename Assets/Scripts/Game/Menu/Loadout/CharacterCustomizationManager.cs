@@ -7,7 +7,7 @@ using Game.UI.Core;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.Menu {
+namespace Game.Menu.Loadout {
     /// <summary>
     /// Manages the character customization panel UI and material customization.
     /// </summary>
@@ -1031,4 +1031,5 @@ namespace Game.Menu {
         }
     }
 }
+
 

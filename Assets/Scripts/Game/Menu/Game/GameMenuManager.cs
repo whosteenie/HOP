@@ -20,7 +20,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using SessionManager = Network.Session.SessionManager;
 
-namespace Game.Menu {
+namespace Game.Menu.Game {
     public class GameMenuManager : UIElementBase {
         #region Serialized Fields
 
@@ -1099,3 +1099,4 @@ namespace Game.Menu {
         #endregion
     }
 }
+

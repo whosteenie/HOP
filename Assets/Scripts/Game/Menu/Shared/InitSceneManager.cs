@@ -5,7 +5,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Game.Menu {
+namespace Game.Menu.Shared {
     /// <summary>
     /// Manages the initialization scene that contains all DDOL singletons.
     /// This scene loads first, initializes all persistent managers, then transitions to MainMenu.
@@ -139,3 +139,4 @@ namespace Game.Menu {
         }
     }
 }
+

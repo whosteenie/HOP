@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Game.Menu.Loadout;
 using Game.Social;
 using Game.Match;
+using Game.Menu.PrivateMatch;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
@@ -15,7 +17,7 @@ using UnityEngine.Rendering;
 using Cursor = UnityEngine.Cursor;
 using SessionManager = Network.Session.SessionManager;
 
-namespace Game.Menu {
+namespace Game.Menu.Main {
     /// <summary>
     /// Main coordinator for the main menu system.
     /// Delegates UI, session, and gamemode management to specialized sub-managers.
@@ -548,3 +550,4 @@ namespace Game.Menu {
         #endregion
     }
 }
+

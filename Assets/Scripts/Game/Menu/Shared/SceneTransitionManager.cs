@@ -3,11 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Events;
+using Game.Menu.Game;
+using Game.Menu.Main;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
-namespace Game.Menu {
+namespace Game.Menu.Shared {
     public class SceneTransitionManager : MonoBehaviour {
         private enum OverlayVisualState {
             Hidden,
@@ -616,3 +618,4 @@ namespace Game.Menu {
         }
     }
 }
+

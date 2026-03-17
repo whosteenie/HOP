@@ -9,7 +9,7 @@ using Game.Match;
 using Game.UI.Core;
 using SessionManager = Network.Session.SessionManager;
 
-namespace Game.Menu {
+namespace Game.Menu.Main {
     /// <summary>
     /// Manages gamemode selection for Steam Lobbies.
     /// Syncs "GameMode" key in Lobby Data.
@@ -221,3 +221,4 @@ namespace Game.Menu {
         }
     }
 }
+

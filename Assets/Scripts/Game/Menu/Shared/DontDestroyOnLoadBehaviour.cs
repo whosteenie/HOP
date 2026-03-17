@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Game.Menu {
+namespace Game.Menu.Shared {
     /// <summary>
     /// Simple helper that marks its GameObject as DontDestroyOnLoad.
     /// Attach this to any object that should persist across scene loads.
@@ -11,4 +11,5 @@ namespace Game.Menu {
         }
     }
 }
+
 

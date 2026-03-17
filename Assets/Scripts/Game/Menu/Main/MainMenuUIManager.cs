@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using Events;
+using Game.Menu.Game;
+using Game.Menu.Loadout;
 using Game.Progression;
 using Game.UI.Core;
 using Game.UI.Misc;
@@ -8,7 +10,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
 
-namespace Game.Menu {
+namespace Game.Menu.Main {
     /// <summary>
     /// Manages UI panel switching, button events, and modal dialogs for the main menu.
     /// Handles visual updates and user interactions.
@@ -829,3 +831,4 @@ namespace Game.Menu {
         public Button GetBackGamemodeButton() => _backGamemodeButton;
     }
 }
+

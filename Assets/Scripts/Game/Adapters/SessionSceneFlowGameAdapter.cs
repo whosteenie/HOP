@@ -1,7 +1,9 @@
 using Cysharp.Threading.Tasks;
 using Game.Audio.System;
 using Game.Match;
-using Game.Menu;
+using Game.Menu.Game;
+using Game.Menu.Main;
+using Game.Menu.Shared;
 using Game.Player.Core;
 using Game.UI.Misc;
 using Network.Session;

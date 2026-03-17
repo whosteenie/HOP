@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Events;
+using Game.Menu.Main;
 using Game.Player.Visual;
 using Game.Progression;
 using Game.Settings;
@@ -9,7 +10,7 @@ using Game.UI.Core;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.Menu {
+namespace Game.Menu.Loadout {
     public class LoadoutManager : UIElementBase {
         public static LoadoutManager Instance { get; private set; }
 
@@ -2184,3 +2185,4 @@ namespace Game.Menu {
         }
     }
 }
+
