@@ -42,7 +42,6 @@ namespace Game.Player.Movement {
         private const float SlideMinSpeed = 10f;        // Must be >= sprint speed to initiate
         private const float SlideBaseFriction = 4f;     // Base deceleration during slide
         private const float SlideSpeedFriction = 0.15f; // Additional friction proportional to speed
-        private const float SlideExitSpeed = 2.5f;      // Transition to crouch-walk below this speed
         private const float SlideSlopeMultiplier = 8f;  // How much slopes affect slide speed (higher = more gain downhill)
         private const float SlideDuration = 0.83f;      // ~50 frames at 60fps
         private float _slideTimer;

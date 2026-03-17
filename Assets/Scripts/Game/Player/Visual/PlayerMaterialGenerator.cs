@@ -231,20 +231,6 @@ namespace Game.Player.Visual {
         }
 
         /// <summary>
-        /// Clears the material cache. Call this when changing scenes or when memory is needed.
-        /// </summary>
-        public static void ClearCache() {
-            foreach(var material in MaterialCache.Values) {
-                if(material != null) {
-                    Destroy(material);
-                }
-            }
-
-            MaterialCache.Clear();
-            MaterialCacheOrder.Clear();
-        }
-
-        /// <summary>
         /// Destroys a material (handles both runtime and editor).
         /// </summary>
         private static void Destroy(Object obj) {

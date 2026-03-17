@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Events;
 using Game.Player.Contracts;
@@ -22,8 +21,6 @@ namespace Game.Player.Visual {
         private WeaponManager _weaponManager;
         private Transform _worldWeaponSocket;
         private Transform _fpCameraTransform;
-        private SkinnedMeshRenderer _playerMesh;
-
         // Renderer caches
         private Renderer[] _cachedAllRenderers;
         private SkinnedMeshRenderer[] _cachedSkinnedRenderers;
@@ -55,7 +52,6 @@ namespace Game.Player.Visual {
 
             if(_weaponManager == null) _weaponManager = _playerContext.WeaponManager;
             if(_worldWeaponSocket == null) _worldWeaponSocket = _playerContext.WorldWeaponSocket;
-            if(_playerMesh == null) _playerMesh = _playerContext.PlayerMesh;
             if(_fpCameraTransform == null && _playerContext.FpCamera != null) {
                 _fpCameraTransform = _playerContext.FpCamera.transform;
             }
@@ -115,29 +111,6 @@ namespace Game.Player.Visual {
                 if(excludeGrappleLine && r.name == GrappleLineName) continue;
                 if(IsFpCameraChild(r.transform)) continue;
                 r.enabled = isEnabled;
-            }
-        }
-
-        /// <summary>
-        /// Sets enabled state for player body SkinnedMeshRenderers (excluding FP camera children).
-        /// </summary>
-        public void SetPlayerBodyRenderersEnabled(bool isEnabled) {
-            RefreshRendererCacheIfNeeded();
-            foreach(var smr in _cachedSkinnedRenderers) {
-                if(smr == null) continue;
-                if(IsFpCameraChild(smr.transform)) continue;
-                smr.enabled = isEnabled;
-            }
-        }
-
-        /// <summary>
-        /// Sets enabled state for all SkinnedMeshRenderers (including FP weapons).
-        /// </summary>
-        public void SetAllSkinnedRenderersEnabled(bool isEnabled) {
-            RefreshRendererCacheIfNeeded();
-            foreach(var smr in _cachedSkinnedRenderers) {
-                if(smr == null) continue;
-                smr.enabled = isEnabled;
             }
         }
 
@@ -206,43 +179,6 @@ namespace Game.Player.Visual {
             }
         }
 
-        /// <summary>
-        /// Sets enabled state for holster renderers.
-        /// </summary>
-        public void SetHolsterRenderersEnabled(bool isEnabled, GameObject holster = null) {
-            while(true) {
-                if(holster == null) {
-                    // Set for all holsters
-                    if(_weaponManager == null) return;
-                    var primary = _weaponManager.PrimaryHolster;
-                    var secondary = _weaponManager.SecondaryHolster;
-                    SetHolsterRenderersEnabled(isEnabled, primary);
-                    holster = secondary;
-                    continue;
-                }
-
-                var renderers = holster.GetComponentsInChildren<MeshRenderer>(true);
-                foreach(var mr in renderers) {
-                    if(mr == null) continue;
-                    mr.enabled = isEnabled;
-                }
-
-                break;
-            }
-        }
-
-        /// <summary>
-        /// Sets enabled state for hopball visual renderers.
-        /// </summary>
-        public static void SetHopballRenderersEnabled(bool isEnabled, GameObject hopballVisual = null) {
-            if(hopballVisual == null) return;
-            var renderers = hopballVisual.GetComponentsInChildren<MeshRenderer>(true);
-            foreach(var mr in renderers) {
-                if(mr == null) continue;
-                mr.enabled = isEnabled;
-            }
-        }
-
         #endregion
 
         #region Bounds Management
@@ -254,20 +190,6 @@ namespace Game.Player.Visual {
             RefreshRendererCacheIfNeeded();
             foreach(var smr in _cachedSkinnedRenderers) {
                 if(smr == null) continue;
-                smr.updateWhenOffscreen = true;
-                smr.localBounds = MaxBounds;
-                _ = smr.bounds; // Force Unity to recognize bounds change
-            }
-        }
-
-        /// <summary>
-        /// Forces player body SkinnedMeshRenderer bounds update (excluding FP camera children).
-        /// </summary>
-        public void ForcePlayerBodyBoundsUpdate() {
-            RefreshRendererCacheIfNeeded();
-            foreach(var smr in _cachedSkinnedRenderers) {
-                if(smr == null) continue;
-                if(IsFpCameraChild(smr.transform)) continue;
                 smr.updateWhenOffscreen = true;
                 smr.localBounds = MaxBounds;
                 _ = smr.bounds; // Force Unity to recognize bounds change
@@ -290,71 +212,6 @@ namespace Game.Player.Visual {
 
             if(needsFix) {
                 ForceAllRendererBoundsUpdate();
-            }
-        }
-
-        #endregion
-
-        #region Material Management
-
-        /// <summary>
-        /// Gets the player body SkinnedMeshRenderer.
-        /// </summary>
-        public SkinnedMeshRenderer GetPlayerMesh() => _playerMesh;
-
-        /// <summary>
-        /// Applies material to player body SkinnedMeshRenderer at specified index.
-        /// Preserves other materials in the array.
-        /// </summary>
-        public void ApplyPlayerBodyMaterial(Material material, int materialIndex = 1) {
-            if(_playerMesh == null || material == null) return;
-            var materials = _playerMesh.materials;
-            if(materialIndex < 0 || materialIndex >= materials.Length) return;
-            materials[materialIndex] = material;
-            _playerMesh.materials = materials;
-        }
-
-        /// <summary>
-        /// Applies material to FP weapon SkinnedMeshRenderer at specified index.
-        /// </summary>
-        public void ApplyFpWeaponSkinnedMaterial(Material material, int materialIndex = 1, GameObject fpWeaponInstance = null) {
-            if(fpWeaponInstance == null) {
-                fpWeaponInstance = _weaponManager != null ? _weaponManager.GetCurrentFpWeapon() : null;
-            }
-            if(fpWeaponInstance == null || material == null) return;
-
-            if(!_cachedFpWeaponSkinnedRenderers.TryGetValue(fpWeaponInstance, out var skinnedRenderers)) {
-                skinnedRenderers = fpWeaponInstance.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-                _cachedFpWeaponSkinnedRenderers[fpWeaponInstance] = skinnedRenderers;
-            }
-
-            foreach(var smr in skinnedRenderers) {
-                if(smr == null) continue;
-                var materials = smr.materials;
-                if(materialIndex >= 0 && materialIndex < materials.Length) {
-                    materials[materialIndex] = material;
-                    smr.materials = materials;
-                } else if(materials.Length == 0) {
-                    smr.material = material;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Applies material to all renderers in a GameObject (used for hopball arm materials).
-        /// </summary>
-        public static void ApplyMaterialToRenderers(GameObject target, Material material, int materialIndex = 0) {
-            if(target == null || material == null) return;
-            var renderers = target.GetComponentsInChildren<Renderer>(true);
-            foreach(var r in renderers) {
-                if(r == null) continue;
-                var materials = r.materials;
-                if(materialIndex >= 0 && materialIndex < materials.Length) {
-                    materials[materialIndex] = material;
-                    r.materials = materials;
-                } else if(materials.Length == 0) {
-                    r.material = material;
-                }
             }
         }
 
@@ -389,13 +246,6 @@ namespace Game.Player.Visual {
             return _fpCameraTransform != null && tr.IsChildOf(_fpCameraTransform);
         }
 
-        /// <summary>
-        /// Gets all renderers of a specific type from a GameObject.
-        /// </summary>
-        public T[] GetRenderersFromGameObject<T>(GameObject obj, bool includeInactive = true) where T : Renderer {
-            return obj == null ? Array.Empty<T>() : obj.GetComponentsInChildren<T>(includeInactive);
-        }
-        
         #endregion
     }
 }

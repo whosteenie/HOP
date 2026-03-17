@@ -21,7 +21,6 @@ namespace Game.Player.Visual {
         private WeaponManager _weaponManager;
         private PlayerRenderer _playerRenderer;
         private Transform _worldWeaponSocket; // Socket containing all world weapon GameObjects
-        private GameObject[] _worldWeaponPrefabs;
 
         private SkinnedMeshRenderer[] _cachedSkinnedRenderers;
         private Renderer[] _cachedRenderers;
@@ -51,9 +50,6 @@ namespace Game.Player.Visual {
             if(_weaponManager == null) _weaponManager = _playerContext.WeaponManager;
             if(_playerRenderer == null) _playerRenderer = GetComponent<PlayerRenderer>();
             if(_worldWeaponSocket == null) _worldWeaponSocket = _playerContext.WorldWeaponSocket;
-            if(_worldWeaponPrefabs == null || _worldWeaponPrefabs.Length == 0) {
-                _worldWeaponPrefabs = _playerContext.WorldWeaponPrefabs;
-            }
 
             _renderersCacheValid = false;
         }
@@ -217,21 +213,6 @@ namespace Game.Player.Visual {
         }
 
         /// <summary>
-        /// Sets shadow casting mode for world weapon prefabs.
-        /// </summary>
-        public void SetWorldWeaponPrefabsShadowMode(ShadowCastingMode mode) {
-            if(_worldWeaponPrefabs == null) return;
-            foreach(var w in _worldWeaponPrefabs) {
-                var weaponRenderers = w.GetComponentsInChildren<MeshRenderer>();
-                foreach(var mr in weaponRenderers) {
-                    if(mr != null) {
-                        mr.shadowCastingMode = mode;
-                    }
-                }
-            }
-        }
-
-        /// <summary>
         /// Applies the default shadow state for the owner (shadows only).
         /// </summary>
         public void ApplyOwnerDefaultShadowState() {
@@ -325,17 +306,6 @@ namespace Game.Player.Visual {
             _cachedRenderers = GetComponentsInChildren<Renderer>(true);
             _cachedSkinnedRenderers = GetComponentsInChildren<SkinnedMeshRenderer>(true);
             _renderersCacheValid = true;
-        }
-
-        /// <summary>
-        /// Invalidates the renderer cache, forcing it to be refreshed on next access.
-        /// Also invalidates PlayerRenderer cache.
-        /// </summary>
-        public void InvalidateRendererCache() {
-            _renderersCacheValid = false;
-            if(_playerRenderer != null) {
-                _playerRenderer.InvalidateCache();
-            }
         }
 
         private void TrySetHolsterShadowState(bool owner, bool showBothHolsters,

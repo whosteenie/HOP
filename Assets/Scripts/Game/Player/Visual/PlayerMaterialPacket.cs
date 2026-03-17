@@ -61,15 +61,6 @@ namespace Game.Player.Visual {
         [Tooltip("Default emission color used when emission is enabled.")]
         public Color defaultEmissionColor = new(0f, 0f, 0f, 1f);
 
-        /// <summary>
-        /// Returns true if this is a valid packet (has at least an albedo texture, or is the "None" packet).
-        /// </summary>
-        public bool IsValid => albedoTexture != null || IsNonePacket;
-
-        /// <summary>
-        /// Gets whether this is the special "None" packet (no textures, just base color customization).
-        /// </summary>
-        private bool IsNonePacket => string.IsNullOrEmpty(packetName) || packetName == "None";
     }
 }
 

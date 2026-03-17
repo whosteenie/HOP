@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Game.Player.Movement {
     public class SpeedTrail : NetworkBehaviour {
         [Header("References")]
-        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource; // assign in inspector or auto-find
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
         [SerializeField] private GameObject speedTrailEffect; // The particle system effect GameObject
 
         [Header("Trail Material Objects")]
@@ -378,38 +378,6 @@ namespace Game.Player.Movement {
             var readable = Color.Lerp(brightened, Color.white, darkBlend * 0.85f);
             readable.a = 1f;
             return readable;
-        }
-
-        /// <summary>
-        /// Clears/disables the speed trail immediately.
-        /// Called before respawn to ensure a clean slate.
-        /// </summary>
-        public void ClearTrail() {
-            // Stop fade coroutine if running
-            if(_fadeCoroutine != null) {
-                StopCoroutine(_fadeCoroutine);
-                _fadeCoroutine = null;
-            }
-            
-            // Stop particle systems
-            if(_trailParticleSystem != null && _trailParticleSystem.isPlaying) {
-                _trailParticleSystem.Stop();
-            }
-            if(_electricParticleSystem != null && _electricParticleSystem.isPlaying) {
-                _electricParticleSystem.Stop();
-            }
-            if(_electricParticleSystem1 != null && _electricParticleSystem1.isPlaying) {
-                _electricParticleSystem1.Stop();
-            }
-            
-            // Immediately disable without fade
-            if(speedTrailEffect != null) {
-                speedTrailEffect.SetActive(false);
-            }
-            
-            // Reset emission rates to 0
-            SetEmissionRateMultiplier(0f);
-            _isTrailActive = false;
         }
 
         /// <summary>

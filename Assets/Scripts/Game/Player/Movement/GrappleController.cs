@@ -132,11 +132,6 @@ namespace Game.Player.Movement {
         /// </summary>
         private LayerMask GrappleableLayers { get; set; }
 
-        /// <summary>
-        /// Gets the max grapple distance for external use (e.g., AI bots).
-        /// </summary>
-        public float MaxGrappleDistanceValue => MaxGrappleDistance;
-
         #endregion
 
         private readonly NetworkVariable<bool> _netIsGrappling = new(false,
@@ -295,14 +290,6 @@ namespace Game.Player.Movement {
         }
 
         #endregion
-
-        /// <summary>
-        /// Triggers the grapple cooldown.
-        /// </summary>
-        public void TriggerCooldown() {
-            if(!CanGrapple) return; // Already on cooldown
-            StartGrappleCooldown();
-        }
 
         private void PublishGrappleState(bool isGrappling, Vector3 grapplePoint) {
             if(!IsOwner) return;
