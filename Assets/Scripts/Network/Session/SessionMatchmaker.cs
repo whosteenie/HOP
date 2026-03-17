@@ -25,7 +25,6 @@ namespace Network.Session {
 
         private ISessionContext _ctx;
         private IMatchmakerSessionActions _actions;
-        private SessionMatchLobby _matchLobby;
 
         // Game-provided hooks for mode-specific matchmaking behavior.
         private static Func<string, int> resolveMaxPlayersForMode;
@@ -172,13 +171,9 @@ namespace Network.Session {
             _actions = actions;
         }
 
-        public void SetMatchLobbyService(SessionMatchLobby matchLobby) {
-            _matchLobby = matchLobby;
-        }
-
         /// <summary>Polls for the host-created match lobby by matchId then joins via actions. Called when matchmaker assigns this client as non-host.</summary>
         public async UniTask JoinPublicMatchByIdAsync(string matchId) {
-            if(_ctx == null || _actions == null || _matchLobby == null) return;
+            if(_ctx == null || _actions == null) return;
             await _ctx.EnsureSignedInAsync();
             if(string.IsNullOrEmpty(matchId)) return;
 
@@ -194,7 +189,7 @@ namespace Network.Session {
                 }
 
                 try {
-                    var lobby = await _matchLobby.QueryMatchLobbyByMatchIdAsync(matchId);
+                    var lobby = await _actions.QueryMatchLobbyByMatchIdAsync(matchId);
                     if(lobby != null) {
                         if(Debug.isDebugBuild) {
                             Debug.Log($"[SessionManager] Found lobby! lobbyId='{lobby.Id}'. Joining...");
@@ -748,8 +743,7 @@ namespace Network.Session {
             await _actions.PreFadePublicHostAsync();
             await _actions.MarkHostReadyAsync();
 
-            if(await _matchLobby.WaitForPlayersReadyAsync(_ctx, expectedPlayerIds, 60f, "PublicMatch") ==
-               false) {
+            if(await _actions.WaitForPlayersReadyAsync(expectedPlayerIds, 60f, "PublicMatch") == false) {
                 Debug.LogError("[SessionManager] Timed out waiting for all players. Aborting to menu...");
                 await _ctx.LeaveToMainMenuAsync();
                 return;

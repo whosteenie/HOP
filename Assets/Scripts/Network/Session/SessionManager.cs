@@ -396,7 +396,7 @@ namespace Network.Session {
         }
 
         private UniTask ResetPartyFollowStateIfHostAsync() =>
-            SessionParty.ResetPartyFollowStateIfHostAsync(this, this, _matchLobby);
+            SessionParty.ResetPartyFollowStateIfHostAsync(this, this);
 
         /// <summary>
         /// Updates the session phase and triggers status change events.
@@ -504,7 +504,7 @@ namespace Network.Session {
         /// <param name="mode">Game mode to apply to the created match lobby.</param>
         /// <param name="maxPlayers">Maximum players for relay allocation and match lobby creation.</param>
         public UniTask StartPrivateMatchAsync(string mode, int maxPlayers) =>
-            SessionParty.RunStartPrivateMatchAsync(mode, maxPlayers, this, this, this, this, _matchLobby, this);
+            SessionParty.RunStartPrivateMatchAsync(mode, maxPlayers, this, this, this, this);
 
         private UniTask<bool> JoinMatchLobbyByIdAsync(string lobbyId) =>
             _matchLobby.JoinMatchLobbyByIdAsync(this, this, this, this, lobbyId);
@@ -621,7 +621,6 @@ namespace Network.Session {
             _matchmaker.SetContext(this, this);
             _party = new SessionParty();
             _matchLobby = new SessionMatchLobby();
-            _matchmaker.SetMatchLobbyService(_matchLobby);
             _sceneFlow = new SessionSceneFlow();
 
             // Register session id provider for flow logging without creating a Diagnostics -> Network dependency.
@@ -856,6 +855,9 @@ namespace Network.Session {
 
         UniTask IMatchmakerSessionActions.JoinPublicMatchByIdAsync(string matchId) => JoinPublicMatchByIdAsync(matchId);
 
+        UniTask<Unity.Services.Lobbies.Models.Lobby> IMatchmakerSessionActions.QueryMatchLobbyByMatchIdAsync(string matchId) =>
+            _matchLobby.QueryMatchLobbyByMatchIdAsync(matchId);
+
         UniTask<string> IMatchmakerSessionActions.CreateDaSessionAsync(int maxPlayers,
             bool isPrivateMatch, string contextLabel) =>
             CreateDaSessionAsync(maxPlayers, isPrivateMatch, contextLabel);
@@ -871,6 +873,10 @@ namespace Network.Session {
         UniTask<bool> IMatchmakerSessionActions.TrySetMatchLobbyStateAsync(string lobbyState,
             DataObject.VisibilityOptions visibility, string context) =>
             TrySetMatchLobbyStateAsync(lobbyState, visibility, context);
+
+        UniTask<bool> IMatchmakerSessionActions.WaitForPlayersReadyAsync(List<string> expectedPlayerIds,
+            float timeoutSeconds, string contextLabel) =>
+            _matchLobby.WaitForPlayersReadyAsync(this, expectedPlayerIds, timeoutSeconds, contextLabel);
 
         bool IMatchmakerSessionActions.TryLoadGameplaySceneAsHost(string contextLabel) =>
             TryLoadGameplaySceneAsHost(contextLabel);
@@ -888,9 +894,14 @@ namespace Network.Session {
         UniTask IPartySessionActions.EnsurePartyLobbySubscriptionAsync(string context) =>
             EnsurePartyLobbySubscriptionAsync(context);
 
+        UniTask<bool> IPartySessionActions.WaitForPlayersReadyAsync(List<string> expectedPlayerIds,
+            float timeoutSeconds, string contextLabel) =>
+            _matchLobby.WaitForPlayersReadyAsync(this, expectedPlayerIds, timeoutSeconds, contextLabel);
+
         UniTask<bool> IPartySessionActions.CreateSteamSocialLobbyAsync(int maxPlayers) =>
             CreateSteamSocialLobbyAsync(maxPlayers);
 
+        void IPartySessionActions.ResetMatchLobbyFollowState() => _matchLobby.ResetFollowState();
         void IPartySessionActions.SetNextUgsHeartbeatTime(float value) => SetNextUgsHeartbeatTime(value);
         void IPartySessionActions.UpdateSteamLobbyWithPartyDataIfOwner() => UpdateSteamLobbyWithPartyDataIfOwner();
         void IPartySessionActions.TryJoinVoiceForActiveMatch(string context) => TryJoinVoiceForActiveMatch(context);
@@ -1056,6 +1067,8 @@ namespace Network.Session {
         UniTask IPrivateMatchHostActions.PreFadePrivateHostAsync() => PreFadePrivateHostAsync();
         UniTask<string> IPrivateMatchHostActions.CreateDaSessionAsync(int maxPlayers, bool isPrivateMatch, string contextLabel) =>
             CreateDaSessionAsync(maxPlayers, isPrivateMatch, contextLabel);
+        UniTask IPrivateMatchHostActions.CreatePrivateMatchLobbyAsync(string mode, int maxPlayers, string joinCode, string expectedPlayerIdsCsv) =>
+            _matchLobby.CreatePrivateMatchLobbyAsync(this, this, this, mode, maxPlayers, joinCode, expectedPlayerIdsCsv);
         UniTask<bool> IPrivateMatchHostActions.TrySetMatchLobbyStateAsync(string lobbyState, DataObject.VisibilityOptions visibility, string context) =>
             TrySetMatchLobbyStateAsync(lobbyState, visibility, context);
         bool IPrivateMatchHostActions.TryLoadGameplaySceneAsHost(string contextLabel) => TryLoadGameplaySceneAsHost(contextLabel);

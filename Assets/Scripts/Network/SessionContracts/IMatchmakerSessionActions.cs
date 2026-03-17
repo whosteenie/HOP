@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks;
+using System.Collections.Generic;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Matchmaker.Models;
 
@@ -12,6 +13,8 @@ namespace Network.SessionContracts {
         /// <summary>Runs the full public match host flow (orchestrated by SessionMatchmakerService).</summary>
         UniTask StartPublicMatchAsHostAsync(string mode, int maxPlayers, string matchId, StoredMatchmakingResults results);
         UniTask JoinPublicMatchByIdAsync(string matchId);
+        UniTask<Lobby> QueryMatchLobbyByMatchIdAsync(string matchId);
+        UniTask<bool> WaitForPlayersReadyAsync(List<string> expectedPlayerIds, float timeoutSeconds, string contextLabel);
 
         UniTask<string> CreateDaSessionAsync(int maxPlayers, bool isPrivateMatch, string contextLabel);
         UniTask CreatePublicMatchLobbyAsync(string mode, int maxPlayers, string matchId, string joinCode);
