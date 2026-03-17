@@ -34,6 +34,7 @@ namespace Events {
             typeof(PlayerDiedEvent),
             typeof(PlayerDamagedEvent),
             typeof(PlayerRespawnedEvent),
+            typeof(PlayerTagStateChangedEvent),
             typeof(WeaponSwitchedEvent),
             typeof(WeaponSwitchRequestedEvent),
             typeof(PlayerHopballDeathDropRequestedEvent),

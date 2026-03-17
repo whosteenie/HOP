@@ -190,6 +190,10 @@ namespace Game.Player.Combat {
                 }
             }
 
+            if(playerController != null) {
+                EventBus.Publish(new PlayerTagStateChangedEvent(playerController.OwnerClientId, newValue));
+            }
+
             // Update outline color via PlayerTeamManager
             if(_teamManager != null) {
                 _teamManager.UpdateOutlineColour();

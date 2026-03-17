@@ -2,7 +2,6 @@ using System.Collections;
 using Events;
 using Game.Audio.System;
 using Game.Match;
-using Game.Player.Combat;
 using Game.Player.Core;
 using Game.Progression;
 using Game.Weapon.Kinemation;
@@ -17,7 +16,6 @@ namespace Game.Player.Movement {
 
         private CinemachineCamera _fpCamera;
         private CharacterController _characterController;
-        private PlayerTagController _tagController; // For checking if player is tagged in Gun Tag mode
         private NetworkAudioRelay _audioRelay;
         private LayerMask _playerLayer;
         [SerializeField] private Transform grappleOriginTp;
@@ -120,7 +118,7 @@ namespace Game.Player.Movement {
             var matchSettings = MatchSettingsManager.Instance;
             var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
 
-            if(isTagMode && _tagController != null && _tagController.IsTagged.Value) {
+            if(isTagMode && playerController != null && playerController.IsTagged) {
                 return TaggedPlayerCooldown;
             }
 
@@ -171,10 +169,6 @@ namespace Game.Player.Movement {
                 _characterController = playerController.CharacterController;
             }
             
-            if(_tagController == null) {
-                _tagController = playerController.TagController;
-            }
-            
             if(_audioRelay == null) {
                 _audioRelay = playerController.AudioRelay;
             }
@@ -194,11 +188,10 @@ namespace Game.Player.Movement {
             _netGrapplePoint.OnValueChanged += OnGrapplePointChanged;
 
             if(IsOwner) {
+                EventBus.Unsubscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
                 EventBus.Subscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
                 EventBus.Subscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
-                if(_tagController != null) {
-                    _tagController.IsTagged.OnValueChanged += OnTaggedStateChanged;
-                }
+                EventBus.Subscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
             }
 
             // Apply initial state
@@ -214,9 +207,7 @@ namespace Game.Player.Movement {
             if(IsOwner) {
                 EventBus.Unsubscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
                 EventBus.Unsubscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
-                if(_tagController != null) {
-                    _tagController.IsTagged.OnValueChanged -= OnTaggedStateChanged;
-                }
+                EventBus.Unsubscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
             }
 
             if(_grappleMeshHideCoroutine != null) {
@@ -248,9 +239,7 @@ namespace Game.Player.Movement {
             if(IsOwner) {
                 EventBus.Unsubscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
                 EventBus.Unsubscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
-                if(_tagController != null) {
-                    _tagController.IsTagged.OnValueChanged -= OnTaggedStateChanged;
-                }
+                EventBus.Unsubscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
             }
 
             if(_grappleMeshHideCoroutine != null) {
@@ -774,7 +763,8 @@ namespace Game.Player.Movement {
             CanGrapple = true;
         }
 
-        private void OnTaggedStateChanged(bool _, bool __) {
+        private void OnPlayerTagStateChanged(PlayerTagStateChangedEvent evt) {
+            if(evt == null || playerController == null || evt.PlayerId != playerController.OwnerClientId) return;
             if(CanGrapple) return;
             // Snap progress/remaining time to current rules when tagged state changes mid-cooldown.
             _cooldownDuration = GetCurrentCooldown();

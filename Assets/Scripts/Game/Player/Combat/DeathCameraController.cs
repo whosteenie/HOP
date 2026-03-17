@@ -1,5 +1,4 @@
 using Game.Player.Core;
-using Game.Player.Movement;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -11,8 +10,6 @@ namespace Game.Player.Combat {
 
         private CinemachineCamera _fpCamera;
         private CinemachineCamera _deathCamera;
-
-        private SpeedTrail _speedTrail;
 
         private void Awake() {
             ValidateComponents();
@@ -31,7 +28,6 @@ namespace Game.Player.Combat {
 
             if(_fpCamera == null) _fpCamera = playerController.FpCamera;
             if(_deathCamera == null) _deathCamera = playerController.DeathCamera;
-            if(_speedTrail == null) _speedTrail = playerController.SpeedTrail;
         }
 
         /// <summary>

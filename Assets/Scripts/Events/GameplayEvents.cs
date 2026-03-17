@@ -43,6 +43,19 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when a player's tag state changes so gameplay systems can react without depending on combat types.
+    /// </summary>
+    public class PlayerTagStateChangedEvent : GameEvent {
+        public readonly ulong PlayerId;
+        public readonly bool IsTagged;
+
+        public PlayerTagStateChangedEvent(ulong playerId, bool isTagged) {
+            PlayerId = playerId;
+            IsTagged = isTagged;
+        }
+    }
+
+    /// <summary>
      /// Event published when a player switches weapons.
      /// </summary>
     public class WeaponSwitchedEvent : GameEvent {
