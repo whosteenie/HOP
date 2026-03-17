@@ -2,7 +2,7 @@ using System;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
-using Network.SessionContracts;
+using Network.Contracts;
 using Steamworks;
 using UnityEngine;
 using Lobby = Steamworks.Data.Lobby;

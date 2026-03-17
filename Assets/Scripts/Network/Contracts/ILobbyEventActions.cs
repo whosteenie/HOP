@@ -1,4 +1,4 @@
-namespace Network.SessionContracts {
+namespace Network.Contracts {
     /// <summary>
     /// Actions used by SessionMatchLobbyService when unsubscribing or when match lobby is deleted/kicked.
     /// Implemented by SessionManager.

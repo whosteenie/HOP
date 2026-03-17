@@ -1,7 +1,7 @@
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Multiplayer;
 
-namespace Network.SessionContracts {
+namespace Network.Contracts {
     /// <summary>
     /// Callbacks used by SessionNetworkLifecycleService during DA create/join and match-lobby refresh.
     /// Implemented by SessionManager.

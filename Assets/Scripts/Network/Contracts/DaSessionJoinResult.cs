@@ -1,4 +1,4 @@
-namespace Network.SessionContracts {
+namespace Network.Contracts {
     /// <summary>
     /// Result of attempting to join a distributed authority session.
     /// Lives in SessionContracts so contract interfaces remain one-way.

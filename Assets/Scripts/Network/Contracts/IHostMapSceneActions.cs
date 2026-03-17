@@ -1,6 +1,6 @@
 using Unity.Netcode;
 
-namespace Network.SessionContracts {
+namespace Network.Contracts {
     /// <summary>
     /// Host-only actions for map selection and loading the gameplay scene.
     /// Used by SessionSceneFlowService when the local player is starting as host.

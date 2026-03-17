@@ -1,6 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
-using Network.SessionContracts;
+using Network.Contracts;
 using Steamworks;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;

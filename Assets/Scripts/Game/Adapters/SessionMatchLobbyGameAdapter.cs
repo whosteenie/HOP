@@ -3,8 +3,8 @@ using Game.Hopball;
 using Game.Match;
 using Game.Player.Core;
 using Game.Spawning;
+using Network.Contracts;
 using Network.Session;
-using Network.SessionContracts;
 using UnityEngine;
 
 namespace Game.Adapters {

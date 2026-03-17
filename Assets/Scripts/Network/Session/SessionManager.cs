@@ -13,7 +13,7 @@ using Lobby = Steamworks.Data.Lobby;
 using System.Collections.Generic;
 using Diagnostics;
 using Events;
-using Network.SessionContracts;
+using Network.Contracts;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Matchmaker.Models;

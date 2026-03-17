@@ -1,6 +1,6 @@
 using Cysharp.Threading.Tasks;
 
-namespace Network.SessionContracts {
+namespace Network.Contracts {
     /// <summary>
     /// Actions used by SessionPartyService when orchestrating the private match host flow.
     /// Implemented by SessionManager.

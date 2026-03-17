@@ -1,7 +1,7 @@
 using Game.Settings;
 using Game.Social;
+using Network.Contracts;
 using Network.Session;
-using Network.SessionContracts;
 using Steamworks;
 using UnityEngine;
 

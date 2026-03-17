@@ -1,7 +1,7 @@
-using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 
-namespace Network.SessionContracts {
+namespace Network.Contracts {
     /// <summary>
     /// Party lifecycle actions: event subscription, Steam social lobby creation, heartbeat schedule.
     /// Implemented by SessionManager.
