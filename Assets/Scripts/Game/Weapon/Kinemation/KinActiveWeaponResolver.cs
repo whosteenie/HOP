@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Game.Weapon.Core;
-using Game.Weapon.Manager;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
@@ -8,14 +7,20 @@ using UnityEngine;
 using UnityEngine.VFX;
 
 namespace Game.Weapon.Kinemation {
-    /// <summary>Context the resolver needs from the driver (player instance, layer, weapon manager, sound flags for relay attach).</summary>
+    /// <summary>Small runtime surface Kinemation needs from the weapon system.</summary>
+    internal interface IKinWeaponRuntimeContext {
+        WeaponData GetCurrentWeaponData();
+        void HandleKinemationEquipCompleted();
+    }
+
+    /// <summary>Context the resolver needs from the driver (player instance, layer, weapon state, sound flags for relay attach).</summary>
     internal interface IKinDriverResolverContext {
         GameObject PlayerInstance { get; }
         Transform DriverTransform { get; }
         FPSPlayer FpsPlayer { get; }
         Animator FpsAnimator { get; }
         int RenderLayer { get; }
-        WeaponManager WeaponManager { get; }
+        IKinWeaponRuntimeContext WeaponRuntimeContext { get; }
         bool WeaponSoundPlaybackDisabled { get; }
         bool DisableKinemationPlayerSounds { get; }
         bool RouteWeaponSoundEventsToAudioService { get; }
@@ -129,9 +134,7 @@ namespace Game.Weapon.Kinemation {
         public Transform GetMuzzleTransform() => _muzzleTransform;
 
         public WeaponData GetActiveWeaponData() {
-            var wm = _context.WeaponManager;
-            if(wm == null || wm.CurrentWeapon == null) return null;
-            return wm.CurrentWeapon.CurrentWeaponData;
+            return _context.WeaponRuntimeContext?.GetCurrentWeaponData();
         }
 
         public WeaponData.KinemationSpecialHandling GetActiveWeaponHandling() {

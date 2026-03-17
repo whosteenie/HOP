@@ -1,7 +1,7 @@
 using System.Collections.Generic;
+using System.Linq;
 using Events;
 using Game.Weapon.Core;
-using Game.Weapon.Manager;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using UnityEngine;
 
@@ -35,7 +35,7 @@ namespace Game.Weapon.Kinemation {
         private FPSPlayer _fpsPlayer;
         private Animator _fpsAnimator;
         private int _renderLayer = -1;
-        private WeaponManager _weaponManager;
+        private IKinWeaponRuntimeContext _weaponRuntimeContext;
 
         #endregion
 
@@ -62,8 +62,8 @@ namespace Game.Weapon.Kinemation {
         Animator IKinDriverResolverContext.FpsAnimator => _fpsAnimator;
         int IKinDriverResolverContext.RenderLayer => _renderLayer;
 
-        WeaponManager IKinDriverResolverContext.WeaponManager =>
-            _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
+        IKinWeaponRuntimeContext IKinDriverResolverContext.WeaponRuntimeContext =>
+            _weaponRuntimeContext = ResolveWeaponRuntimeContext();
 
         bool IKinDriverResolverContext.WeaponSoundPlaybackDisabled =>
             disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService;
@@ -106,7 +106,7 @@ namespace Game.Weapon.Kinemation {
 
         public bool InitializeIfNeeded(int renderLayer) {
             _renderLayer = renderLayer;
-            _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
+            _weaponRuntimeContext = ResolveWeaponRuntimeContext();
             EnsureSubsystems();
             if(PlayerInstance != null) {
                 KinemationViewmodelUtility.SetLayerRecursive(PlayerInstance, _renderLayer);
@@ -191,7 +191,7 @@ namespace Game.Weapon.Kinemation {
             () => _soundEvents.IsKinemationSoundRoutingEnabled(TryCacheActiveWeapon));
 
         public void NotifyEquipCompleteEvent() => _tracker?.NotifyEquipCompleteEvent(() => {
-            if(_weaponManager != null) _weaponManager.HandleKinemationEquipCompleted();
+            _weaponRuntimeContext?.HandleKinemationEquipCompleted();
         });
 
         public void ArmTopShellEjectSuppressionOnNextReload() => _tracker?.MarkReloadCanceledByShot();
@@ -253,6 +253,14 @@ namespace Game.Weapon.Kinemation {
             PlayerInstance = instance;
             _fpsPlayer = fpsPlayer;
             _fpsAnimator = fpsAnimator;
+        }
+
+        private IKinWeaponRuntimeContext ResolveWeaponRuntimeContext() {
+            if(_weaponRuntimeContext != null) return _weaponRuntimeContext;
+            _weaponRuntimeContext = GetComponentsInParent<MonoBehaviour>(true)
+                .OfType<IKinWeaponRuntimeContext>()
+                .FirstOrDefault();
+            return _weaponRuntimeContext;
         }
 
         #endregion

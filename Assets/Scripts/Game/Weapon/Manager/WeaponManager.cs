@@ -5,6 +5,7 @@ using Game.Player.Core;
 using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Kinemation;
+using Game.Weapon.Presentation;
 using Game.Weapon.World;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using Network.Core;
@@ -13,7 +14,7 @@ using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Weapon.Manager {
-    public class WeaponManager : NetworkBehaviour {
+    public class WeaponManager : NetworkBehaviour, IKinWeaponRuntimeContext {
         public enum AmmoSyncReason : byte {
             ReloadStarted,
             ReloadSingleRound,
@@ -246,6 +247,7 @@ namespace Game.Weapon.Manager {
         public void HandlePullOutCompleted() => _switch.HandlePullOutCompleted();
         public void HandleThirdPersonPullOutCompleted() => _switch.HandleThirdPersonPullOutCompleted();
         public void HandleKinemationEquipCompleted() => _switch.HandleKinemationEquipCompleted();
+        WeaponData IKinWeaponRuntimeContext.GetCurrentWeaponData() => CurrentWeaponInternal != null ? CurrentWeaponInternal.CurrentWeaponData : null;
         public void TriggerPullOutAnimation() => _switch.TriggerPullOutAnimation();
         public void CancelPendingPullOutForPostMatch() => _switch.CancelPendingPullOutForPostMatch();
         public void SetTpWeaponIndexForPodium() => _switch.SetTpWeaponIndexForPodium();
