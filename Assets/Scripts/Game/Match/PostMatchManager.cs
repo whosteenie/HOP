@@ -467,14 +467,12 @@ namespace Game.Match {
                 EventBus.Publish(new SetPostMatchMenuStateEvent(true));
 
                 // Find local controller and disable sniper overlay (do NOT lock movement yet - wait for fade to complete)
-                if(NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null) {
-                    var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
-                    if(localPlayer != null) {
-                        var localController = localPlayer.GetComponent<PlayerController>();
-                        if(localController != null && localController.PlayerInputController != null) {
-                            localController.PlayerInputController.ForceDisableSniperOverlay(false);
-                        }
-                    }
+                if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) return;
+                var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
+                if(localPlayer == null) return;
+                var localController = localPlayer.GetComponent<PlayerController>();
+                if(localController != null && localController.PlayerInputController != null) {
+                    localController.PlayerInputController.ForceDisableSniperOverlay(false);
                 }
 
             } catch(Exception e) {

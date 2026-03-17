@@ -99,7 +99,7 @@ namespace Game.UI.Screens.Scoreboard {
             VisualElement yourTeamRows,
             VisualElement scoreboardContainer, VisualElement tdmScoreboardContainer, Label enemyScoreValue,
             Label yourScoreValue,
-            MatchSettingsManager matchSettings, ScoreboardRowFactory rowFactory, ScoreboardPlayerData playerData,
+            MatchSettingsManager matchSettings, ScoreboardRowFactory rowFactory,
             VisualElement root, Object logContext) {
             if(scoreboardContainer == null || tdmScoreboardContainer == null || enemyTeamRows == null ||
                yourTeamRows == null) {

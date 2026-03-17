@@ -5,7 +5,6 @@ using Game.Player.Core;
 using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Kinemation;
-using Game.Weapon.Presentation;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using Network.Core;
 using Unity.Cinemachine;
@@ -272,7 +271,7 @@ namespace Game.Weapon.Manager {
 
         #region Internal Facade
 
-        internal void OnWeaponIndexChangedInternal(int oldValue, int newValue) => _loadout.OnWeaponIndexChanged(oldValue, newValue);
+        internal void OnWeaponIndexChangedInternal(int oldValue, int newValue) => _loadout.OnWeaponIndexChanged();
         internal void ApplyDrainedAmmoOwnerClient(int weaponIndex, int ammo, int magSize) => _authority.ApplyDrainedAmmoOwnerClient(weaponIndex, ammo, magSize);
         internal void ReportWeaponStateSyncServer(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent, RpcParams rpcParams) =>
             _authority.ReportWeaponStateSyncServer(weaponIndex, reason, localAmmoAfterEvent, rpcParams);

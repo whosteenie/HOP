@@ -185,7 +185,7 @@ namespace Game.Weapon.Manager {
             UpdateHolsterVisibility();
         }
 
-        public void OnWeaponIndexChanged(int oldValue, int newValue) {
+        public void OnWeaponIndexChanged() {
             if(_root.SuppressLoadoutRebuildCallbacks) return;
 
             var shouldDeferTpReveal = _root.PlayerControllerRef != null &&

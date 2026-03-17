@@ -142,7 +142,7 @@ namespace Game.UI.Screens.Scoreboard {
         }
 
         private void OnPlayerStateRegistered(ulong id, MatchPlayerStateProxy proxy) =>
-            _registry?.OnStateRegistered(id, proxy);
+            _registry?.OnStateRegistered(id);
 
         private void OnPlayerStateUnregistered(ulong id, MatchPlayerStateProxy proxy) =>
             _registry?.OnStateUnregistered(id, proxy);
@@ -299,7 +299,7 @@ namespace Game.UI.Screens.Scoreboard {
             if(IsTeamBased()) {
                 var updated = ScoreboardTableUpdater.UpdateTdm(allControllers, _enemyTeamRows, _yourTeamRows,
                     _scoreboardContainer, _tdmScoreboardContainer, _enemyScoreValue, _yourScoreValue,
-                    _cachedMatchSettings, _rowFactory, _playerData, _root, this);
+                    _cachedMatchSettings, _rowFactory, _root, this);
                 if(!updated)
                     _tableUpdater.UpdateFfa(allControllers, _playerRows, _scoreboardContainer, _tdmScoreboardContainer,
                         IsTagMode(), _rowFactory, _playerData, _root, this);

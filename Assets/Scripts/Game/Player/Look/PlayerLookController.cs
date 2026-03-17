@@ -72,7 +72,7 @@ namespace Game.Player.Look {
             UpdatePitch(lookDelta.y);
             UpdateYaw(lookDelta.x);
 
-            playerController?.UpdateTurnAnimationFromLook(lookDelta.x);
+            if(playerController != null) playerController.UpdateTurnAnimationFromLook(lookDelta.x);
 
             if(_upperBodyPitch != null) {
                 _upperBodyPitch.SetLocalPitchFromCamera(CurrentPitch);

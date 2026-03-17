@@ -160,7 +160,7 @@ namespace Game.Player.Core {
         private PlayerWeaponPresentation _weaponPresentation;
         private PlayerSpawnPresentation _spawnPresentation;
         private PlayerPresentationState _presentationState;
-        private bool _isHoldingHopball;
+
         #endregion
 
         #region Network Variables
@@ -419,17 +419,17 @@ namespace Game.Player.Core {
 
         private void OnHopballHoldStateChanged(HopballHoldStateChangedEvent evt) {
             if(evt == null || evt.PlayerOwnerClientId != OwnerClientId) return;
-            _isHoldingHopball = evt.IsHoldingHopball;
+            IsHoldingHopball = evt.IsHoldingHopball;
         }
 
         private void OnHopballEquippedPresentation(HopballEquippedPresentationEvent evt) {
             if(evt == null || evt.HolderClientId != OwnerClientId) return;
-            _isHoldingHopball = true;
+            IsHoldingHopball = true;
         }
 
         private void OnHopballDropPresentation(HopballDropPresentationEvent evt) {
             if(evt == null || evt.HolderClientId != OwnerClientId) return;
-            _isHoldingHopball = false;
+            IsHoldingHopball = false;
         }
 
         private void DisableConflictingKinemationComponents() {
@@ -844,7 +844,7 @@ namespace Game.Player.Core {
             }
         }
 
-        public bool IsHoldingHopball => _isHoldingHopball;
+        public bool IsHoldingHopball { get; private set; }
 
         public void DropHopball() {
             if(NetworkObject != null) {

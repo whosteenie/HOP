@@ -29,7 +29,7 @@ namespace Game.UI.Screens.Scoreboard {
             _onRefreshRequested();
         }
 
-        public void OnStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+        public void OnStateRegistered(ulong playerClientId) {
             var player = Find(playerClientId);
             if(player == null) return;
             RebindProfileSubscriptions(player);
