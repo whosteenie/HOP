@@ -1068,8 +1068,10 @@ namespace Game.Player.Core {
         public bool IsPreMatchMovementLocked => MatchTimerManager.Instance is { IsPreMatch: true };
         public bool IsPostMatchMovementLocked => PostMatchManager.IsPostMatchMovementLockedLocal;
         public bool IsPostMatchFlowStarted => PostMatchManager.Instance is { PostMatchFlowStarted: true };
+        public string CurrentGameModeId => MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.selectedGameModeId : string.Empty;
         public bool IsGunTagMode => MatchSettingsManager.Instance != null &&
                                     MatchSettingsManager.Instance.selectedGameModeId == "Gun Tag";
+        public bool IsTeamBasedMode => MatchSettingsManager.IsTeamBasedMode(CurrentGameModeId);
 
         #endregion
 
@@ -1243,6 +1245,7 @@ namespace Game.Player.Core {
         float IPlayerStatsContext.ObservedServerMovementSpeed => ObservedServerMovementSpeed;
 
         void IPlayerTagContext.PlayHitEffects(Vector3 hitPoint, float amount) => PlayHitEffectsClientRpc(hitPoint, amount);
+        bool IPlayerTagContext.IsGunTagMode => IsGunTagMode;
         void IPlayerTagContext.UpdateTeamOutlineColour() {
             if(playerTeamManager != null) playerTeamManager.UpdateOutlineColour();
         }
@@ -1336,6 +1339,7 @@ namespace Game.Player.Core {
         Vector3 IPlayerLookContext.HorizontalVelocity => movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
         bool IPlayerLookContext.IsRagdoll => playerRagdoll != null && playerRagdoll.IsRagdoll;
         void IPlayerLookContext.UpdateTurnAnimationFromLook(float yawDelta) => UpdateTurnAnimationFromLook(yawDelta);
+        bool IPlayerVisualContext.IsPostMatchFlowStarted => IsPostMatchFlowStarted;
         Color IPlayerVisualContext.TaggedGlowColor => playerTeamManager != null ? playerTeamManager.TaggedGlow : Color.white;
         NetworkVariable<int> IPlayerVisualContext.JumpAnimationSequence => jumpAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.LandAnimationSequence => landAnimationSequence;

@@ -9,6 +9,7 @@ namespace Game.Player.Contracts {
         bool IsOwner { get; }
         bool IsDead { get; }
         bool IsGrounded { get; }
+        bool IsPostMatchFlowStarted { get; }
         bool IsWallRunning { get; }
         bool IsRightWallRunning { get; }
         ulong NetworkObjectId { get; }

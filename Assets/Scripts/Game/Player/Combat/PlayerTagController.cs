@@ -97,15 +97,12 @@ namespace Game.Player.Combat {
         private void Update() {
             if(!HasTagAuthority) return;
 
-            var matchSettings = MatchSettingsManager.Instance;
-            var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
-
             _timer += Time.deltaTime;
             if(!(_timer >= 1f)) return;
 
             _timer = 0f;
 
-            if(!isTagMode || !IsTagged.Value) return;
+            if(_playerContext is not { IsGunTagMode: true } || !IsTagged.Value) return;
 
             if(Time.time - lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
                 TimeTagged.Value++;
@@ -163,11 +160,8 @@ namespace Game.Player.Combat {
         /// </summary>
         private void OnTaggedStateChanged(bool oldValue, bool newValue) {
             // Update HUD for Tag mode
-            if(IsOwner && _playerContext != null) {
-                var matchSettings = MatchSettingsManager.Instance;
-                if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
-                    EventBus.Publish(new UpdateTagStatusEvent(newValue));
-                }
+            if(IsOwner && _playerContext is { IsGunTagMode: true }) {
+                EventBus.Publish(new UpdateTagStatusEvent(newValue));
             }
 
             if(_playerContext != null) {
@@ -259,8 +253,7 @@ namespace Game.Player.Combat {
         public void ResetTagState() {
             if(!HasTagAuthority) return;
 
-            var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
+            if(_playerContext is { IsGunTagMode: true }) {
                 // Do NOT reset tag state on respawn - keep "It" status if they died/fell off map
                 // isTagged.Value = false; 
             }

@@ -52,8 +52,6 @@ namespace Game.Player.Core {
         private PlayerTagController _tagController;
         private Camera _mainCamera; // Cached main camera reference
 
-        // Cache MatchSettingsManager and game mode to avoid repeated lookups
-        private MatchSettingsManager _cachedMatchSettings;
         private string _cachedGameModeId;
         private bool _cachedIsTeamBased;
         private bool _cachedIsTagMode;
@@ -93,10 +91,7 @@ namespace Game.Player.Core {
             // Find and cache main camera once (for dynamically spawned prefabs)
             _mainCamera = Camera.main;
 
-            _tagController = GetComponent<PlayerTagController>();
-
-            // Cache MatchSettingsManager
-            _cachedMatchSettings = MatchSettingsManager.Instance;
+            _tagController = playerController.TagController;
             _gameModeCacheValid = false;
 
             // Initialize MaterialPropertyBlock for per-instance properties
@@ -163,19 +158,7 @@ namespace Game.Player.Core {
                 return;
             }
 
-            // Refresh MatchSettingsManager cache if needed
-            if(_cachedMatchSettings == null) {
-                _cachedMatchSettings = MatchSettingsManager.Instance;
-                _gameModeCacheValid = false;
-            }
-
-            if(_cachedMatchSettings == null) {
-                Debug.LogWarning($"[PlayerTeamManager] MatchSettingsManager is null! GameObject: {gameObject.name}");
-                return;
-            }
-
-            // Always check current game mode and invalidate cache if it changed
-            var currentGameModeId = _cachedMatchSettings.selectedGameModeId;
+            var currentGameModeId = playerController != null ? playerController.CurrentGameModeId : string.Empty;
             if(_gameModeCacheValid && _cachedGameModeId != currentGameModeId) {
                 // Game mode changed - invalidate cache
                 _gameModeCacheValid = false;
@@ -185,8 +168,8 @@ namespace Game.Player.Core {
             // Cache game mode checks
             if(!_gameModeCacheValid) {
                 _cachedGameModeId = currentGameModeId;
-                _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
-                _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
+                _cachedIsTeamBased = playerController != null && playerController.IsTeamBasedMode;
+                _cachedIsTagMode = playerController != null && playerController.IsGunTagMode;
                 _gameModeCacheValid = true;
             }
 
@@ -299,16 +282,7 @@ namespace Game.Player.Core {
             if(_skinned == null || _propertyBlock == null) return;
             if(IsOwner) return; // Don't update for self
 
-            // Refresh MatchSettingsManager cache if needed
-            if(_cachedMatchSettings == null) {
-                _cachedMatchSettings = MatchSettingsManager.Instance;
-                _gameModeCacheValid = false;
-            }
-
-            if(_cachedMatchSettings == null) return;
-
-            // Always check current game mode and invalidate cache if it changed
-            var currentGameModeId = _cachedMatchSettings.selectedGameModeId;
+            var currentGameModeId = playerController != null ? playerController.CurrentGameModeId : string.Empty;
             switch(_gameModeCacheValid) {
                 case true when _cachedGameModeId != currentGameModeId:
                     // Game mode changed - invalidate cache and update outline
@@ -318,8 +292,8 @@ namespace Game.Player.Core {
                 // Cache game mode checks
                 case false:
                     _cachedGameModeId = currentGameModeId;
-                    _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
-                    _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
+                    _cachedIsTeamBased = playerController != null && playerController.IsTeamBasedMode;
+                    _cachedIsTagMode = playerController != null && playerController.IsGunTagMode;
                     _gameModeCacheValid = true;
                     break;
             }
