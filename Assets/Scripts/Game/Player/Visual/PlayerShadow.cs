@@ -42,7 +42,7 @@ namespace Game.Player.Visual {
         }
 
         private void ValidateComponents() {
-            if(!PlayerContractResolver.TryResolve<IPlayerVisualContext>(this, ref playerContextSource, out _playerContext)) {
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
                 Debug.LogError("[PlayerShadow] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
@@ -95,7 +95,7 @@ namespace Game.Player.Visual {
         /// <summary>Sets shadow casting mode for all SkinnedMeshRenderers.</summary>
         private void SetSkinnedMeshShadowMode(ShadowCastingMode mode, ShadowCastingMode? ownerMode = null, bool? isEnabled = null) {
             RefreshRendererCacheIfNeeded();
-            var isOwner = _playerContext != null && _playerContext.IsOwner;
+            var isOwner = _playerContext is { IsOwner: true };
 
             Transform fpCameraTransform = null;
             if(_playerContext != null && _playerContext.FpCamera != null) {
@@ -300,8 +300,8 @@ namespace Game.Player.Visual {
         /// Only updates holster shadows, not player body or world weapon shadows.
         /// </summary>
         /// <summary>Updates holster shadow state for the owner.</summary>
-        public void UpdateHolsterShadowState() {
-            if(_playerContext == null || !_playerContext.IsOwner) return;
+        private void UpdateHolsterShadowState() {
+            if(_playerContext is not { IsOwner: true }) return;
             var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
             if(isPostMatch) {
                 TrySetHolsterShadowState(true, false, ShadowCastingMode.On);

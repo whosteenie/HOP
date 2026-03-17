@@ -54,7 +54,7 @@ namespace Game.Player.Visual {
         }
 
         private void ValidateComponents() {
-            if(!PlayerContractResolver.TryResolve<IPlayerVisualContext>(this, ref playerContextSource, out _playerContext)) {
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
                 Debug.LogError("[PlayerAnimationController] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
@@ -90,17 +90,17 @@ namespace Game.Player.Visual {
             _playerAnimator.SetBool(IsGroundedHash, !IsFalling);
 
             var isWallRunning = IsOwner
-                ? _playerContext != null && _playerContext.IsWallRunning
+                ? _playerContext is { IsWallRunning: true }
                 : _remoteIsWallRunning;
             var isRightWallRun = IsOwner
-                ? _playerContext != null && _playerContext.IsRightWallRunning
+                ? _playerContext is { IsRightWallRunning: true }
                 : _remoteIsRightWallRun;
             _playerAnimator.SetBool(IsWallRunningHash, isWallRunning);
             _playerAnimator.SetBool(RightWallRunHash, isRightWallRun);
             _playerAnimator.SetFloat(WallRunDirectionHash,
                 IsOwner ? GetWallRunDirection(horizontalVelocity, isWallRunning) : _remoteWallRunDirection);
 
-            var isGrounded = _playerContext != null && _playerContext.IsGrounded;
+            var isGrounded = _playerContext is { IsGrounded: true };
             if((isGrounded && !IsJumping) || IsFalling) {
             }
         }
@@ -146,7 +146,7 @@ namespace Game.Player.Visual {
             // This allows jump->fall transitions to work in the animator
             if(!isGrounded) {
                 IsFalling = true;
-                if(_playerContext != null && _playerContext.NetIsFalling != null) {
+                if(_playerContext is { NetIsFalling: not null }) {
                     _playerContext.NetIsFalling.Value = true;
                 }
 
@@ -160,7 +160,7 @@ namespace Game.Player.Visual {
                 // Reset when grounded
                 _fallStartHeight = 0f;
                 IsFalling = false;
-                if(_playerContext != null && _playerContext.NetIsFalling != null) {
+                if(_playerContext is { NetIsFalling: not null }) {
                     _playerContext.NetIsFalling.Value = false;
                 }
             }
@@ -228,7 +228,7 @@ namespace Game.Player.Visual {
             // Set IsFallingHash based on _isFalling state to ensure consistency
             _playerAnimator.SetBool(IsFallingHash, IsFalling);
 
-            var isGrounded = _playerContext != null && _playerContext.IsGrounded;
+            var isGrounded = _playerContext is { IsGrounded: true };
             _playerAnimator.SetBool(IsGroundedHash, isGrounded);
 
             if(_playerContext == null) return;

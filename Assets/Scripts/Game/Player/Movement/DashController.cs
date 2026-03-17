@@ -37,7 +37,7 @@ namespace Game.Player.Movement {
         }
 
         private void ValidateComponents() {
-            if(!PlayerContractResolver.TryResolve<IPlayerMovementContext>(this, ref playerContextSource, out _playerContext)) {
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
                 Debug.LogError("[DashController] IPlayerMovementContext not found!");
                 enabled = false;
                 return;

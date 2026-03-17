@@ -1,5 +1,4 @@
-using Game.Player.Core;
-using Game.Player.Movement;
+using Game.Player.Contracts;
 using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -12,9 +11,9 @@ namespace Game.Player.Input {
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerLookController : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
 
-        private PlayerMovementController _movementController;
+        private IPlayerLookContext _playerContext;
         private UpperBodyPitch _upperBodyPitch;
         private CinemachineCamera _fpCamera;
         private Transform _playerTransform;
@@ -39,27 +38,22 @@ namespace Game.Player.Input {
         private float _targetFov;
 
         // Input (read from PlayerController)
-        private Vector2 LookInput => playerController == null ? Vector2.zero : playerController.lookInput;
+        private Vector2 LookInput => _playerContext == null ? Vector2.zero : _playerContext.LookInput;
 
         private void Awake() {
             ValidateComponents();
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[PlayerLookController] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[PlayerLookController] IPlayerLookContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_playerTransform == null) _playerTransform = playerController.PlayerTransform;
-            if(_upperBodyPitch == null) _upperBodyPitch = playerController.UpperBodyPitch;
-            if(_movementController == null) _movementController = playerController.MovementController;
-            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
+            if(_playerTransform == null) _playerTransform = _playerContext.PlayerTransform;
+            if(_upperBodyPitch == null) _upperBodyPitch = GetComponent<UpperBodyPitch>();
+            if(_fpCamera == null) _fpCamera = _playerContext.FpCamera;
         }
 
         /// <summary>
@@ -72,7 +66,7 @@ namespace Game.Player.Input {
             UpdatePitch(lookDelta.y);
             UpdateYaw(lookDelta.x);
 
-            if(playerController != null) playerController.UpdateTurnAnimationFromLook(lookDelta.x);
+            _playerContext?.UpdateTurnAnimationFromLook(lookDelta.x);
 
             if(_upperBodyPitch != null) {
                 _upperBodyPitch.SetLocalPitchFromCamera(CurrentPitch);
@@ -99,9 +93,9 @@ namespace Game.Player.Input {
         public void UpdateSpeedFov() {
             if(!IsOwner || _fpCamera == null) return;
 
-            if(_movementController == null) return;
+            if(_playerContext == null) return;
 
-            var speed = _movementController.HorizontalVelocity.magnitude;
+            var speed = _playerContext.HorizontalVelocity.magnitude;
             var t = Mathf.InverseLerp(sprintStartSpeed, maxSpeedForFov, speed);
             t = Mathf.Pow(t, 0.65f);
 

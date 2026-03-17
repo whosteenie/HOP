@@ -34,7 +34,7 @@ namespace Game.Player.Visual {
         }
 
         private void ValidateComponents() {
-            if(!PlayerContractResolver.TryResolve<IPlayerVisualContext>(this, ref playerContextSource, out _playerContext)) {
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
                 Debug.LogError("[PlayerVisualController] IPlayerVisualContext not found!");
                 enabled = false;
                 return;

@@ -133,7 +133,7 @@ namespace Game.Player.Movement {
         }
 
         private void ValidateComponents() {
-            if(!PlayerContractResolver.TryResolve<IPlayerMovementContext>(this, ref playerContextSource, out _playerContext)) return;
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) return;
             _characterController = _playerContext.CharacterController;
             _fpCamera = _playerContext.FpCamera;
             _movementController = GetComponent<PlayerMovementController>();

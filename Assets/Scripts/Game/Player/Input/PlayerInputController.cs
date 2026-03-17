@@ -3,8 +3,7 @@ using Diagnostics;
 using Events;
 using Game.Audio.System;
 using Game.Match;
-using Game.Player.Core;
-using Game.Player.Movement;
+using Game.Player.Contracts;
 using Game.Settings;
 using Game.Social;
 using Game.Weapon.Core;
@@ -21,7 +20,9 @@ namespace Game.Player.Input {
         #region Serialized Fields
 
         [Header("Components")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerInputContext _playerContext;
 
         private UnityPlayerInputComponent _playerInputComponent;
         private InputActionMap _playerActionMap;
@@ -34,9 +35,6 @@ namespace Game.Player.Input {
         private CinemachineCamera _fpCamera;
         private AudioListener _audioListener;
         private WeaponManager _weaponManager;
-        private GrappleController _grappleController;
-        private SwingGrapple _swingGrapple;
-        private MantleController _mantleController;
 
         [Header("Input Settings")]
         [SerializeField] private bool toggleSprint = true;
@@ -54,7 +52,7 @@ namespace Game.Player.Input {
                 if(_isChatOpen) return true;
                 if(_isPauseMenuOpen) return true;
 
-                return playerController != null && playerController.IsDead;
+                return _playerContext is { IsDead: true };
             }
         }
 
@@ -63,36 +61,18 @@ namespace Game.Player.Input {
 
         private WeaponManager WeaponManager {
             get {
-                if(_weaponManager == null && playerController != null) {
-                    _weaponManager = playerController.WeaponManager;
+                if(_weaponManager == null && _playerContext != null) {
+                    _weaponManager = _playerContext.WeaponManager;
                 }
 
                 return _weaponManager;
             }
         }
 
-        private GrappleController GrappleController {
-            get {
-                if(_grappleController == null && playerController != null) {
-                    _grappleController = playerController.GrappleController;
-                }
-
-                return _grappleController;
-            }
-        }
-
-
-        private MantleController MantleController {
-            get {
-                if(_mantleController == null && playerController != null) {
-                    _mantleController = playerController.MantleController;
-                }
-
-                return _mantleController;
-            }
-        }
-
         private Weapon.Core.Weapon CurrentWeapon => WeaponManager == null ? null : WeaponManager.CurrentWeapon;
+        private bool IsMantling => _playerContext != null && _playerContext.IsMantling;
+        private bool CanMantleJump => _playerContext != null && _playerContext.CanMantleJump;
+        private bool IsGrappling => _playerContext != null && _playerContext.IsGrappling;
 
         private bool _sprintBtnDown;
         private bool _crouchBtnDown;
@@ -167,19 +147,15 @@ namespace Game.Player.Input {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[PlayerInputController] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[PlayerInputController] IPlayerInputContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_playerInputComponent == null) _playerInputComponent = playerController.UnityPlayerInput;
-            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
-            if(_audioListener == null) _audioListener = playerController.AudioListener;
+            if(_playerInputComponent == null) _playerInputComponent = _playerContext.UnityPlayerInput;
+            if(_fpCamera == null) _fpCamera = _playerContext.FpCamera;
+            if(_audioListener == null) _audioListener = _playerContext.AudioListener;
 
             if(_fpCamera != null) {
                 _defaultFpFov = _fpCamera.Lens.FieldOfView;
@@ -326,8 +302,8 @@ namespace Game.Player.Input {
             _attackBtnDown = attackPressed;
 
             if(!IsPreMatchOrPausedOrDead && fireMode == WeaponData.FireModeType.Full && attackPressed &&
-               !(MantleController != null && MantleController.IsMantling) &&
-               !(playerController != null && playerController.IsHoldingHopball)) {
+               !(IsMantling) &&
+               _playerContext is not { IsHoldingHopball: true }) {
                 if(attackPressedThisFrame) {
                     if(CurrentWeapon.TryAutoReloadFromEmptyClick()) {
                         return;
@@ -358,13 +334,13 @@ namespace Game.Player.Input {
                 }
             }
 
-            if(!IsPausedOrDead && (jumpPressed || scrollPressed) && MantleController != null && MantleController.CanJump) {
+            if(!IsPausedOrDead && (jumpPressed || scrollPressed) && CanMantleJump) {
                 // Check if hold-to-mantle is enabled
                 var controls = GameSettings.Data.controls;
                 var holdMantleEnabled = controls == null || controls.holdMantle;
 
                 // Prioritize Wall Jump over Mantle
-                var isWallRunning = playerController.WallRunController != null && playerController.WallRunController.IsWallRunning;
+                var isWallRunning = _playerContext is { IsWallRunning: true };
 
                 switch(isWallRunning) {
                     // Prevent "Auto-Hop" (holding jump) from unintentionally triggering wall jumps.
@@ -373,11 +349,13 @@ namespace Game.Player.Input {
                         // Jump is held, but not fresh press - ignore for wall jumping
                         return;
                     // Try mantle if enabled and not grounded (and not wall running)
-                    case false when MantleController != null && holdMantleEnabled && !playerController.IsGrounded: {
-                        MantleController.TryMantle();
+                    case false when holdMantleEnabled && _playerContext is not {
+                        IsGrounded: true
+                    }: {
+                        _playerContext?.TryMantle();
 
                         // If we started mantling, don't jump
-                        if(MantleController != null && MantleController.IsMantling) {
+                        if(IsMantling) {
                             return;
                         }
 
@@ -386,10 +364,10 @@ namespace Game.Player.Input {
                 }
 
                 // Always allow hold-to-jump (for scroll wheel support)
-                playerController.TryJump();
+                _playerContext?.TryJump();
                 
-                if(GrappleController != null)
-                    GrappleController.CancelGrapple();
+                if(IsGrappling)
+                    _playerContext?.CancelGrapple();
             }
 
             if(!_isPauseMenuOpen && Keyboard.current.tabKey.isPressed) {
@@ -404,8 +382,8 @@ namespace Game.Player.Input {
                Cursor.lockState != CursorLockMode.Locked) return;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
-            if(PlayerController.LocalPlayer != null) {
-                PlayerController.LocalPlayer.LockLook = true;
+            if(_playerContext != null) {
+                _playerContext.LockLook = true;
             }
 
         }
@@ -415,11 +393,10 @@ namespace Game.Player.Input {
             var promptText = "PRESS INTERACT";
 
             var canCheckPickup = !IsPausedOrDead && !IsPreMatch &&
-                                 playerController != null &&
-                                 playerController.NetworkObject != null &&
-                                 !playerController.IsHoldingHopball;
+                                 NetworkObject != null &&
+                                 _playerContext is { IsHoldingHopball: false };
             if(canCheckPickup) {
-                var promptRequest = new PlayerHopballPickupPromptEvaluationRequestedEvent(playerController.NetworkObjectId);
+                var promptRequest = new PlayerHopballPickupPromptEvaluationRequestedEvent(NetworkObjectId);
                 EventBus.Publish(promptRequest);
                 canShowPrompt = promptRequest.CanPickupNearbyHopball;
                 if(canShowPrompt) {
@@ -464,9 +441,7 @@ namespace Game.Player.Input {
         /// </summary>
         public void SetMovementInput(Vector2 move) {
             if(!IsOwner) return; // Only owner can set input (prevents network interference)
-            if(playerController != null) {
-                playerController.moveInput = move;
-            }
+            _playerContext?.SetMoveInput(move);
         }
 
         /// <summary>
@@ -474,9 +449,7 @@ namespace Game.Player.Input {
         /// </summary>
         public void SetLookInput(Vector2 look) {
             if(!IsOwner) return; // Only owner can set input (prevents network interference)
-            if(playerController != null) {
-                playerController.lookInput = look;
-            }
+            _playerContext?.SetLookInput(look);
         }
 
         /// <summary>
@@ -484,18 +457,18 @@ namespace Game.Player.Input {
         /// </summary>
         public void TriggerJump() {
             if(!IsOwner || IsPausedOrDead) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
 
-            if(!playerController.IsGrounded && MantleController != null) {
-                MantleController.TryMantle();
-                if(MantleController.IsMantling) return;
+            if(_playerContext is { IsGrounded: false }) {
+                _playerContext?.TryMantle();
+                if(IsMantling) return;
             }
 
-            playerController.TryJump();
+            _playerContext?.TryJump();
             
-            if(GrappleController != null && GrappleController.IsGrappling) {
-                GrappleController.CancelGrapple();
+            if(IsGrappling) {
+                _playerContext?.CancelGrapple();
             }
         }
 
@@ -504,14 +477,13 @@ namespace Game.Player.Input {
         /// </summary>
         public void TriggerGrapple() {
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
 
-            if(GrappleController == null) return;
-            if(GrappleController.IsGrappling) {
-                GrappleController.CancelGrapple();
+            if(IsGrappling) {
+                _playerContext?.CancelGrapple();
             } else {
-                GrappleController.TryGrapple();
+                _playerContext?.TryGrapple();
             }
         }
 
@@ -520,9 +492,9 @@ namespace Game.Player.Input {
         /// </summary>
         public void TriggerShoot() {
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
-            if(playerController != null && playerController.IsHoldingHopball) return;
+            if(_playerContext is { IsHoldingHopball: true }) return;
 
             if(CurrentWeapon == null) return;
             if(CurrentWeapon.TryAutoReloadFromEmptyClick()) return;
@@ -534,8 +506,8 @@ namespace Game.Player.Input {
         /// </summary>
         public void SetSprintInput(bool sprint) {
             if(!IsOwner) return; // Only owner can set input (prevents network interference)
-            if(playerController != null) {
-                playerController.sprintInput = sprint;
+            if(_playerContext != null) {
+                _playerContext.SprintInputState = sprint;
             }
         }
 
@@ -544,8 +516,8 @@ namespace Game.Player.Input {
         /// </summary>
         public void SetCrouchInput(bool crouch) {
             if(!IsOwner) return; // Only owner can set input (prevents network interference)
-            if(playerController != null) {
-                playerController.crouchInput = crouch;
+            if(_playerContext != null) {
+                _playerContext.CrouchInputState = crouch;
             }
         }
 
@@ -554,14 +526,14 @@ namespace Game.Player.Input {
         /// Used after control restore where no new OnMove callback may fire if the key was already held.
         /// </summary>
         public Vector2 ResampleHeldMovementInput(string reason = "Unknown") {
-            if(!IsOwner || playerController == null) return Vector2.zero;
+            if(!IsOwner || _playerContext == null) return Vector2.zero;
             if(_moveAction == null) {
                 RefreshCachedInputActions();
             }
             if(_moveAction == null) return Vector2.zero;
 
             var move = _moveAction.ReadValue<Vector2>();
-            playerController.moveInput = move;
+            _playerContext.SetMoveInput(move);
 
             FlowLog.Emit(FlowEventIds.PlayerControlState,
                 ("player", OwnerClientId),
@@ -578,28 +550,28 @@ namespace Game.Player.Input {
         [UsedImplicitly]
         private void OnLook(InputValue value) {
             if(!IsOwner) return;
-            if(IsPausedOrDead || playerController.LockLook) {
-                playerController.lookInput = Vector2.zero;
+            if(IsPausedOrDead || _playerContext is { LockLook: true }) {
+                _playerContext?.SetLookInput(Vector2.zero);
                 return;
             }
 
             var rawDelta = value.Get<Vector2>();
 
             var zoomMultiplier = IsSniperOverlayActive ? _sniperSensitivityMultiplier : 1f;
-            playerController.lookInput = rawDelta * zoomMultiplier;
+            _playerContext?.SetLookInput(rawDelta * zoomMultiplier);
         }
 
         [UsedImplicitly]
         private void OnMove(InputValue value) {
             if(!IsOwner) return;
             if(IsPausedOrDead || PostMatchManager.IsPostMatchMovementLockedLocal) {
-                playerController.moveInput = Vector2.zero;
+                _playerContext?.SetMoveInput(Vector2.zero);
                 return;
             }
 
             // Allow movement input to be set even during pre-match
             // It will be ignored during movement processing instead
-            playerController.moveInput = value.Get<Vector2>();
+            _playerContext?.SetMoveInput(value.Get<Vector2>());
         }
 
         [UsedImplicitly]
@@ -607,7 +579,7 @@ namespace Game.Player.Input {
             if(!IsOwner) return;
             if(IsPausedOrDead) {
                 if(!toggleSprint)
-                    playerController.sprintInput = false;
+                    if(_playerContext != null) _playerContext.SprintInputState = false;
                 return;
             }
 
@@ -616,23 +588,23 @@ namespace Game.Player.Input {
             if(toggleSprint) {
                 // Toggle only on rising edge
                 if(pressed && !_sprintBtnDown) {
-                    playerController.sprintInput = !playerController.sprintInput;
+                    if(_playerContext != null) _playerContext.SprintInputState = !_playerContext.SprintInputState;
                 }
 
                 _sprintBtnDown = pressed;
             } else {
                 // Hold-to-sprint
-                playerController.sprintInput = pressed;
+                if(_playerContext != null) _playerContext.SprintInputState = pressed;
             }
         }
 
         [UsedImplicitly]
         private void OnCrouch(InputValue value) {
             if(!IsOwner) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(IsPausedOrDead || isMantling) {
                 if(!toggleCrouch)
-                    playerController.crouchInput = false;
+                    if(_playerContext != null) _playerContext.CrouchInputState = false;
                 return;
             }
 
@@ -641,13 +613,13 @@ namespace Game.Player.Input {
             if(toggleCrouch) {
                 // Toggle only on rising edge
                 if(pressed && !_crouchBtnDown) {
-                    playerController.crouchInput = !playerController.crouchInput;
+                    if(_playerContext != null) _playerContext.CrouchInputState = !_playerContext.CrouchInputState;
                 }
 
                 _crouchBtnDown = pressed;
             } else {
                 // Hold-to-crouch
-                playerController.crouchInput = pressed;
+                if(_playerContext != null) _playerContext.CrouchInputState = pressed;
             }
         }
 
@@ -655,52 +627,50 @@ namespace Game.Player.Input {
         private void OnJump(InputValue value) {
             if(!IsOwner || IsPausedOrDead) return;
             _jumpBtnDown = value.isPressed;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
 
-            if(!playerController.IsGrounded) {
+            if(_playerContext is { IsGrounded: false }) {
                 // Prioritize Wall Jump over Mantle
-                if (playerController.WallRunController != null && playerController.WallRunController.IsWallRunning) {
-                    playerController.TryJump();
+                if(_playerContext is { IsWallRunning: true }) {
+                    _playerContext.TryJump();
                     return;
                 }
 
-                if(MantleController != null) {
-                    MantleController.TryMantle();
-                }
+                _playerContext?.TryMantle();
 
                 // If we started mantling, don't jump
-                if(MantleController != null && MantleController.IsMantling) {
+                if(IsMantling) {
                     return;
                 }
             }
 
-            playerController.TryJump();
+            _playerContext?.TryJump();
 
-            if(GrappleController != null && GrappleController.IsGrappling) {
-                GrappleController.CancelGrapple();
+            if(IsGrappling) {
+                _playerContext?.CancelGrapple();
             }
         }
 
         [UsedImplicitly]
         private void OnScrollWheel(InputValue _) {
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
 
-            playerController.TryJump();
+            _playerContext?.TryJump();
 
-            if(GrappleController != null && GrappleController.IsGrappling) {
-                GrappleController.CancelGrapple();
+            if(IsGrappling) {
+                _playerContext?.CancelGrapple();
             }
         }
 
         [UsedImplicitly]
         private void OnAttack(InputValue value) {
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
-            if(playerController != null && playerController.IsHoldingHopball)
+            if(_playerContext is { IsHoldingHopball: true })
                 return; // Prevent shooting while holding hopball
 
             if(WeaponManager == null) return;
@@ -737,15 +707,13 @@ namespace Game.Player.Input {
         [UsedImplicitly]
         private void OnGrapple(InputValue value) {
             if(!IsOwner || IsPreMatchOrPausedOrDead || (PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted)) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
 
-            if(GrappleController != null && GrappleController.IsGrappling) {
-                GrappleController.CancelGrapple();
+            if(IsGrappling) {
+                _playerContext?.CancelGrapple();
             } else {
-                if(GrappleController != null) {
-                    GrappleController.TryGrapple();
-                }
+                _playerContext?.TryGrapple();
             }
         }
 
@@ -757,7 +725,7 @@ namespace Game.Player.Input {
         [UsedImplicitly]
         private void OnPrimary(InputValue _) {
             if(!IsOwner || IsPausedOrDead) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
 
             SwitchWeapon(0);
@@ -766,7 +734,7 @@ namespace Game.Player.Input {
         [UsedImplicitly]
         private void OnSecondary(InputValue _) {
             if(!IsOwner || IsPausedOrDead) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
 
             SwitchWeapon(1);
@@ -774,7 +742,7 @@ namespace Game.Player.Input {
 
         private void OnTertiary(InputValue _) {
             if(!IsOwner || IsPausedOrDead) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
 
             //SwitchWeapon(2);
@@ -794,7 +762,7 @@ namespace Game.Player.Input {
             if(offset == 0) return;
             if(!IsOwner || IsPausedOrDead) return;
 
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
             if(WeaponManager == null) return;
 
@@ -824,9 +792,7 @@ namespace Game.Player.Input {
 
         private void RefreshCachedInputActions() {
             if(_playerInputComponent == null) {
-                _playerInputComponent = playerController != null
-                    ? playerController.UnityPlayerInput
-                    : null;
+                _playerInputComponent = _playerContext?.UnityPlayerInput;
             }
 
             if(_playerInputComponent == null || _playerInputComponent.actions == null) {
@@ -925,9 +891,9 @@ namespace Game.Player.Input {
         [UsedImplicitly]
         private void OnReload(InputValue _) {
             if(!IsOwner || IsPreMatchOrPausedOrDead || !CurrentWeapon) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
-            if(playerController != null && playerController.IsHoldingHopball)
+            if(_playerContext is { IsHoldingHopball: true })
                 return; // Prevent reloading while holding hopball
 
             CurrentWeapon.StartReload();
@@ -950,10 +916,10 @@ namespace Game.Player.Input {
         [UsedImplicitly]
         private void OnInteract(InputValue _) {
             if(!IsOwner || IsPausedOrDead) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
+            var isMantling = IsMantling;
             if(isMantling) return;
             
-            playerController.PickupHopball();
+            _playerContext?.PickupHopball();
         }
 
         private void RefreshSniperOverlayState() {
@@ -1011,11 +977,8 @@ namespace Game.Player.Input {
                 }
             }
 
-            if(playerController != null) {
-                var lookController = playerController.LookController;
-                if(lookController != null && lookController.IsSniperZoomActive != zoomEnabled) {
-                    lookController.SetSniperZoomActive(zoomEnabled, sniperZoomFov);
-                }
+            if(_playerContext != null && _playerContext.IsSniperZoomActive != zoomEnabled) {
+                _playerContext.SetSniperZoomActive(zoomEnabled, sniperZoomFov);
             }
             if(playZoomSound) {
                 if(AudioService.Instance != null) {
@@ -1048,3 +1011,4 @@ namespace Game.Player.Input {
         #endregion
     }
 }
+

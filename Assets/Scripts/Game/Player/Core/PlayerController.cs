@@ -25,7 +25,7 @@ namespace Game.Player.Core {
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NetworkAudioRelay))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
-    public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext {
+    public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext, IPlayerLookContext {
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -314,7 +314,7 @@ namespace Game.Player.Core {
             }
         }
 
-        internal void UpdateTurnAnimationFromLook(float yawDelta) {
+        private void UpdateTurnAnimationFromLook(float yawDelta) {
             if(animationController != null) {
                 animationController.UpdateTurnAnimation(yawDelta);
             }
@@ -875,7 +875,7 @@ namespace Game.Player.Core {
             }
         }
 
-        public void TryJump(float height = 2f) {
+        private void TryJump(float height = 2f) {
             if(movementController != null) {
                 movementController.TryJump(height);
             }
@@ -889,7 +889,7 @@ namespace Game.Player.Core {
             if(movementController != null) movementController.PlayRunSound();
         }
 
-        public void PickupHopball() {
+        private void PickupHopball() {
             if(NetworkObject != null) {
                 EventBus.Publish(new PlayerHopballPickupRequestedEvent(NetworkObjectId));
             }
@@ -1168,11 +1168,66 @@ namespace Game.Player.Core {
         bool IPlayerMovementContext.CrouchInput => crouchInput;
         Vector3 IPlayerMovementContext.FullVelocity => GetFullVelocity;
         NetworkVariable<Vector4> IPlayerMovementContext.PlayerBaseColorNetwork => playerBaseColor;
+        UnityEngine.InputSystem.PlayerInput IPlayerInputContext.UnityPlayerInput => unityPlayerInput;
+        AudioListener IPlayerInputContext.AudioListener => audioListener;
+        CinemachineCamera IPlayerInputContext.FpCamera => fpCamera;
+        WeaponManager IPlayerInputContext.WeaponManager => weaponManager;
+        bool IPlayerInputContext.IsWallRunning => wallRunController != null && wallRunController.IsWallRunning;
+        bool IPlayerInputContext.IsMantling => mantleController != null && mantleController.IsMantling;
+        bool IPlayerInputContext.CanMantleJump => mantleController != null && mantleController.CanJump;
+        bool IPlayerInputContext.IsGrappling => grappleController != null && grappleController.IsGrappling;
+        bool IPlayerInputContext.SprintInputState {
+            get => sprintInput;
+            set => sprintInput = value;
+        }
+        bool IPlayerInputContext.CrouchInputState {
+            get => crouchInput;
+            set => crouchInput = value;
+        }
+        bool IPlayerInputContext.IsSniperZoomActive => lookController != null && lookController.IsSniperZoomActive;
         void IPlayerMovementContext.SetLookTilt(float tilt) => SetLookTilt(tilt);
-        void IPlayerMovementContext.SetCrouchingAnimation(bool isCrouching) => animationController?.SetCrouching(isCrouching);
-        void IPlayerMovementContext.SetSlidingAnimationState(bool isSliding, bool playTrigger) => animationController?.SetSlidingState(isSliding, playTrigger);
-        void IPlayerMovementContext.TriggerJumpAnimation() => animationController?.TriggerJumpAnimation();
-        void IPlayerMovementContext.TriggerMantleAnimation() => animationController?.TriggerMantleAnimation();
+        void IPlayerMovementContext.SetCrouchingAnimation(bool isCrouching) {
+            if(animationController != null) animationController.SetCrouching(isCrouching);
+        }
+
+        void IPlayerMovementContext.SetSlidingAnimationState(bool isSliding, bool playTrigger) {
+            if(animationController != null) animationController.SetSlidingState(isSliding, playTrigger);
+        }
+
+        void IPlayerMovementContext.TriggerJumpAnimation() {
+            if(animationController != null) animationController.TriggerJumpAnimation();
+        }
+
+        void IPlayerMovementContext.TriggerMantleAnimation() {
+            if(animationController != null) animationController.TriggerMantleAnimation();
+        }
+
+        void IPlayerInputContext.SetMoveInput(Vector2 move) => moveInput = move;
+        void IPlayerInputContext.SetLookInput(Vector2 look) => lookInput = look;
+        void IPlayerInputContext.TryJump(float height) => TryJump(height);
+        void IPlayerInputContext.PickupHopball() => PickupHopball();
+        void IPlayerInputContext.TryMantle() {
+            if(mantleController != null) mantleController.TryMantle();
+        }
+
+        void IPlayerInputContext.TryGrapple() {
+            if(grappleController != null) grappleController.TryGrapple();
+        }
+
+        void IPlayerInputContext.CancelGrapple() {
+            if(grappleController != null) grappleController.CancelGrapple();
+        }
+
+        void IPlayerInputContext.SetSniperZoomActive(bool active, float zoomFov) {
+            if(lookController != null) lookController.SetSniperZoomActive(active, zoomFov);
+        }
+
+        Transform IPlayerLookContext.PlayerTransform => PlayerTransform;
+        CinemachineCamera IPlayerLookContext.FpCamera => fpCamera;
+        Vector2 IPlayerLookContext.LookInput => lookInput;
+        Vector3 IPlayerLookContext.HorizontalVelocity => movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
+        bool IPlayerLookContext.IsRagdoll => playerRagdoll != null && playerRagdoll.IsRagdoll;
+        void IPlayerLookContext.UpdateTurnAnimationFromLook(float yawDelta) => UpdateTurnAnimationFromLook(yawDelta);
         Color IPlayerVisualContext.TaggedGlowColor => playerTeamManager != null ? playerTeamManager.TaggedGlow : Color.white;
         NetworkVariable<int> IPlayerVisualContext.JumpAnimationSequence => jumpAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.LandAnimationSequence => landAnimationSequence;

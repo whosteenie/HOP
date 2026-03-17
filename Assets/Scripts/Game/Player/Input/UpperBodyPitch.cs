@@ -1,13 +1,12 @@
-using Game.Player.Combat;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Player.Input {
     public class UpperBodyPitch : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
-        private PlayerRagdoll _playerRagdoll;
+        [SerializeField] private MonoBehaviour playerContextSource;
+        private IPlayerLookContext _playerContext;
         
         [Header("Kevin Iglesias Proxy Bone")]
         [Tooltip("Assign B-spineProxy here (the one with SpineProxy on it, sibling of B-hips).")]
@@ -45,17 +44,11 @@ namespace Game.Player.Input {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[UpperBodyPitch] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[UpperBodyPitch] IPlayerLookContext not found!");
                 enabled = false;
                 return;
             }
-
-            if(_playerRagdoll == null) _playerRagdoll = playerController.PlayerRagdoll;
             
             _axis = localPitchAxis.normalized;
             if(invertAxis) _axis = -_axis;
@@ -71,7 +64,7 @@ namespace Game.Player.Input {
             if(!IsOwner) return;
             
             // Don't update pitch if player is in ragdoll
-            if(_playerRagdoll != null && _playerRagdoll.IsRagdoll) return;
+            if(_playerContext is { IsRagdoll: true }) return;
             
             var clampedPitch = Mathf.Clamp(cameraPitchDeg, minPitch, maxPitch);
             
@@ -86,7 +79,7 @@ namespace Game.Player.Input {
             if(!spineProxy) return;
 
             // Don't apply pitch rotation if player is in ragdoll
-            if(_playerRagdoll != null && _playerRagdoll.IsRagdoll) return;
+            if(_playerContext is { IsRagdoll: true }) return;
 
             var target = Mathf.Clamp(netPitchDeg.Value, minPitch, maxPitch);
 

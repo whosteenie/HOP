@@ -17,25 +17,23 @@ namespace Game.Player.Visual {
                 foreach(var behaviour in GetComponentsInParent<MonoBehaviour>(true)) {
                     if(behaviour == null) continue;
                     var candidate = behaviour as IPlayerVisualContext;
-                    if(candidate != null) {
-                        playerContextSource = behaviour;
-                        break;
-                    }
+                    if(candidate == null) continue;
+                    playerContextSource = behaviour;
+                    break;
                 }
 
                 if(playerContextSource == null) {
                     foreach(var behaviour in transform.root.GetComponentsInChildren<MonoBehaviour>(true)) {
                         if(behaviour == null) continue;
                         var candidate = behaviour as IPlayerVisualContext;
-                        if(candidate != null) {
-                            playerContextSource = behaviour;
-                            break;
-                        }
+                        if(candidate == null) continue;
+                        playerContextSource = behaviour;
+                        break;
                     }
                 }
             }
 
-            if(!PlayerContractResolver.TryResolve<IPlayerVisualContext>(this, ref playerContextSource, out _playerContext)) {
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
                 Debug.LogError("[PlayerAnimationEvents] IPlayerVisualContext not found!");
                 enabled = false;
                 return;

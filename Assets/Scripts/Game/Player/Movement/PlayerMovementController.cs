@@ -110,7 +110,7 @@ namespace Game.Player.Movement {
         }
 
         private void ValidateComponents() {
-            if(!PlayerContractResolver.TryResolve<IPlayerMovementContext>(this, ref playerContextSource, out _playerContext)) {
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
                 Debug.LogError("[PlayerMovementController] IPlayerMovementContext not found!");
                 enabled = false;
                 return;
@@ -567,7 +567,7 @@ namespace Game.Player.Movement {
                 }
             }
 
-            _playerContext.TriggerJumpAnimation();
+            if(_playerContext != null) _playerContext.TriggerJumpAnimation();
         }
 
         /// <summary>
@@ -623,7 +623,7 @@ namespace Game.Player.Movement {
                 }
             }
 
-            _playerContext.TriggerJumpAnimation();
+            if(_playerContext != null) _playerContext.TriggerJumpAnimation();
         }
 
         private void HandleJumpPadCollision(ControllerColliderHit hit, float force) {
