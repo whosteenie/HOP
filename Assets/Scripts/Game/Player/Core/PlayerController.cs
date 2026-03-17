@@ -71,7 +71,6 @@ namespace Game.Player.Core {
 
         [SerializeField] private MantleController mantleController;
 
-        // [SerializeField] private SwingGrapple swingGrapple;
         [SerializeField] private GrappleController grappleController;
         [SerializeField] private WallRunController wallRunController;
 
@@ -1281,6 +1280,41 @@ namespace Game.Player.Core {
         void IPlayerCombatContext.ResetVelocity() {
             if(movementController != null) {
                 movementController.ResetVelocity();
+            }
+        }
+        void IPlayerCombatContext.SetRenderersEnabled(bool enabled) {
+            if(visualController != null) {
+                visualController.SetRenderersEnabled(enabled);
+            }
+        }
+        void IPlayerCombatContext.InvalidateRendererCache() {
+            if(visualController != null) {
+                visualController.InvalidateRendererCache();
+            }
+        }
+        void IPlayerCombatContext.ForceRendererBoundsUpdate() {
+            if(visualController != null) {
+                visualController.ForceRendererBoundsUpdate();
+            }
+        }
+        void IPlayerCombatContext.ApplyDeathShadowState(bool wasHoldingHopball) {
+            if(playerShadow != null) {
+                playerShadow.ApplyDeathShadowState(wasHoldingHopball);
+            }
+        }
+        void IPlayerCombatContext.ApplyOwnerDefaultShadowState() {
+            if(playerShadow != null) {
+                playerShadow.ApplyOwnerDefaultShadowState();
+            }
+        }
+        void IPlayerCombatContext.ApplyVisibleShadowState() {
+            if(playerShadow != null) {
+                playerShadow.ApplyVisibleShadowState();
+            }
+        }
+        void IPlayerCombatContext.ResetSpawnAnimationTime() {
+            if(animationController != null) {
+                animationController.ResetSpawnTime();
             }
         }
         void IPlayerCombatContext.PlayHitEffects(Vector3 hitPoint, float amount) => PlayHitEffectsClientRpc(hitPoint, amount);

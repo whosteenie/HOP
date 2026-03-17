@@ -38,6 +38,13 @@ namespace Game.Player.Contracts {
         Vector2 ResampleHeldMovementInputFromRespawn(string reason = "Unknown");
         void ResetWeaponState(bool resetAllAmmo = false, bool switchToWeapon0 = false, bool updateHUD = false);
         void ResetVelocity();
+        void SetRenderersEnabled(bool enabled);
+        void InvalidateRendererCache();
+        void ForceRendererBoundsUpdate();
+        void ApplyDeathShadowState(bool wasHoldingHopball);
+        void ApplyOwnerDefaultShadowState();
+        void ApplyVisibleShadowState();
+        void ResetSpawnAnimationTime();
         void PlayHitEffects(Vector3 hitPoint, float amount);
         float GetOutOfBoundsKillY();
         bool IsYLevelOutOfBoundsKillEnabled();

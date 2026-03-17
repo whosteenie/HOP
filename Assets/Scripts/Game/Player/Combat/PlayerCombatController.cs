@@ -5,7 +5,6 @@ using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Contracts;
-using Game.Player.Visual;
 using Game.Spawning;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
@@ -30,9 +29,6 @@ namespace Game.Player.Combat {
         private IPlayerCombatContext _playerContext;
 
         private PlayerTagController _tagController;
-        private PlayerVisualController _visualController;
-        private PlayerAnimationController _animationController;
-        private PlayerShadow _playerShadow;
         private PlayerRagdoll _playerRagdoll;
         private DeathCameraController _deathCameraController;
         private WeaponManager _weaponManager;
@@ -104,9 +100,6 @@ namespace Game.Player.Combat {
 
             if(_playerTransform == null) _playerTransform = _playerContext.PlayerTransform;
             if(_tagController == null) _tagController = GetComponent<PlayerTagController>();
-            if(_visualController == null) _visualController = GetComponent<PlayerVisualController>();
-            if(_animationController == null) _animationController = GetComponent<PlayerAnimationController>();
-            if(_playerShadow == null) _playerShadow = GetComponent<PlayerShadow>();
             if(_playerRagdoll == null) _playerRagdoll = GetComponent<PlayerRagdoll>();
             if(_deathCameraController == null) _deathCameraController = GetComponent<DeathCameraController>();
             if(_weaponManager == null) _weaponManager = _playerContext.WeaponManager;
@@ -397,9 +390,7 @@ namespace Game.Player.Combat {
                     _playerRagdoll.EnableRagdoll();
             }
 
-            if(_visualController != null) {
-                _visualController.SetRenderersEnabled(true);
-            }
+            _playerContext?.SetRenderersEnabled(true);
 
             if(IsOwner) {
                 FlowLog.Emit(FlowEventIds.PlayerControlState,
@@ -416,9 +407,7 @@ namespace Game.Player.Combat {
                 }
 
                 var wasHoldingHopball = _playerContext is { IsHoldingHopball: true };
-                if(_playerShadow != null) {
-                    _playerShadow.ApplyDeathShadowState(wasHoldingHopball);
-                }
+                _playerContext?.ApplyDeathShadowState(wasHoldingHopball);
 
                 if(IsOwner && _fpCamera != null) {
                     _fpCamera.Lens.FieldOfView = _playerContext != null ? _playerContext.BaseFov : 80f;
@@ -675,13 +664,8 @@ namespace Game.Player.Combat {
                     currentWorldWeapon.SetActive(true);
                 }
 
-                if(_visualController != null) {
-                    _visualController.InvalidateRendererCache();
-                }
-
-                if(_playerShadow != null) {
-                    _playerShadow.ApplyOwnerDefaultShadowState();
-                }
+                _playerContext?.InvalidateRendererCache();
+                _playerContext?.ApplyOwnerDefaultShadowState();
 
                 _playerContext?.ResetWeaponState(resetAllAmmo: true, switchToWeapon0: true, updateHUD: true);
             } else {
@@ -699,9 +683,7 @@ namespace Game.Player.Combat {
                 _playerRagdoll.DisableRagdoll();
             }
 
-            if(_visualController != null) {
-                _visualController.InvalidateRendererCache();
-            }
+            _playerContext?.InvalidateRendererCache();
 
             HideVisuals();
 
@@ -730,9 +712,7 @@ namespace Game.Player.Combat {
             }
 
             // Track respawn time to prevent landing sounds on respawn
-            if(_animationController != null) {
-                _animationController.ResetSpawnTime();
-            }
+            _playerContext?.ResetSpawnAnimationTime();
 
             await UniTask.WaitForFixedUpdate();
             await UniTask.WaitForFixedUpdate();
@@ -745,9 +725,7 @@ namespace Game.Player.Combat {
         }
 
         private void HideVisuals() {
-            if(_visualController != null) {
-                _visualController.SetRenderersEnabled(false);
-            }
+            _playerContext?.SetRenderersEnabled(false);
         }
 
         private IEnumerator ShowVisualsAfterPositionSync(Vector3 expectedPosition) {
@@ -771,24 +749,15 @@ namespace Game.Player.Combat {
         /// Shows the player's visuals and shadow.
         /// </summary>
         private void ShowVisuals() {
-            if(_visualController != null) {
-                _visualController.InvalidateRendererCache();
-            }
+            _playerContext?.InvalidateRendererCache();
 
             if(_playerModelRoot != null && !_playerModelRoot.activeSelf) {
                 _playerModelRoot.SetActive(true);
             }
 
-            if(_visualController != null) {
-                _visualController.SetRenderersEnabled(true);
-            }
-            if(_playerShadow != null) {
-                _playerShadow.ApplyVisibleShadowState();
-            }
-
-            if(_visualController != null) {
-                _visualController.ForceRendererBoundsUpdate();
-            }
+            _playerContext?.SetRenderersEnabled(true);
+            _playerContext?.ApplyVisibleShadowState();
+            _playerContext?.ForceRendererBoundsUpdate();
         }
 
         /// <summary>

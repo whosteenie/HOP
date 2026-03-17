@@ -20,7 +20,6 @@ namespace Game.Player.Movement {
 
         private CharacterController _characterController;
         private GrappleController _grappleController;
-        private SwingGrapple _swingGrapple;
         private WallRunController _wallRunController;
         private MantleController _mantleController;
         private NetworkAudioRelay _audioRelay;
@@ -202,7 +201,7 @@ namespace Game.Player.Movement {
         /// Handles wall running, sliding, and normal movement state transitions.
         /// </summary>
         public void UpdateMovement(CinemachineCamera fpCamera = null) {
-            if(_isMantling || (_swingGrapple != null && _swingGrapple.IsSwinging)) {
+            if(_isMantling) {
                 return;
             }
 
