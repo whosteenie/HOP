@@ -5,7 +5,6 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
-using Game.Player.Combat;
 using Game.Player.Core;
 using Network.Core;
 using Unity.Cinemachine;
@@ -354,14 +353,8 @@ namespace Game.Match {
             if(isTagMode) {
                 // Tag mode: sort by time tagged (lowest first), then by tags as tie-breaker
                 sorted = allPlayers
-                    .OrderBy(p => {
-                        var tagCtrl = p.GetComponent<PlayerTagController>();
-                        return tagCtrl != null ? tagCtrl.TimeTagged.Value : int.MaxValue;
-                    })
-                    .ThenByDescending(p => {
-                        var tagCtrl = p.GetComponent<PlayerTagController>();
-                        return tagCtrl != null ? tagCtrl.Tags.Value : 0;
-                    })
+                    .OrderBy(p => p.TimeTagged)
+                    .ThenByDescending(p => p.Tags)
                     .ToList();
             } else {
                 // Normal mode: sort by kills descending, then by damage as tie-breaker
@@ -420,36 +413,21 @@ namespace Game.Match {
             var firstId = topThree.Count > 0 ? topThree[0].OwnerClientId : ulong.MaxValue;
             var firstScore = 0;
             if(topThree.Count > 0) {
-                if(isTagMode) {
-                    var tagController = topThree[0].GetComponent<PlayerTagController>();
-                    firstScore = tagController != null ? tagController.TimeTagged.Value : 0;
-                } else {
-                    firstScore = topThree[0].Kills.Value;
-                }
+                firstScore = isTagMode ? topThree[0].TimeTagged : topThree[0].Kills.Value;
             }
 
             var secondName = topThree.Count > 1 ? topThree[1].PlayerName.Value.ToString() : string.Empty;
             var secondId = topThree.Count > 1 ? topThree[1].OwnerClientId : ulong.MaxValue;
             var secondScore = 0;
             if(topThree.Count > 1) {
-                if(isTagMode) {
-                    var tagController = topThree[1].GetComponent<PlayerTagController>();
-                    secondScore = tagController != null ? tagController.TimeTagged.Value : 0;
-                } else {
-                    secondScore = topThree[1].Kills.Value;
-                }
+                secondScore = isTagMode ? topThree[1].TimeTagged : topThree[1].Kills.Value;
             }
 
             var thirdName = topThree.Count > 2 ? topThree[2].PlayerName.Value.ToString() : string.Empty;
             var thirdId = topThree.Count > 2 ? topThree[2].OwnerClientId : ulong.MaxValue;
             var thirdScore = 0;
             if(topThree.Count > 2) {
-                if(isTagMode) {
-                    var tagController = topThree[2].GetComponent<PlayerTagController>();
-                    thirdScore = tagController != null ? tagController.TimeTagged.Value : 0;
-                } else {
-                    thirdScore = topThree[2].Kills.Value;
-                }
+                thirdScore = isTagMode ? topThree[2].TimeTagged : topThree[2].Kills.Value;
             }
 
             UpdatePodiumUiClientRpc(firstName, firstScore, firstId, secondName, secondScore, secondId, thirdName,
@@ -472,11 +450,9 @@ namespace Game.Match {
 
                 // Find local controller and disable sniper overlay (do NOT lock movement yet - wait for fade to complete)
                 if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) return;
-                var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
-                if(localPlayer == null) return;
-                var localController = localPlayer.GetComponent<PlayerController>();
-                if(localController != null && localController.PlayerInputController != null) {
-                    localController.PlayerInputController.ForceDisableSniperOverlay(false);
+                var localController = PlayerController.LocalPlayer;
+                if(localController != null) {
+                    localController.ForceDisableSniperOverlay();
                 }
 
             } catch(Exception e) {
@@ -501,11 +477,8 @@ namespace Game.Match {
             var averageSpeed = 0f;
 
             var localTeam = SpawnPoint.Team.None;
-            if(NetworkManager.Singleton.LocalClient.PlayerObject != null) {
-                var teamManager = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerTeamManager>();
-                if(teamManager != null) {
-                    localTeam = teamManager.netTeam.Value;
-                }
+            if(PlayerController.LocalPlayer != null) {
+                localTeam = PlayerController.LocalPlayer.CurrentTeam;
             }
 
             var matchSettings = MatchSettingsManager.Instance;
@@ -536,11 +509,8 @@ namespace Game.Match {
                 }
             }
 
-            if(NetworkManager.Singleton.LocalClient.PlayerObject != null) {
-                var statsCtrl = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerStatsController>();
-                if(statsCtrl != null) {
-                    averageSpeed = statsCtrl.AverageVelocity.Value;
-                }
+            if(PlayerController.LocalPlayer != null) {
+                averageSpeed = PlayerController.LocalPlayer.AverageVelocity;
             }
 
             EventBus.Publish(new MatchProgressionResolvedEvent(localClientId, matchCompletionXp, bonusXp, didWin,
@@ -647,8 +617,7 @@ namespace Game.Match {
         }
 
         private static int GetTagSortScore(PlayerController player) {
-            var tagCtrl = player != null ? player.GetComponent<PlayerTagController>() : null;
-            return tagCtrl != null ? tagCtrl.TimeTagged.Value : int.MaxValue;
+            return player != null ? player.TimeTagged : int.MaxValue;
         }
 
         /// <summary>
@@ -914,11 +883,7 @@ namespace Game.Match {
 
             // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)
             if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) return;
-            var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
-
-            if(localPlayer == null) return;
-            var localController = localPlayer.GetComponent<PlayerController>();
-
+            var localController = PlayerController.LocalPlayer;
             if(localController == null) return;
             localController.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
         }

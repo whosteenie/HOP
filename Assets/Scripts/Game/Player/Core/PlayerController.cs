@@ -875,6 +875,12 @@ namespace Game.Player.Core {
             }
         }
 
+        public void ForceDisableSniperOverlay(bool playZoomSound = false) {
+            if(playerInputController != null) {
+                playerInputController.ForceDisableSniperOverlay(playZoomSound);
+            }
+        }
+
         private void TryJump(float height = 2f) {
             if(movementController != null) {
                 movementController.TryJump(height);
@@ -1072,6 +1078,9 @@ namespace Game.Player.Core {
         public static bool IsGunTagMode => MatchSettingsManager.Instance != null &&
                                            MatchSettingsManager.Instance.selectedGameModeId == "Gun Tag";
         public static bool IsTeamBasedMode => MatchSettingsManager.IsTeamBasedMode(CurrentGameModeId);
+        public SpawnPoint.Team CurrentTeam => playerTeamManager != null && playerTeamManager.netTeam != null
+            ? playerTeamManager.netTeam.Value
+            : SpawnPoint.Team.TeamA;
 
         #endregion
 
@@ -1106,6 +1115,14 @@ namespace Game.Player.Core {
         public int Tagged => tagController != null ? tagController.Tagged.Value : 0;
         public int TimeTagged => tagController != null ? tagController.TimeTagged.Value : 0;
         public bool IsTagged => tagController != null && tagController.IsTagged.Value;
+
+        public void ApplyInitialTagDesignationFromHop() {
+            if(tagController == null) return;
+            tagController.IsTagged.Value = true;
+            tagController.Tagged.Value++;
+            tagController.PlayTaggedSoundClientRpc();
+            tagController.BroadcastTagTransferFromHopClientRpc(OwnerClientId);
+        }
 
         #endregion
 
@@ -1279,9 +1296,7 @@ namespace Game.Player.Core {
         NetworkVariable<FixedString64Bytes> IPlayerCombatContext.PlayerName => PlayerName;
         bool IPlayerCombatContext.IsHoldingHopball => IsHoldingHopball;
         float IPlayerCombatContext.BaseFov => BaseFov;
-        SpawnPoint.Team IPlayerCombatContext.CurrentTeam => playerTeamManager != null && playerTeamManager.netTeam != null
-            ? playerTeamManager.netTeam.Value
-            : SpawnPoint.Team.TeamA;
+        SpawnPoint.Team IPlayerCombatContext.CurrentTeam => CurrentTeam;
         void IPlayerCombatContext.SetOutOfBoundsGraceWindow(float seconds) => SetOutOfBoundsGraceWindow(seconds);
         void IPlayerCombatContext.ResetLookPitchFromRespawn() => ResetLookPitchFromRespawn();
         void IPlayerCombatContext.ClearLookInput() => lookInput = Vector2.zero;
