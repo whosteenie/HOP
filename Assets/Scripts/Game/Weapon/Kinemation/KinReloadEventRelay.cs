@@ -52,13 +52,6 @@ namespace Game.Weapon.Kinemation {
             resolved.NotifyEquipCompleteEvent();
         }
 
-        // KIN animation-event hook (fire clip timing).
-        public void PlayFireSound() {
-            var resolved = ResolveDriver();
-            if(resolved == null) return;
-            resolved.NotifyWeaponFireSoundEvent();
-        }
-
         // KIN animation-event hook (indexed weapon event timing).
         public void PlayWeaponSound(int clipIndex) {
             var resolved = ResolveDriver();

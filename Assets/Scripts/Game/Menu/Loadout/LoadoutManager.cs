@@ -5,7 +5,6 @@ using Events;
 using Game.Player.Visual;
 using Game.Progression;
 using Game.Settings;
-using Game.UI.Misc;
 using Game.UI.Core;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -157,7 +156,7 @@ namespace Game.Menu.Loadout {
 
         public Action OnApplyCustomizationRequested;
         public Action OnReloadCustomizationRequested;
-        public Action ShowMainMenuPanelRequested { get; set; }
+        private Action ShowMainMenuPanelRequested { get; set; }
 
         private Action _buttonClickAction;
         private Action _backButtonClickAction;
@@ -484,7 +483,7 @@ namespace Game.Menu.Loadout {
                 EventCallback<ClickEvent> yesHandler = _ => OnLoadoutUnsavedYes();
                 _loadoutUnsavedYes.RegisterCallback(yesHandler);
                 RegisterCleanup(() => _loadoutUnsavedYes.UnregisterCallback(yesHandler));
-                EventCallback<MouseEnterEvent> yesEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
+                var yesEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
                 _loadoutUnsavedYes.RegisterCallback(yesEnterHandler);
                 RegisterCleanup(() => _loadoutUnsavedYes.UnregisterCallback(yesEnterHandler));
             }
@@ -493,7 +492,7 @@ namespace Game.Menu.Loadout {
                 EventCallback<ClickEvent> noHandler = _ => OnLoadoutUnsavedNo();
                 _loadoutUnsavedNo.RegisterCallback(noHandler);
                 RegisterCleanup(() => _loadoutUnsavedNo.UnregisterCallback(noHandler));
-                EventCallback<MouseEnterEvent> noEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
+                var noEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
                 _loadoutUnsavedNo.RegisterCallback(noEnterHandler);
                 RegisterCleanup(() => _loadoutUnsavedNo.UnregisterCallback(noEnterHandler));
             }
@@ -501,7 +500,7 @@ namespace Game.Menu.Loadout {
                 EventCallback<ClickEvent> cancelHandler = _ => OnLoadoutUnsavedCancel();
                 _loadoutUnsavedCancel.RegisterCallback(cancelHandler);
                 RegisterCleanup(() => _loadoutUnsavedCancel.UnregisterCallback(cancelHandler));
-                EventCallback<MouseEnterEvent> cancelEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
+                var cancelEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
                 _loadoutUnsavedCancel.RegisterCallback(cancelEnterHandler);
                 RegisterCleanup(() => _loadoutUnsavedCancel.UnregisterCallback(cancelEnterHandler));
             }
@@ -514,7 +513,7 @@ namespace Game.Menu.Loadout {
             };
             _statsButton.clicked += statsClickHandler;
             RegisterCleanup(() => _statsButton.clicked -= statsClickHandler);
-            EventCallback<MouseEnterEvent> statsEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
+            var statsEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
             _statsButton.RegisterCallback(statsEnterHandler);
             RegisterCleanup(() => _statsButton.UnregisterCallback(statsEnterHandler));
 
@@ -528,12 +527,12 @@ namespace Game.Menu.Loadout {
             _applyLoadoutButton = QRequired<Button>("apply-loadout-button");
 
             Action applyClickHandler = () => {
-                (_buttonClickAction ?? (() => UISound.PlayButtonClick(false)))();
+                (_buttonClickAction ?? (() => UISound.PlayButtonClick()))();
                 OnApplyLoadoutClicked();
             };
             _applyLoadoutButton.clicked += applyClickHandler;
             RegisterCleanup(() => _applyLoadoutButton.clicked -= applyClickHandler);
-            EventCallback<MouseEnterEvent> applyEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
+            var applyEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
             _applyLoadoutButton.RegisterCallback(applyEnterHandler);
             RegisterCleanup(() => _applyLoadoutButton.UnregisterCallback(applyEnterHandler));
 
@@ -579,16 +578,16 @@ namespace Game.Menu.Loadout {
         private void SetupEventHandlers() {
             // Weapon slot clicks (main equipped slot - opens dropdown)
             _primarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_primaryDropdown));
-            _primarySlot.RegisterCallback<ClickEvent>(_ => (_buttonClickAction ?? (() => UISound.PlayButtonClick(false)))());
-            _primarySlot.RegisterCallback<MouseEnterEvent>(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
+            _primarySlot.RegisterCallback<ClickEvent>(_ => (_buttonClickAction ?? (() => UISound.PlayButtonClick()))());
+            _primarySlot.RegisterCallback(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
 
             _secondarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_secondaryDropdown));
-            _secondarySlot.RegisterCallback<ClickEvent>(_ => (_buttonClickAction ?? (() => UISound.PlayButtonClick(false)))());
-            _secondarySlot.RegisterCallback<MouseEnterEvent>(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
+            _secondarySlot.RegisterCallback<ClickEvent>(_ => (_buttonClickAction ?? (() => UISound.PlayButtonClick()))());
+            _secondarySlot.RegisterCallback(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
 
             _tertiarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_tertiaryDropdown));
-            _tertiarySlot.RegisterCallback<ClickEvent>(_ => (_buttonClickAction ?? (() => UISound.PlayButtonClick(false)))());
-            _tertiarySlot.RegisterCallback<MouseEnterEvent>(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
+            _tertiarySlot.RegisterCallback<ClickEvent>(_ => (_buttonClickAction ?? (() => UISound.PlayButtonClick()))());
+            _tertiarySlot.RegisterCallback(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
 
             // Populate weapon dropdowns
             PopulateWeaponDropdown(_primaryDropdown.Q<ScrollView>("primary-scroll"), primaryWeapons,
@@ -1774,7 +1773,7 @@ namespace Game.Menu.Loadout {
         }
 
         private void OnLoadoutUnsavedYes() {
-            (_buttonClickAction ?? (() => UISound.PlayButtonClick(false)))();
+            (_buttonClickAction ?? (() => UISound.PlayButtonClick()))();
 
             OnApplyLoadoutClicked();
             HideLoadoutUnsavedModal();

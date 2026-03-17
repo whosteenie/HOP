@@ -185,9 +185,6 @@ namespace Game.Weapon.Kinemation {
             _drakeKar?.OnReloadCompleteEvent();
         }
 
-        public void NotifyWeaponFireSoundEvent() => _soundEvents?.NotifyWeaponFireSoundEvent(() =>
-            _soundEvents.IsKinemationSoundRoutingEnabled(TryCacheActiveWeapon));
-
         public void NotifyWeaponEventSoundEvent(int clipIndex) => _soundEvents?.NotifyWeaponEventSoundEvent(clipIndex,
             () => _soundEvents.IsKinemationSoundRoutingEnabled(TryCacheActiveWeapon));
 
@@ -222,7 +219,6 @@ namespace Game.Weapon.Kinemation {
             return false;
         }
 
-        public void ConsumeWeaponFireSoundEventCount() => _soundEvents?.ConsumeWeaponFireSoundEventCount();
         public void ClearPendingWeaponSoundEvents() => _soundEvents?.ClearPendingWeaponSoundEvents();
 
         public void ConsumeWeaponEventSoundIndices(List<int> destination) =>

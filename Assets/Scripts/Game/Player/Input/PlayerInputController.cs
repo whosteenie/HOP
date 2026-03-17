@@ -743,6 +743,7 @@ namespace Game.Player.Input {
             var isMantling = IsMantling;
             if(isMantling) return;
 
+            Debug.Log("Tertiary weapons don't exist yet!");
             //SwitchWeapon(2);
         }
 

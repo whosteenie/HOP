@@ -184,7 +184,6 @@ namespace Game.Weapon.Core {
         public void ProcessKinemationSoundEvents() {
             if(_weapon.KinDriver == null) return;
 
-            _weapon.KinDriver.ConsumeWeaponFireSoundEventCount();
             _weapon.KinemationWeaponSoundEventBuffer.Clear();
             _weapon.KinDriver.ConsumeWeaponEventSoundIndices(_weapon.KinemationWeaponSoundEventBuffer);
 

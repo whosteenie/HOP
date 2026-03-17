@@ -65,7 +65,8 @@ namespace Game.Menu.Main {
         #endregion
 
         #region UI Elements - Panels
-        public VisualElement MainMenuPanel { get; private set; }
+
+        private VisualElement MainMenuPanel { get; set; }
         private VisualElement _gamemodePanel;
         private VisualElement _lobbyPanel;
         private VisualElement _loadoutPanel;
@@ -233,7 +234,7 @@ namespace Game.Menu.Main {
             if(loadoutManager != null) {
                 loadoutManager.ConfigureMainMenuHooks(
                     uiDocument,
-                    () => OnButtonClicked(false),
+                    () => OnButtonClicked(),
                     () => OnButtonClicked(true),
                     MouseEnter,
                     () => ShowPanel(MainMenuPanel));
@@ -241,12 +242,16 @@ namespace Game.Menu.Main {
         }
 
         private void ShowLoadoutPanel() {
-            uiManager?.loadoutManager?.ShowLoadout();
+            if(uiManager != null && uiManager.loadoutManager != null)
+                uiManager.loadoutManager.ShowLoadout();
+
             TransitionToState(MainMenuPanelState.Loadout);
         }
 
         private void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
-            uiManager?.loadoutManager?.ShowProfileView(steamId, playerName, isEditable);
+            if(uiManager != null && uiManager.loadoutManager != null) 
+                uiManager.loadoutManager.ShowProfileView(steamId, playerName, isEditable);
+
             TransitionToState(MainMenuPanelState.Loadout);
         }
 
@@ -394,7 +399,7 @@ namespace Game.Menu.Main {
             return panel == _creditsPanel ? MainMenuPanelState.Credits : _currentPanelState;
         }
 
-        public void ShowPanel(VisualElement panel) {
+        private void ShowPanel(VisualElement panel) {
             if(panel == null) return;
             _currentPanelState = GetStateForPanel(panel);
             ShowPanelInternal(panel);
@@ -533,11 +538,11 @@ namespace Game.Menu.Main {
 
         #region UI Utilities
 
-        public static void OnButtonClicked(bool isBack = false) {
+        private static void OnButtonClicked(bool isBack = false) {
             UISound.PlayButtonClick(isBack);
         }
 
-        public static void MouseEnter(MouseEnterEvent evt) {
+        private static void MouseEnter(MouseEnterEvent evt) {
             UISound.PlayButtonHover();
         }
 

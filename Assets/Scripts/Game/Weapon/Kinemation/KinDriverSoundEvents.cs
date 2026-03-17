@@ -47,13 +47,6 @@ namespace Game.Weapon.Kinemation {
             return false;
         }
 
-        public void NotifyWeaponFireSoundEvent(FuncBool isRoutingEnabled) {
-            if(!isRoutingEnabled()) return;
-            var activeWeapon = _resolver.ActiveWeapon;
-            if(activeWeapon == null || activeWeapon.weaponSettings == null || activeWeapon.weaponSettings.fireSounds == null) return;
-            if(!HasAnyValidClip(activeWeapon.weaponSettings.fireSounds)) return;
-        }
-
         public void NotifyWeaponEventSoundEvent(int clipIndex, FuncBool isRoutingEnabled) {
             if(!isRoutingEnabled()) return;
             if(clipIndex < 0) return;
@@ -62,9 +55,6 @@ namespace Game.Weapon.Kinemation {
 
             if(eventSounds == null || clipIndex >= eventSounds.Count || eventSounds[clipIndex] == null) return;
             _pendingWeaponEventSoundIndices.Add(clipIndex);
-        }
-
-        public void ConsumeWeaponFireSoundEventCount() {
         }
 
         public void ClearPendingWeaponSoundEvents() {
@@ -86,14 +76,6 @@ namespace Game.Weapon.Kinemation {
             if(eventSounds == null || clipIndex >= eventSounds.Count || eventSounds[clipIndex] == null) return false;
             soundId = KinSoundIdUtility.BuildEventSoundId(_audio.ActiveWeaponSoundKey, clipIndex);
             return !string.IsNullOrWhiteSpace(soundId);
-        }
-
-        private static bool HasAnyValidClip(List<AudioClip> clips) {
-            if(clips == null || clips.Count == 0) return false;
-            foreach(var c in clips) {
-                if(c != null) return true;
-            }
-            return false;
         }
 
         private static void ReportMissingReloadSoundIndexConfig(WeaponData data) {
