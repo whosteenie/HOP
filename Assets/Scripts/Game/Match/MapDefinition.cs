@@ -27,8 +27,6 @@ namespace Game.Match {
         public Sprite PreviewImage => previewImage;
         public bool UseYLevelOutOfBoundsKill => useYLevelOutOfBoundsKill;
         public bool UseTriggerOutOfBoundsKill => useTriggerOutOfBoundsKill;
-        public IReadOnlyList<string> SupportedGamemodes => supportedGamemodes;
-
         public bool SupportsGamemode(string gamemodeId) {
             if(string.IsNullOrWhiteSpace(gamemodeId)) {
                 return false;

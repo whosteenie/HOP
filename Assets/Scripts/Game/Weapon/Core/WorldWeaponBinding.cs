@@ -11,8 +11,6 @@ namespace Game.Weapon.Core {
         [SerializeField] private GameObject muzzleLightObject;
 
         public WeaponData WeaponData => weaponData;
-        public Transform MuzzleTransform => muzzleTransform;
-        public GameObject MuzzleLightObject => muzzleLightObject;
 
         public bool TryGetRuntimeReferences(out Transform muzzle, out GameObject muzzleLight) {
             muzzle = muzzleTransform;

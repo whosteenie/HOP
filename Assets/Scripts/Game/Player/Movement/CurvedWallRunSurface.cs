@@ -7,16 +7,12 @@ namespace Game.Player.Movement {
     /// and probe distance can be computed for reliable detection at high speed.
     /// </summary>
     public class CurvedWallRunSurface : MonoBehaviour {
-        [Tooltip("Number of segments around the cylinder (e.g. 64 for ProBuilder default).")]
-        [SerializeField] private int cylinderSides = 64;
-
         [Tooltip("Radius in local space. World radius uses transform scale (uniform X/Z recommended).")]
         [SerializeField] private float radius = 2f;
 
         [Tooltip("Local axis of the cylinder (e.g. Y for vertical).")]
         [SerializeField] private Vector3 axis = Vector3.up;
 
-        private int CylinderSides => Mathf.Max(3, cylinderSides);
         private float Radius => Mathf.Max(0.01f, radius);
 
         /// <summary>World-space cylinder axis (normalized).</summary>

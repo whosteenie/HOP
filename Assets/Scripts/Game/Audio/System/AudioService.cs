@@ -106,60 +106,27 @@ namespace Game.Audio.System {
             }
         }
 
-        public bool SetBusVolume(SoundBus bus, float volumeDb) {
-            if(config == null || config.mixer == null) return false;
-            if(!config.TryGetBusConfig(bus, out var bc)) return false;
-            return !string.IsNullOrWhiteSpace(bc.mixerVolumeParam) && config.mixer.SetFloat(bc.mixerVolumeParam, volumeDb);
-        }
-
         public void Play(string id, Vector3 worldPosition, uint seed = 0) {
             Play(id, new PlayParams { useWorldPosition = true, worldPosition = worldPosition, seed = seed });
-        }
-
-        /// <summary>Bypasses pool/voice system: PlayOneShot on a dedicated 2D source. Use for local owner jumppad so it always plays.</summary>
-        public bool PlayJumppadOneShot(uint seed = 0) {
-            const string id = "gameplay.jumppad";
-            if(catalog == null || !catalog.TryGetCue(id, out var cue) || cue == null || !cue.HasValidVariants()) return false;
-            if(PickVariantIndex(cue, seed != 0 ? seed : (uint)UnityEngine.Random.Range(1, int.MaxValue), out var variant) < 0 || variant.clip == null) return false;
-            var go = new GameObject("JumppadOneShot_" + Time.frameCount);
-            go.transform.SetParent(transform, false);
-            var src = go.AddComponent<AudioSource>();
-            src.spatialBlend = 0f;
-            src.playOnAwake = false;
-            src.outputAudioMixerGroup = null;
-            var vol = DbToLinear(variant.volumeDb);
-            src.PlayOneShot(variant.clip, vol);
-            Destroy(go, variant.clip.length + 0.5f);
-            return true;
-        }
-
-        /// <summary>Play at world position with optional 2D override (e.g. local owner jumppad, no parent).</summary>
-        public bool Play(string id, Vector3 worldPosition, uint seed, bool force2D) {
-            return Play(id, new PlayParams { useWorldPosition = true, worldPosition = worldPosition, seed = seed, force2D = force2D });
         }
 
         public void PlayAttached(string id, Transform parent, uint seed = 0) {
             Play(id, new PlayParams { parent = parent, useWorldPosition = false, seed = seed });
         }
 
-        /// <summary>Play attached with optional 2D override so the sound is always heard (e.g. local jumppad).</summary>
-        public bool PlayAttached(string id, Transform parent, uint seed, bool force2D) {
-            return Play(id, new PlayParams { parent = parent, useWorldPosition = false, seed = seed, force2D = force2D });
-        }
-
-        private bool Play(string id, PlayParams p) {
-            if(string.IsNullOrWhiteSpace(id)) return false;
-            if(config == null || catalog == null) return false;
+        private void Play(string id, PlayParams p) {
+            if(string.IsNullOrWhiteSpace(id)) return;
+            if(config == null || catalog == null) return;
 
             if(!catalog.TryGetCue(id, out var cue) || cue == null) {
                 // Dev-visible by design; content should be correct. Do not spam logs per frame.
                 Debug.LogWarning($"[AudioService] Missing SoundCue for id '{id}'.", catalog);
-                return false;
+                return;
             }
 
             if(!cue.HasValidVariants()) {
                 Debug.LogWarning($"[AudioService] SoundCue '{cue.name}' has no valid variants (id '{id}').", cue);
-                return false;
+                return;
             }
 
             // Cooldown (per cue)
@@ -168,7 +135,7 @@ namespace Game.Audio.System {
                 if(_lastPlayTime.TryGetValue(id, out var last) && now - last < cue.cooldownSeconds) {
                     EmitDroppedPlayLog(id, "cooldown",
                         $"remaining={cue.cooldownSeconds - (now - last):0.000}s");
-                    return false;
+                    return;
                 }
                 _lastPlayTime[id] = now;
             }
@@ -179,7 +146,7 @@ namespace Game.Audio.System {
                     if(!TryStealVoice(cue, list)) {
                         EmitDroppedPlayLog(id, "max_instances_cap",
                             $"active={list.Count} cap={cue.maxInstances} policy={cue.stealPolicy}");
-                        return false;
+                        return;
                     }
                 }
             }
@@ -189,20 +156,20 @@ namespace Game.Audio.System {
                 if(!TryStealGlobal()) {
                     EmitDroppedPlayLog(id, "global_voice_cap",
                         $"active={_active.Count} cap={config.globalMaxVoices}");
-                    return false;
+                    return;
                 }
             }
 
             var src = GetPooledSource(cue.bus);
             if(src == null) {
                 EmitDroppedPlayLog(id, "pool_exhausted", $"bus={cue.bus}");
-                return false;
+                return;
             }
 
             if(!ApplyCueToSource(src, cue, id, p.seed)) {
                 EmitDroppedPlayLog(id, "apply_cue_failed", $"bus={cue.bus}");
                 ReturnToPool(cue.bus, src);
-                return false;
+                return;
             }
 
             if(p.force2D && src != null) {
@@ -229,7 +196,7 @@ namespace Game.Audio.System {
                 Debug.LogWarning(
                     $"[AudioService] Failed to play id='{id}' bus='{cue.bus}' src='{GetSourceDebugId(src)}': {ex.Message}");
                 ReturnToPool(cue.bus, src);
-                return false;
+                return;
             }
 
             var voice = new Voice {
@@ -245,8 +212,6 @@ namespace Game.Audio.System {
                 _activeById.Add(id, byId);
             }
             byId.Add(voice);
-
-            return true;
         }
 
         public void Stop(string id) {

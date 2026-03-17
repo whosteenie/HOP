@@ -26,7 +26,6 @@ namespace Game.Menu.Shared {
         private VisualElement _respawnFadeOverlay; // Separate overlay for respawn fades (from GameMenu)
         private VisualElement _loadingBall; // Loading ball animation element
         private LoadingBallAnimation _loadingBallAnimation; // Animation controller
-        private bool _isTransitioning;
         private bool _serverSignaledFadeIn; // Server-authoritative signal to start fade in
         private UniTaskCompletionSource<bool> _respawnFadeInSignal;
         private OverlayVisualState _transitionOverlayState = OverlayVisualState.Hidden;
@@ -171,34 +170,6 @@ namespace Game.Menu.Shared {
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// Fade to black, execute action, then fade back in
-        /// </summary>
-        public IEnumerator FadeTransition(Action duringFade) {
-            if(_isTransitioning) yield break;
-
-            _isTransitioning = true;
-
-            // Fade to black
-            yield return StartCoroutine(FadeOut());
-
-            // Execute action (scene load, etc.)
-            if(duringFade != null) {
-                duringFade.Invoke();
-            }
-
-            // Wait a frame for scene to load
-            yield return null;
-
-            // Refresh overlay reference after scene change
-            RefreshOverlayReference();
-
-            // Fade back in
-            yield return StartCoroutine(FadeIn());
-
-            _isTransitioning = false;
         }
 
         public UniTask FadeOutAsync(float? customDuration = null) => FadeOut(customDuration).ToUniTask();
@@ -471,67 +442,6 @@ namespace Game.Menu.Shared {
                 return;
             }
             menuMusicPlayer.FadeOutForTransition(fadeOutDuration);
-        }
-
-        /// <summary>
-        /// Quick fade for instant transitions
-        /// </summary>
-        public void FadeOutImmediate() {
-            if(_transitionOverlay == null) {
-                RefreshOverlayReference();
-            }
-
-            if(_transitionOverlay == null) return;
-
-            _transitionOverlay.style.display = DisplayStyle.Flex;
-            _transitionOverlay.pickingMode = PickingMode.Position;
-
-            var instantList = new StyleList<TimeValue>(new List<TimeValue> { new(0) });
-            _transitionOverlay.style.transitionDuration = instantList;
-
-            _transitionOverlay.RemoveFromClassList("hidden");
-            _transitionOverlay.AddToClassList("visible");
-            _transitionOverlayState = OverlayVisualState.Opaque;
-
-            // Also fade out music instantly
-            var menuMusicPlayer = ResolveMenuMusicPlayer();
-            if(menuMusicPlayer != null) {
-                menuMusicPlayer.StopForTransition();
-            }
-
-            // Restore normal transition duration after one frame
-            StartCoroutine(RestoreTransitionDuration());
-        }
-
-        public void FadeInImmediate() {
-            if(_transitionOverlay == null) {
-                RefreshOverlayReference();
-            }
-
-            if(_transitionOverlay == null) return;
-
-            var instantList = new StyleList<TimeValue>(new List<TimeValue> { new(0) });
-            _transitionOverlay.style.transitionDuration = instantList;
-
-            _transitionOverlay.RemoveFromClassList("visible");
-            _transitionOverlay.AddToClassList("hidden");
-            _transitionOverlay.pickingMode = PickingMode.Ignore;
-            _transitionOverlay.style.display = DisplayStyle.None;
-            _transitionOverlayState = OverlayVisualState.Hidden;
-
-            // Stop loading ball animation when transition overlay is hidden
-            if(_loadingBallAnimation != null) {
-                _loadingBallAnimation.StopAnimation();
-            }
-
-            StartCoroutine(RestoreTransitionDuration());
-        }
-
-        private IEnumerator RestoreTransitionDuration() {
-            yield return null;
-            if(_transitionOverlay != null) {
-                _transitionOverlay.style.transitionDuration = StyleKeyword.Null;
-            }
         }
 
         private static void SetTransitionDuration(VisualElement overlay, float durationSeconds) {

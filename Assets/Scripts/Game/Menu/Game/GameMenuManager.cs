@@ -118,9 +118,7 @@ namespace Game.Menu.Game {
         #region Properties
 
         private bool IsPaused { get; set; }
-        public bool IsChatOpen => chatUIManager != null && chatUIManager.IsChatOpen;
         private bool IsPostMatch { get; set; }
-        public static bool IsPreMatch => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
 
         #endregion
 

@@ -50,7 +50,6 @@ namespace Game.Hopball {
     private readonly HashSet<Collider> _ignoredPlayerColliders = new();
     private bool _isIgnoringPlayerCollisions;
 
-    public float Energy => _networkEnergy.Value;
     public float VisualEnergyRatio => Mathf.Clamp01(_displayEnergy / MaxEnergy);
     public bool IsEquipped { get; private set; }
     public bool IsDropped { get; private set; }

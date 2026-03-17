@@ -3,7 +3,6 @@ using UnityEngine;
 namespace Game.Player.Contracts {
     public interface IPlayerTagContext {
         ulong OwnerClientId { get; }
-        bool IsOwner { get; }
 
         void PlayHitEffects(Vector3 hitPoint, float amount);
         void UpdateTeamOutlineColour();

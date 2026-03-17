@@ -104,9 +104,7 @@ namespace Game.Match {
             };
         }
         public float GetKothHillSpeedMultiplier() => Mathf.Max(0.01f, GetKothHillSpeedPercent() / 100f);
-        public int GetTaggedPlayers() => taggedPlayers > 0 ? taggedPlayers : 1;
         public bool IsInfiniteMatchTimer() => GetMatchDurationSeconds() == 0;
-        public bool IsInfiniteScoreLimit() => GetScoreToWin() == 0;
 
         public static bool IsTeamBasedMode(string modeId) => modeId switch {
             "Team Deathmatch" => true,

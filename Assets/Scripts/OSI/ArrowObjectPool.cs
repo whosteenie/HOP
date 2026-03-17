@@ -44,13 +44,5 @@ namespace OSI {
             return arrow;
         }
 
-        /// <summary>
-        /// Deactivate all the objects in the pool.
-        /// </summary>
-        public void DeactivateAllPooledObjects() {
-            foreach(var arrow in _pooledObjects) {
-                arrow.Activate(false);
-            }
-        }
     }
 }

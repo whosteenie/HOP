@@ -234,8 +234,6 @@ namespace Game.Weapon.Manager {
             _authority.ReportShotFired(weaponIndex, shotId, clientShotTime);
         public void RegisterServerShotAndLogOnAuthority(int weaponIndex, ulong shotId, float clientShotTime) =>
             _authority.RegisterServerShotAndLogOnAuthority(weaponIndex, shotId, clientShotTime);
-        public int GetPrimarySelectionIndex() => _loadout.GetPrimarySelectionIndex();
-        public int GetSecondarySelectionIndex() => _loadout.GetSecondarySelectionIndex();
         public bool ApplyOwnerLoadoutSelection(int primaryIndex, int secondaryIndex, bool deferTpRevealUntilRespawn = true) =>
             _loadout.ApplyOwnerLoadoutSelection(primaryIndex, secondaryIndex, deferTpRevealUntilRespawn);
         public int GetCurrentHolsterSlot() => _loadout.GetCurrentHolsterSlot();
@@ -248,7 +246,6 @@ namespace Game.Weapon.Manager {
         WeaponData IKinWeaponRuntimeContext.GetCurrentWeaponData() => CurrentWeaponInternal != null ? CurrentWeaponInternal.CurrentWeaponData : null;
         public void TriggerPullOutAnimation() => _switch.TriggerPullOutAnimation();
         public void CancelPendingPullOutForPostMatch() => _switch.CancelPendingPullOutForPostMatch();
-        public void SetTpWeaponIndexForPodium() => _switch.SetTpWeaponIndexForPodium();
         public void RestoreCurrentWeaponPresentationAfterHopballDrop() => _switch.RestoreCurrentWeaponPresentationAfterHopballDrop();
         public void ProcessWeaponSwitchRequest(int newIndex) => _switch.ProcessWeaponSwitchRequest(newIndex);
         public GameObject GetCurrentFpWeapon() => _fpPresentation != null ? _fpPresentation.GetCurrentFpWeapon() : null;
@@ -273,12 +270,6 @@ namespace Game.Weapon.Manager {
         #region Internal Facade
 
         internal void OnWeaponIndexChangedInternal(int oldValue, int newValue) => _loadout.OnWeaponIndexChanged();
-        internal void ApplyDrainedAmmoOwnerClient(int weaponIndex, int ammo, int magSize) => _authority.ApplyDrainedAmmoOwnerClient(weaponIndex, ammo, magSize);
-        internal void ReportWeaponStateSyncServer(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent, RpcParams rpcParams) =>
-            _authority.ReportWeaponStateSyncServer(weaponIndex, reason, localAmmoAfterEvent, rpcParams);
-        internal void ResetAllWeaponAmmoServer(RpcParams rpcParams) => _authority.ResetAllWeaponAmmoServer(rpcParams);
-        internal void ReportShotFiredServer(int weaponIndex, ulong shotId, float clientShotTime, RpcParams rpcParams) =>
-            _authority.ReportShotFiredServer(weaponIndex, shotId, clientShotTime, rpcParams);
         internal void UpdateServerWeaponState(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
             _authority.UpdateServerWeaponState(weaponIndex, reason, localAmmoAfterEvent);
         internal void ResetAllWeaponAmmoOnAuthority() => _authority.ResetAllWeaponAmmoOnAuthority();

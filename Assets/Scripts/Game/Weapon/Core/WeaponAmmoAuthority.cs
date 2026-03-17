@@ -182,34 +182,6 @@ namespace Game.Weapon.Core {
             return state.ServerAmmo;
         }
 
-        public ulong GetLastShotId(
-            int weaponIndex,
-            Func<int, WeaponData> getWeaponDataByIndex,
-            Func<WeaponData, int> resolveWeaponCapacity) {
-            var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
-            return state.LastShotId;
-        }
-
-        public int GetAcceptedClaimsForLastShot(
-            int weaponIndex,
-            Func<int, WeaponData> getWeaponDataByIndex,
-            Func<WeaponData, int> resolveWeaponCapacity) {
-            var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
-            return state.AcceptedClaimsForLastShot;
-        }
-
-        public void FillServerAmmoToCapacity(
-            int weaponIndex,
-            Func<int, WeaponData> getWeaponDataByIndex,
-            Func<WeaponData, int> resolveWeaponCapacity) {
-            var data = getWeaponDataByIndex(weaponIndex);
-            if(data == null) return;
-
-            var magCapacity = Mathf.Max(0, resolveWeaponCapacity(data));
-            var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
-            state.ServerAmmo = magCapacity;
-        }
-
         public bool TryIncrementServerAmmo(
             int weaponIndex,
             Func<int, WeaponData> getWeaponDataByIndex,

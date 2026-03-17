@@ -905,14 +905,6 @@ namespace Game.Progression {
             return challengePool.Find(c => c.id == id);
         }
         
-        public string GetGamemodeName(string gamemodeId) {
-            return string.IsNullOrEmpty(gamemodeId) ? "" : GamemodeDisplayNames.GetValueOrDefault(gamemodeId, gamemodeId);
-        }
-        
-        public string GetWeaponName(string weaponId) {
-            return string.IsNullOrEmpty(weaponId) ? "" : WeaponDisplayNames.GetValueOrDefault(weaponId, weaponId);
-        }
-        
         // Unified filter display name lookup (tries gamemode first, then weapon)
         public static string GetFilterName(string filterId) {
             if (string.IsNullOrEmpty(filterId)) return "";

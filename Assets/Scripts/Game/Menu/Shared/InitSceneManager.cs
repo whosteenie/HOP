@@ -116,27 +116,6 @@ namespace Game.Menu.Shared {
             // Fade transition removed for now - splash screen will handle its own fade into main menu
             // This prevents black flash on application start
         }
-
-        /// <summary>
-        /// Called when returning to main menu from game - ensures main menu is loaded
-        /// </summary>
-        public static async UniTask EnsureMainMenuLoadedAsync(string mainMenuSceneName = "MainMenu") {
-            if(SceneManager.GetSceneByName(mainMenuSceneName).isLoaded) {
-                return; // Already loaded
-            }
-
-            var loadOp = SceneManager.LoadSceneAsync(mainMenuSceneName, LoadSceneMode.Additive);
-            if(loadOp != null) {
-                while(!loadOp.isDone) {
-                    await UniTask.Yield();
-                }
-
-                var scene = SceneManager.GetSceneByName(mainMenuSceneName);
-                if(scene.IsValid()) {
-                    SceneManager.SetActiveScene(scene);
-                }
-            }
-        }
     }
 }
 

@@ -46,10 +46,6 @@ namespace Game.Match {
             }
         }
 
-        public MatchPlayerStateProxy GetPlayerState(ulong playerClientId) {
-            return MatchPlayerStateProxy.GetForPlayer(playerClientId);
-        }
-
         private MatchPlayerStateProxy EnsurePlayerState(ulong playerClientId) {
             if(MatchPlayerStateProxy.TryGetForPlayer(playerClientId, out var existing)) {
                 if(existing != null && existing.NetworkObject != null && existing.NetworkObject.IsSpawned) {

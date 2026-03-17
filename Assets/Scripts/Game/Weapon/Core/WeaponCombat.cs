@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Match;
 using Game.Player.Core;
+using Game.Progression;
 using Unity.Netcode;
 using UnityEngine;
 using Random = UnityEngine.Random;
@@ -53,6 +54,7 @@ namespace Game.Weapon.Core {
             _weapon.LastFireTime = Time.time;
             _weapon.CurrentAmmo = Mathf.Max(0, _weapon.CurrentAmmo - 1);
             _weapon.PublishAmmoToHudInternal();
+            RecordShotFiredProgression();
 
             var authoritativeAmmoBeforeShot = Mathf.Clamp(_weapon.CurrentAmmo + 1, 0, _weapon.GetMagCapacityInternal());
 
@@ -85,13 +87,18 @@ namespace Game.Weapon.Core {
                 shouldApplySpread = false;
             }
 
+            var registeredPlayerHit = false;
             for(var pelletIndex = 0; pelletIndex < pelletCount; pelletIndex++) {
                 var shotDirection = baseDirection;
                 if(shouldApplySpread) {
                     shotDirection = ApplySpread(baseDirection, spreadDegrees);
                 }
 
-                FirePellet(startPosition, localMuzzlePosition, shotDirection, shooterVelocityAtShot, weaponIndex, shotId);
+                registeredPlayerHit |= FirePellet(startPosition, localMuzzlePosition, shotDirection, shooterVelocityAtShot, weaponIndex, shotId);
+            }
+
+            if(registeredPlayerHit) {
+                RecordShotHitProgression();
             }
 
             _weapon.AutoReloadArmed = _weapon.CurrentAmmo == 0;
@@ -170,7 +177,7 @@ namespace Game.Weapon.Core {
             return shooterTeamMgr.netTeam.Value == targetTeamMgr.netTeam.Value;
         }
 
-        private void FirePellet(Vector3 origin, Vector3 tracerStartPosition, Vector3 direction, Vector3 shooterVelocityAtShot,
+        private bool FirePellet(Vector3 origin, Vector3 tracerStartPosition, Vector3 direction, Vector3 shooterVelocityAtShot,
             int weaponIndex, ulong shotId) {
             var hitLayer = _weapon.WorldLayerMask | _weapon.EnemyLayerMask;
             var maxDist = 600f;
@@ -256,7 +263,8 @@ namespace Game.Weapon.Core {
                     hitPlayerRef = new NetworkObjectReference(hitPlayerController.NetworkObject);
                 }
 
-                ApplyDamageToHit(hit, origin, weaponIndex, shotId);
+                var registeredDamage = ApplyDamageToHit(hit, origin, weaponIndex, shotId);
+                hitPlayer = hitPlayer && registeredDamage;
             }
 
             if(_weapon.PlayerController != null && _weapon.PlayerController.IsOwner) {
@@ -291,9 +299,11 @@ namespace Game.Weapon.Core {
                     true,
                     shooterVelocityAtShot);
             }
+
+            return hitPlayer;
         }
 
-        private void ApplyDamageToHit(RaycastHit hit, Vector3 origin, int weaponIndex, ulong shotId) {
+        private bool ApplyDamageToHit(RaycastHit hit, Vector3 origin, int weaponIndex, ulong shotId) {
             var shooterPosition = _weapon.PlayerController != null ? _weapon.PlayerController.transform.position : origin;
             var hitDirection = (hit.point - shooterPosition).normalized;
 
@@ -313,8 +323,8 @@ namespace Game.Weapon.Core {
                 target = hit.collider.GetComponent<NetworkObject>();
             }
 
-            if(target == null || !target.IsSpawned) return;
-            if(IsFriendlyFire(target)) return;
+            if(target == null || !target.IsSpawned) return false;
+            if(IsFriendlyFire(target)) return false;
 
             var targetRef = new NetworkObjectReference(target);
             if(WeaponCombatAuthority.Instance != null) {
@@ -327,10 +337,24 @@ namespace Game.Weapon.Core {
                     weaponIndex,
                     Time.time,
                     shotId);
-            } else {
-                Debug.LogError(
-                    "[Weapon] MatchCombatAuthority is missing in the active gameplay scene. Damage requests cannot be processed.");
+                return true;
             }
+
+            Debug.LogError(
+                "[Weapon] MatchCombatAuthority is missing in the active gameplay scene. Damage requests cannot be processed.");
+            return false;
+        }
+
+        private void RecordShotFiredProgression() {
+            if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
+            if(ProgressionManager.Instance == null) return;
+            ProgressionManager.Instance.RecordShotFired();
+        }
+
+        private void RecordShotHitProgression() {
+            if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
+            if(ProgressionManager.Instance == null) return;
+            ProgressionManager.Instance.RecordShotHit();
         }
 
         private Vector3 ApplySpread(Vector3 forward, float spreadDegrees) {
