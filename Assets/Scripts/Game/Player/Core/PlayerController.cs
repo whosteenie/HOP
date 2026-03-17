@@ -265,6 +265,7 @@ namespace Game.Player.Core {
  
         public float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
         public float BaseFov => lookController != null ? lookController.BaseFov : 80f;
+        public bool IsJumpHeld => playerInputController != null && playerInputController.IsJumpHeld;
         public WallRunController WallRunController => wallRunController;
         public bool IsWallRunning => wallRunController != null && wallRunController.IsWallRunning;
         public bool IsRightWallRunning => wallRunController != null && wallRunController.IsRightWallRun;
@@ -303,6 +304,18 @@ namespace Game.Player.Core {
         internal void ResetLookPitchFromRespawn() {
             if(lookController != null) {
                 lookController.ResetPitch();
+            }
+        }
+
+        internal void SetLookTilt(float tilt) {
+            if(lookController != null) {
+                lookController.SetTargetTilt(tilt);
+            }
+        }
+
+        internal void UpdateTurnAnimationFromLook(float yawDelta) {
+            if(animationController != null) {
+                animationController.UpdateTurnAnimation(yawDelta);
             }
         }
 

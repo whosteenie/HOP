@@ -182,7 +182,7 @@ namespace Game.Player.Movement {
             if(!CanWallRun()) return;
             
             var canInitiate = GameSettings.Data.controls.autoWallRun 
-                || (playerController.PlayerInputController != null && playerController.PlayerInputController.IsJumpHeld);
+                || playerController.IsJumpHeld;
             
             if(!canInitiate || _movementController.HorizontalVelocity.magnitude < minWallRunSpeed) {
                 return;
@@ -276,7 +276,7 @@ namespace Game.Player.Movement {
             _lockedWallRunSign = 1;
             _hasLockedWallRunSign = false;
 
-            if(playerController.LookController != null) playerController.LookController.SetTargetTilt(0f);
+            playerController.SetLookTilt(0f);
             PublishWallRunNetworkState();
         }
 
@@ -620,7 +620,7 @@ namespace Game.Player.Movement {
         private void UpdateCameraTiltForCurrentSide() {
             if(_fpCamera == null) return;
             var tilt = IsRightWallRun ? wallRunCameraTilt : -wallRunCameraTilt;
-            if(playerController.LookController != null) playerController.LookController.SetTargetTilt(tilt);
+            playerController.SetLookTilt(tilt);
         }
 
         #endregion

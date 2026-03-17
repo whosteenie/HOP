@@ -1,6 +1,5 @@
 using Game.Player.Core;
 using Game.Player.Movement;
-using Game.Player.Visual;
 using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -15,7 +14,6 @@ namespace Game.Player.Look {
         [Header("References")]
         [SerializeField] private PlayerController playerController;
 
-        private PlayerAnimationController _animationController;
         private PlayerMovementController _movementController;
         private UpperBodyPitch _upperBodyPitch;
         private CinemachineCamera _fpCamera;
@@ -59,7 +57,6 @@ namespace Game.Player.Look {
             }
 
             if(_playerTransform == null) _playerTransform = playerController.PlayerTransform;
-            if(_animationController == null) _animationController = playerController.AnimationController;
             if(_upperBodyPitch == null) _upperBodyPitch = playerController.UpperBodyPitch;
             if(_movementController == null) _movementController = playerController.MovementController;
             if(_fpCamera == null) _fpCamera = playerController.FpCamera;
@@ -75,9 +72,7 @@ namespace Game.Player.Look {
             UpdatePitch(lookDelta.y);
             UpdateYaw(lookDelta.x);
 
-            if(_animationController != null) {
-                _animationController.UpdateTurnAnimation(lookDelta.x);
-            }
+            playerController?.UpdateTurnAnimationFromLook(lookDelta.x);
 
             if(_upperBodyPitch != null) {
                 _upperBodyPitch.SetLocalPitchFromCamera(CurrentPitch);
