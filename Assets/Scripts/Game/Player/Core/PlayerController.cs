@@ -326,6 +326,61 @@ namespace Game.Player.Core {
 
         #region Unity Lifecycle
 
+        private void OnValidate() {
+            ValidateSerializedReferences(logIssues: false);
+        }
+
+        private void ValidateSerializedReferences(bool logIssues) {
+            playerTransform = playerTransform ? playerTransform : transform;
+            characterController = characterController ? characterController : GetComponent<CharacterController>();
+            playerInputController = playerInputController ? playerInputController : GetComponent<PlayerInputController>();
+            unityPlayerInput = unityPlayerInput ? unityPlayerInput : GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            playerAnimator = playerAnimator ? playerAnimator : GetComponentInChildren<Animator>(true);
+            clientNetworkTransform = clientNetworkTransform ? clientNetworkTransform : GetComponent<ClientNetworkTransform>();
+            movementController = movementController ? movementController : GetComponent<PlayerMovementController>();
+            lookController = lookController ? lookController : GetComponent<PlayerLookController>();
+            mantleController = mantleController ? mantleController : GetComponent<MantleController>();
+            grappleController = grappleController ? grappleController : GetComponent<GrappleController>();
+            wallRunController = wallRunController ? wallRunController : GetComponent<WallRunController>();
+            statsController = statsController ? statsController : GetComponent<PlayerStatsController>();
+            healthController = healthController ? healthController : GetComponent<PlayerHealthController>();
+            animationController = animationController ? animationController : GetComponent<PlayerAnimationController>();
+            tagController = tagController ? tagController : GetComponent<PlayerTagController>();
+            podiumController = podiumController ? podiumController : GetComponent<PlayerPodiumController>();
+            playerTeamManager = playerTeamManager ? playerTeamManager : GetComponent<PlayerTeamManager>();
+            weaponCameraController = weaponCameraController ? weaponCameraController : GetComponent<WeaponCameraController>();
+            deathCameraController = deathCameraController ? deathCameraController : GetComponent<DeathCameraController>();
+            weaponManager = weaponManager ? weaponManager : GetComponent<WeaponManager>();
+            weaponComponent = weaponComponent ? weaponComponent : GetComponent<Weapon.Core.Weapon>();
+            audioRelay = audioRelay ? audioRelay : GetComponent<NetworkAudioRelay>();
+            audioListener = audioListener ? audioListener : GetComponentInChildren<AudioListener>(true);
+            impulseSource = impulseSource ? impulseSource : GetComponentInChildren<CinemachineImpulseSource>(true);
+            speedTrail = speedTrail ? speedTrail : GetComponentInChildren<SpeedTrail>(true);
+
+            if(!logIssues) {
+                return;
+            }
+
+            var missingRefs = new List<string>();
+
+            if(characterController == null) missingRefs.Add(nameof(characterController));
+            if(playerInputController == null) missingRefs.Add(nameof(playerInputController));
+            if(unityPlayerInput == null) missingRefs.Add(nameof(unityPlayerInput));
+            if(movementController == null) missingRefs.Add(nameof(movementController));
+            if(lookController == null) missingRefs.Add(nameof(lookController));
+            if(wallRunController == null) missingRefs.Add(nameof(wallRunController));
+            if(healthController == null) missingRefs.Add(nameof(healthController));
+            if(animationController == null) missingRefs.Add(nameof(animationController));
+            if(weaponManager == null) missingRefs.Add(nameof(weaponManager));
+            if(audioRelay == null) missingRefs.Add(nameof(audioRelay));
+
+            if(missingRefs.Count > 0) {
+                Debug.LogError(
+                    $"[PlayerController] Missing critical serialized references on '{name}': {string.Join(", ", missingRefs)}",
+                    this);
+            }
+        }
+
         private void InitializeCoordinators() {
             _runtimeSafety ??= new PlayerRuntimeSafety(this);
             _outOfBounds ??= new PlayerOutOfBounds(this);
@@ -338,6 +393,7 @@ namespace Game.Player.Core {
         }
 
         private void Awake() {
+            ValidateSerializedReferences(logIssues: true);
             InitializeCoordinators();
             MarkChildComponentCachesDirty();
             DisableConflictingKinemationComponents();
