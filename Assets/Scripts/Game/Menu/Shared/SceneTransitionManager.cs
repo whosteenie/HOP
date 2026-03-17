@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Events;
-using Game.Menu.Game;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -148,21 +147,30 @@ namespace Game.Menu.Shared {
         /// </summary>
         private void RefreshRespawnFadeOverlay() {
             if(!Network.Session.SessionManager.IsGameplaySceneName(_cachedSceneName)) return;
-            
-            var gameMenuManager = GameMenuManager.Instance;
-            if(gameMenuManager == null) return;
 
-            // Try to get UIDocument component
-            var gameMenuDoc = gameMenuManager.GetComponent<UIDocument>();
-            if(gameMenuDoc == null) return;
-                    
-            var gameRoot = gameMenuDoc.rootVisualElement;
-            _respawnFadeOverlay = gameRoot.Q<VisualElement>("respawn-fade-overlay");
+            _respawnFadeOverlay = ResolveRespawnFadeOverlayFromScene();
             if(_respawnFadeOverlay != null) {
                 _respawnOverlayState = _respawnFadeOverlay.ClassListContains("visible")
                     ? OverlayVisualState.Opaque
                     : OverlayVisualState.Hidden;
             }
+        }
+
+        private static VisualElement ResolveRespawnFadeOverlayFromScene() {
+            var documents = FindObjectsByType<UIDocument>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach(var doc in documents) {
+                if(doc == null || !doc.isActiveAndEnabled) continue;
+
+                var root = doc.rootVisualElement;
+                if(root == null) continue;
+
+                var overlay = root.Q<VisualElement>("respawn-fade-overlay");
+                if(overlay != null) {
+                    return overlay;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
