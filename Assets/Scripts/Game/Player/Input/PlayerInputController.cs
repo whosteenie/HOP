@@ -302,7 +302,7 @@ namespace Game.Player.Input {
             _attackBtnDown = attackPressed;
 
             if(!IsPreMatchOrPausedOrDead && fireMode == WeaponData.FireModeType.Full && attackPressed &&
-               !(IsMantling) &&
+               !IsMantling &&
                _playerContext is not { IsHoldingHopball: true }) {
                 if(attackPressedThisFrame) {
                     if(CurrentWeapon.TryAutoReloadFromEmptyClick()) {
@@ -578,8 +578,8 @@ namespace Game.Player.Input {
         private void OnSprint(InputValue value) {
             if(!IsOwner) return;
             if(IsPausedOrDead) {
-                if(!toggleSprint)
-                    if(_playerContext != null) _playerContext.SprintInputState = false;
+                if(toggleSprint) return;
+                if(_playerContext != null) _playerContext.SprintInputState = false;
                 return;
             }
 
@@ -603,8 +603,8 @@ namespace Game.Player.Input {
             if(!IsOwner) return;
             var isMantling = IsMantling;
             if(IsPausedOrDead || isMantling) {
-                if(!toggleCrouch)
-                    if(_playerContext != null) _playerContext.CrouchInputState = false;
+                if(toggleCrouch) return;
+                if(_playerContext != null) _playerContext.CrouchInputState = false;
                 return;
             }
 

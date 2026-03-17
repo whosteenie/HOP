@@ -269,21 +269,21 @@ namespace Game.Progression {
 
         // --- Match XP Delta ---
 
-        public int CurrentMatchXp { get; private set; }
+        private int CurrentMatchXp { get; set; }
 
 
         // Snapshots for UI animation
-        public int StartMatchLevel { get; private set; }
-        public int StartMatchCurrentXp { get; private set; } // Current XP for that level
+        private int StartMatchLevel { get; set; }
+        private int StartMatchCurrentXp { get; set; } // Current XP for that level
 
-        public void StartMatch() {
+        private void StartMatch() {
             CurrentMatchXp = 0;
             if(Data == null) return;
             StartMatchLevel = Data.level;
             StartMatchCurrentXp = Data.currentXp;
         }
 
-        public void EndMatch() {
+        private void EndMatch() {
             // Commit any final match logic here
             // _currentMatchXP is preserved for UI to read until StartMatch is called again
             SaveData();
@@ -291,7 +291,7 @@ namespace Game.Progression {
 
         // --- XP & Leveling ---
 
-        public void AddXp(int amount) {
+        private void AddXp(int amount) {
             Data.currentXp += amount;
             Data.totalXp += amount;
             CurrentMatchXp += amount;
@@ -302,7 +302,7 @@ namespace Game.Progression {
 
         // --- Stat Tracking Helpers ---
 
-        public void RecordKill(float killSpeed = 0f, bool isGrounded = true, string weaponId = null) {
+        private void RecordKill(float killSpeed = 0f, bool isGrounded = true, string weaponId = null) {
             Data.stats.kills++; // Changed from _data.Stats.Kills++ to Data.stats.kills++ to match existing code style
             // Check challenges
             // Speed Kill (> 15m/s)
@@ -321,17 +321,17 @@ namespace Game.Progression {
             UpdateChallengeProgress(ChallengeType.Kill, 1);
         }
 
-        public void RecordDeath(bool isOob) {
+        private void RecordDeath(bool isOob) {
             Data.stats.deaths++;
             if (isOob) Data.stats.oobDeaths++;
         }
-        
-        public void RecordWin() {
+
+        private void RecordWin() {
             Data.stats.wins++;
             UpdateChallengeProgress(ChallengeType.Win, 1);
         }
 
-        public void RecordLoss() {
+        private void RecordLoss() {
             Data.stats.losses++;
         }
 
@@ -342,20 +342,20 @@ namespace Game.Progression {
         public void RecordShotHit() {
             Data.stats.shotsHit++;
         }
-        
-        public void RecordAirtime(float seconds) {
+
+        private void RecordAirtime(float seconds) {
             Data.stats.totalAirTime += seconds;
         }
 
-        public void RecordGrappleUsed() {
+        private void RecordGrappleUsed() {
             Data.stats.grapplesUsed++;
         }
 
-        public void RecordJumpPadUsed() {
+        private void RecordJumpPadUsed() {
             Data.stats.jumpPadsUsed++;
         }
 
-        public void UpdateKillStreak(int currentStreak) {
+        private void UpdateKillStreak(int currentStreak) {
             if (currentStreak > Data.stats.highestKillStreak) {
                 Data.stats.highestKillStreak = currentStreak;
             }
@@ -380,7 +380,7 @@ namespace Game.Progression {
             }
         }
 
-        public void RecordMatchComplete(string gamemode, int placement) {
+        private void RecordMatchComplete(string gamemode, int placement) {
             // Check MatchesPlayed
             UpdateChallengeProgress(ChallengeType.MatchesPlayed, 1, gamemode);
             
@@ -395,23 +395,23 @@ namespace Game.Progression {
             }
         }
 
-        public void RecordWallRunChain(int chainCount) {
+        private void RecordWallRunChain(int chainCount) {
              UpdateChallengeProgress(ChallengeType.WallRunChain, chainCount);
         }
 
-        public void RecordTag() {
+        private void RecordTag() {
             UpdateChallengeProgress(ChallengeType.TagCount, 1);
         }
 
-        public void RecordHopballDissolve() {
+        private void RecordHopballDissolve() {
             UpdateChallengeProgress(ChallengeType.HopballDissolve, 1);
         }
 
-        public void AddDistanceTraveled(float distance) {
+        private void AddDistanceTraveled(float distance) {
             Data.stats.totalDistanceTraveled += distance;
         }
 
-        public void RecordMatchAverageSpeed(float speed) {
+        private void RecordMatchAverageSpeed(float speed) {
             // Keep last 50 matches (user requested efficient storage)
             if (Data.stats.recentMatchAverageSpeeds.Count >= 50) {
                 Data.stats.recentMatchAverageSpeeds.RemoveAt(0);
@@ -430,15 +430,15 @@ namespace Game.Progression {
              return total / Data.stats.recentMatchAverageSpeeds.Count;
         }
 
-        public void AddTimeHoldingHopball(float seconds) {
+        private void AddTimeHoldingHopball(float seconds) {
             Data.stats.timeHoldingHopball += seconds;
         }
 
-        public void AddTimeAsKing(float seconds) {
+        private void AddTimeAsKing(float seconds) {
             Data.stats.timeAsKing += seconds;
         }
 
-        public void AddTimeTagged(float seconds) {
+        private void AddTimeTagged(float seconds) {
             Data.stats.timeTagged += seconds;
         }
 
@@ -464,12 +464,14 @@ namespace Game.Progression {
 
                 switch(type) {
                     // Validate Weapon Filter / Context
-                    case ChallengeType.WeaponKill when !string.IsNullOrEmpty(filterToUse) && contextId != filterToUse && contextId != filterToUse:
+                    case ChallengeType.WeaponKill when !string.IsNullOrEmpty(filterToUse) && contextId != filterToUse:
                     // Validate Gamemode for MatchesPlayed (uses filterID from active challenge)
-                    case ChallengeType.MatchesPlayed when !string.IsNullOrEmpty(filterToUse) && contextId != filterToUse && contextId != filterToUse:
+                    case ChallengeType.MatchesPlayed when !string.IsNullOrEmpty(filterToUse) && contextId != filterToUse:
                     // Validate Placement Context (top5, top3 etc)
-                    case ChallengeType.Placement when !string.IsNullOrEmpty(filterToUse) && contextId != filterToUse && contextId != filterToUse:
+                    case ChallengeType.Placement when !string.IsNullOrEmpty(filterToUse) && contextId != filterToUse:
                         continue;
+                    default:
+                        break;
                 }
 
                 var previousProgress = challenge.currentProgress;

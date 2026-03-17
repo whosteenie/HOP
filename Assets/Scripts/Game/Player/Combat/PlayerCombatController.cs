@@ -807,17 +807,17 @@ namespace Game.Player.Combat {
         }
 
         private void AddDamageDealtAuthority(float delta) {
-            if(delta <= 0f || _playerContext == null || _playerContext.DamageDealt == null) return;
+            if(delta <= 0f || _playerContext?.DamageDealt == null) return;
             _playerContext.DamageDealt.Value += delta;
         }
 
         private void AddKillAuthority() {
-            if(_playerContext == null || _playerContext.Kills == null) return;
+            if(_playerContext?.Kills == null) return;
             _playerContext.Kills.Value++;
         }
 
         private void AddAssistAuthority() {
-            if(_playerContext == null || _playerContext.Assists == null) return;
+            if(_playerContext?.Assists == null) return;
             _playerContext.Assists.Value++;
         }
 

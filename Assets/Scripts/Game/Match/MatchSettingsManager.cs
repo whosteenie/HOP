@@ -97,17 +97,13 @@ namespace Game.Match {
         public bool ShouldSwapWeaponsOnDeath() => swapWeaponsOnDeath;
         public int GetScoreToWin() => scoreToWin >= 0 ? scoreToWin : 50;
         public int GetKothHillSpeedPercent() {
-            if(kothHillSpeed <= 0) {
-                return 100;
-            }
-
-            // Backward compatibility: older runtime/session values used small integers like 1, 2, 3
-            // to mean "normal / faster / fastest", not literal percentages.
-            if(kothHillSpeed <= 10) {
-                return kothHillSpeed * 100;
-            }
-
-            return kothHillSpeed;
+            return kothHillSpeed switch {
+                <= 0 => 100,
+                // Backward compatibility: older runtime/session values used small integers like 1, 2, 3
+                // to mean "normal / faster / fastest", not literal percentages.
+                <= 10 => kothHillSpeed * 100,
+                _ => kothHillSpeed
+            };
         }
         public float GetKothHillSpeedMultiplier() => Mathf.Max(0.01f, GetKothHillSpeedPercent() / 100f);
         public int GetTaggedPlayers() => taggedPlayers > 0 ? taggedPlayers : 1;

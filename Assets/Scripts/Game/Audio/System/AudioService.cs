@@ -266,6 +266,9 @@ namespace Game.Audio.System {
                     StopInternal(last, returnToPool: true);
                     return;
                 }
+                case StopBehavior.StopAll:
+                default:
+                    break;
             }
 
             // StopAll
@@ -583,4 +586,3 @@ namespace Game.Audio.System {
         public bool force2D;
     }
 }
-

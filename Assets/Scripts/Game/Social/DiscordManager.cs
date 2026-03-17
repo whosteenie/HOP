@@ -212,6 +212,13 @@ namespace Game.Social {
                 case Client.Status.Disconnected:
                     _isConnecting = false;
                     break;
+                case Client.Status.Connecting:
+                case Client.Status.Connected:
+                case Client.Status.Reconnecting:
+                case Client.Status.Disconnecting:
+                case Client.Status.HttpWait:
+                default:
+                    break;
             }
 
             if (error != Client.Error.None) {
