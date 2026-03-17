@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Game.Weapon.Core;
 using UnityEngine;
 
-namespace Game.Weapon.World {
+namespace Game.Weapon.Manager {
     internal sealed class WeaponWorldWeaponRegistry {
         private readonly Dictionary<WeaponData, GameObject> _worldWeaponByData = new();
         private readonly Dictionary<WeaponData, GameObject> _holsterWeaponByData = new();

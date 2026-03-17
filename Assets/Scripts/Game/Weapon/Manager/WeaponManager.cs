@@ -6,7 +6,6 @@ using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Kinemation;
 using Game.Weapon.Presentation;
-using Game.Weapon.World;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using Network.Core;
 using Unity.Cinemachine;
