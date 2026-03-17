@@ -1,3 +1,5 @@
+using Events;
+
 namespace Game.Player.Core {
     internal sealed class PlayerPresentationState {
         private readonly PlayerController _player;
@@ -44,7 +46,7 @@ namespace Game.Player.Core {
 
         public void OnHealthChanged(float newHealthValue) {
             if(_player.IsOwner) {
-                PlayerUiEventBridge.PublishHealthUpdated(newHealthValue, 100f);
+                EventBus.Publish(new UpdateHealthEvent(newHealthValue, 100f));
             }
         }
 

@@ -34,7 +34,7 @@ namespace Game.Player.Core {
 
         private static void RestoreMenuAndHudPresentation() {
             EventBus.Publish(new RestoreGameplayMenuPresentationEvent());
-            PlayerUiEventBridge.PublishShowHud();
+            EventBus.Publish(new ShowHUDEvent());
         }
 
         private void ResetAnimationStateForSpawn() {
@@ -69,11 +69,11 @@ namespace Game.Player.Core {
             _player.secondaryWeaponIndex.Value = GameSettings.Data.player.secondaryWeaponIndex;
             _player.LoadMaterialCustomizationFromPrefsForSpawn();
 
-            PlayerUiEventBridge.PublishLocalPlayerReady(_player);
+            EventBus.Publish(new LocalPlayerReadyEvent(_player.OwnerClientId));
 
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" && _player.TagController != null) {
-                PlayerUiEventBridge.PublishTagStatus(_player.TagController.IsTagged.Value);
+                EventBus.Publish(new UpdateTagStatusEvent(_player.TagController.IsTagged.Value));
             }
 
             if(_player.PlayerShadow != null) {

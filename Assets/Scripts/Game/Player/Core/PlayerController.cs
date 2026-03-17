@@ -26,7 +26,7 @@ namespace Game.Player.Core {
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NetworkAudioRelay))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
-    public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext, IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext, IPlayerCombatContext {
+    public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext, IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext, IPlayerCombatContext, IPlayerMaterialCustomizationContext {
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -310,7 +310,7 @@ namespace Game.Player.Core {
             }
         }
 
-        internal void SetLookTilt(float tilt) {
+        private void SetLookTilt(float tilt) {
             if(lookController != null) {
                 lookController.SetTargetTilt(tilt);
             }
@@ -1290,6 +1290,23 @@ namespace Game.Player.Core {
         NetworkVariable<int> IPlayerVisualContext.JumpAnimationSequence => jumpAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.LandAnimationSequence => landAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.MantleAnimationSequence => mantleAnimationSequence;
+        NetworkVariable<int> IPlayerMaterialCustomizationContext.PlayerMaterialPacketIndexState => playerMaterialPacketIndex;
+        NetworkVariable<Vector4> IPlayerMaterialCustomizationContext.PlayerBaseColorState => playerBaseColor;
+        NetworkVariable<float> IPlayerMaterialCustomizationContext.PlayerSmoothnessState => playerSmoothness;
+        NetworkVariable<float> IPlayerMaterialCustomizationContext.PlayerMetallicState => playerMetallic;
+        NetworkVariable<Vector4> IPlayerMaterialCustomizationContext.PlayerSpecularColorState => playerSpecularColor;
+        NetworkVariable<float> IPlayerMaterialCustomizationContext.PlayerHeightStrengthState => playerHeightStrength;
+        NetworkVariable<bool> IPlayerMaterialCustomizationContext.PlayerEmissionEnabledState => playerEmissionEnabled;
+        NetworkVariable<Vector4> IPlayerMaterialCustomizationContext.PlayerEmissionColorState => playerEmissionColor;
+        float IPlayerMaterialCustomizationContext.MinHeightStrengthValue => MinHeightStrength;
+        float IPlayerMaterialCustomizationContext.MaxHeightStrengthValue => MaxHeightStrength;
+        void IPlayerMaterialCustomizationContext.ApplyPlayerMaterialCustomization(int packetIndex, Color baseColor,
+            float smoothness, float metallic, Color specularColor, float heightStrength, bool emissionEnabled,
+            Color emissionColor) {
+            if(visualController == null) return;
+            visualController.ApplyPlayerMaterialCustomization(packetIndex, baseColor, smoothness, metallic,
+                specularColor, heightStrength, emissionEnabled, emissionColor);
+        }
 
         GameObject IPlayerMovementContext.GetCurrentFpWeapon() {
             return weaponManager != null ? weaponManager.GetCurrentFpWeapon() : null;

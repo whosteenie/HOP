@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Events;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -38,8 +39,9 @@ namespace Game.Player.Core {
                 }
 
                 if(updateHud) {
-                    PlayerUiEventBridge.PublishWeaponHudRefresh(currentWeapon.currentAmmo, currentWeapon.GetMagSize(),
-                        _player.NetHealth.Value, 1f, Weapon.Core.Weapon.MaxDamageMultiplier);
+                    EventBus.Publish(new UpdateAmmoEvent(currentWeapon.currentAmmo, currentWeapon.GetMagSize()));
+                    EventBus.Publish(new UpdateHealthEvent(_player.NetHealth.Value, 100f));
+                    EventBus.Publish(new UpdateMultiplierEvent(1f, Weapon.Core.Weapon.MaxDamageMultiplier));
                 }
             }
 
