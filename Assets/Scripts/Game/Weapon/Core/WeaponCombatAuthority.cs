@@ -183,48 +183,6 @@ namespace Game.Weapon.Core {
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint,
-            Vector3 hitNormal, bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef,
-            bool playMuzzleFlash, Vector3 shooterVelocity, RpcParams rpcParams = default) {
-            if(!NetworkAuthority.HasGlobalAuthority(this)) {
-                return;
-            }
-
-            var senderClientId = rpcParams.Receive.SenderClientId;
-            if(!shooterRef.TryGet(out var shooterObject) || shooterObject == null) {
-                return;
-            }
-
-            var shooter = shooterObject.GetComponent<PlayerController>();
-            if(shooter == null || shooter.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolate("MatchCombatAuthority.RequestShotFxServerRpc",
-                    senderClientId);
-                return;
-            }
-
-            BroadcastShotFxClientRpc(shooterRef, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
-                playMuzzleFlash, shooterVelocity);
-        }
-
-        [Rpc(SendTo.Everyone)]
-        // ReSharper disable once MemberCanBeMadeStatic.Local
-        private void BroadcastShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 hitNormal,
-            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash,
-            Vector3 shooterVelocity) {
-            if(!shooterRef.TryGet(out var shooterObject) || shooterObject == null) {
-                return;
-            }
-
-            var fxRelay = shooterObject.GetComponent<WeaponFxRelay>();
-            if(fxRelay == null) {
-                return;
-            }
-
-            fxRelay.QueueRemoteShotFx(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
-                shooterVelocity);
-        }
-
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         public void RequestShotReportServerRpc(NetworkObjectReference playerRef, int weaponIndex, ulong shotId,
             float clientShotTime, RpcParams rpcParams = default) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {

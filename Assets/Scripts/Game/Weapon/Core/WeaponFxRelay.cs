@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Diagnostics;
 using Game.Player.Core;
+using Network.AntiCheat;
+using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -66,13 +68,12 @@ namespace Game.Weapon.Core {
             bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash = true,
             Vector3 shooterVelocity = default) {
             if(!playerController.IsOwner || !_playerNetworkObject.IsSpawned) return;
-            if(WeaponCombatAuthority.Instance == null) return;
 
-            WeaponCombatAuthority.Instance.RequestShotFxServerRpc(_playerNetworkObject, endPoint, hitNormal,
-                madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash, shooterVelocity);
+            RequestShotFxServerRpc(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
+                shooterVelocity);
         }
 
-        internal void QueueRemoteShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
+        private void QueueRemoteShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
             NetworkObjectReference hitPlayerRef, bool playMuzzleFlash, Vector3 shooterVelocity) {
             ValidateComponents();
             if(_playerNetworkObject == null) return;
@@ -90,6 +91,36 @@ namespace Game.Weapon.Core {
                 HitPlayerRef = hitPlayerRef,
                 PlayMuzzleFlash = playMuzzleFlash
             });
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestShotFxServerRpc(Vector3 endPoint, Vector3 hitNormal, bool madeImpact,
+            bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash,
+            Vector3 shooterVelocity, RpcParams rpcParams = default) {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) {
+                return;
+            }
+
+            ValidateComponents();
+            if(playerController == null || _playerNetworkObject == null) {
+                return;
+            }
+
+            var senderClientId = rpcParams.Receive.SenderClientId;
+            if(playerController.OwnerClientId != senderClientId) {
+                AntiCheatLogger.LogAuthorityViolate("WeaponFxRelay.RequestShotFxServerRpc", senderClientId);
+                return;
+            }
+
+            BroadcastShotFxClientRpc(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
+                shooterVelocity);
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void BroadcastShotFxClientRpc(Vector3 endPoint, Vector3 hitNormal, bool madeImpact,
+            bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash, Vector3 shooterVelocity) {
+            QueueRemoteShotFx(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
+                shooterVelocity);
         }
     }
 }
