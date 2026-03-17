@@ -308,10 +308,10 @@ namespace Game.Weapon.Manager {
 
         private void OnPostMatchStarted(PostMatchStartedEvent _) {
             IsPostMatchFlowActive = true;
-            _switch.PrepareForPostMatchPresentation();
         }
 
         private void OnPostMatchBlackoutReady(PostMatchBlackoutReadyEvent _) {
+            _switch.PrepareForPostMatchPresentation();
             if(!IsOwner) return;
             _authority.PrepareCurrentWeaponForPostMatchPodium();
         }

@@ -45,6 +45,12 @@ namespace Game.Spawning {
             CachePoints();
         }
 
+        private void OnDestroy() {
+            if(Instance == this) {
+                Instance = null;
+            }
+        }
+
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
@@ -131,11 +137,38 @@ namespace Game.Spawning {
             }
         }
 
+        private void EnsureSpawnPointsCached(bool teamBased) {
+            var hasTeamPoints = _teamAPoints.Count > 0 || _teamBPoints.Count > 0;
+            var hasFfaPoints = _ffaPoints.Count > 0;
+            if(teamBased ? hasTeamPoints : hasFfaPoints) {
+                return;
+            }
+
+            CachePoints();
+            hasTeamPoints = _teamAPoints.Count > 0 || _teamBPoints.Count > 0;
+            hasFfaPoints = _ffaPoints.Count > 0;
+            if(teamBased ? hasTeamPoints : hasFfaPoints) {
+                return;
+            }
+
+            RebuildPointsFromScene();
+        }
+
+        private void RebuildPointsFromScene() {
+            allTdmPoints = SpawnPoint.Instances.Where(p => p != null && p.AssignedTeam != SpawnPoint.Team.None).ToList();
+            allFfaPoints = SpawnPoint.Instances.Where(p => p != null).ToList();
+            CachePoints();
+
+            Debug.Log(
+                $"[SpawnManager] Rebuilt spawn caches from scene. TeamA={_teamAPoints.Count}, TeamB={_teamBPoints.Count}, FFA={_ffaPoints.Count}");
+        }
+
         /// <summary>
         /// Gets the next spawn point for a team. Returns the SpawnPoint so caller can get both position and rotation.
         /// Checks for physical clearance to prevent overlapping spawns.
         /// </summary>
         public SpawnPoint GetNextSpawnPoint(SpawnPoint.Team team) {
+            EnsureSpawnPointsCached(teamBased: true);
             var list = GetSpawnPointList(team);
             return FindClearSpawnPoint(list, $"Team {team}");
         }
@@ -158,6 +191,7 @@ namespace Game.Spawning {
         /// Checks for physical clearance to prevent overlapping spawns.
         /// </summary>
         public SpawnPoint GetNextSpawnPoint() {
+            EnsureSpawnPointsCached(teamBased: false);
             return FindClearSpawnPoint(_ffaPoints, "FFA");
         }
 
@@ -168,6 +202,7 @@ namespace Game.Spawning {
         public SpawnPoint ReserveSpawnPoint(ulong clientId, SpawnPoint.Team team) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) return null;
 
+            EnsureSpawnPointsCached(teamBased: true);
             var list = GetSpawnPointList(team);
             return ReserveFromList(clientId, list, $"Team {team}");
         }
@@ -176,7 +211,9 @@ namespace Game.Spawning {
         /// Reserves a spawn point for a player in FFA mode.
         /// </summary>
         public SpawnPoint ReserveSpawnPoint(ulong clientId) {
-            return !NetworkAuthority.HasGlobalAuthority(this) ? null : ReserveFromList(clientId, _ffaPoints, "FFA");
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return null;
+            EnsureSpawnPointsCached(teamBased: false);
+            return ReserveFromList(clientId, _ffaPoints, "FFA");
         }
 
         /// <summary>

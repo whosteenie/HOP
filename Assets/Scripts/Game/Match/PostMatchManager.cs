@@ -556,14 +556,6 @@ namespace Game.Match {
         private void ActivatePodiumCameraClientRpc() {
             if(podiumCamera == null) return;
 
-            // Disable player-specific cameras (owner-local rigs, etc.)
-            var controllers = PlayerController.SpawnedPlayers;
-            foreach(var pc in controllers) {
-                if(pc == null) continue;
-                pc.SetGameplayCameraActive(false);
-                pc.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
-            }
-
             // Enable podium camera
             podiumCamera.gameObject.SetActive(true);
 
@@ -910,6 +902,12 @@ namespace Game.Match {
 
             EventBus.Publish(new HideHUDEvent());
             HideInGameHudForPostMatch();
+
+            var controllers = PlayerController.SpawnedPlayers;
+            foreach(var pc in controllers) {
+                if(pc == null) continue;
+                pc.SetGameplayCameraActive(false);
+            }
 
             // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)
             if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) return;

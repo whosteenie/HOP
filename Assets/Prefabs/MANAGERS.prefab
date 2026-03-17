@@ -87,17 +87,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Network.Singletons.HopballSpawnManager
   ShowTopMostFoldoutHeaderGroup: 1
-  hopballSpawnPoints:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  hopballSpawnPoints: []
   hopballPrefab: {fileID: 1479868513324915623, guid: 01b06d28753e9cc4784d32c53db6aaac, type: 3}
   postPrematchSpawnDelay: 5
   oobThreshold: 600
@@ -665,7 +655,6 @@ MonoBehaviour:
   secondPlaceAnchor: {fileID: 0}
   thirdPlaceAnchor: {fileID: 0}
   uiDocument: {fileID: 4065477606550805423}
-  xpDisplay: {fileID: 2928021190185226196}
   podiumDuration: 10
   fadeDuration: 0.5
   fadeBuffer: 0.1

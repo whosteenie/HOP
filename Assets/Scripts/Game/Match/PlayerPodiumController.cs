@@ -30,6 +30,7 @@ namespace Game.Match {
         private Animator _podiumAnimator;
         private SkinnedMeshRenderer _podiumSkinned;
         private bool _awaitingPodiumSnap;
+        private Coroutine _pendingPodiumVisualRestore;
 
         [SerializeField] private Animator podiumAnimator;
 
@@ -92,7 +93,26 @@ namespace Game.Match {
 
             ResetAnimatorState(_podiumAnimator);
 
-            // Ensure world model root and weapon are active for podium
+            // Note: Main player object should be set to Default layer in inspector
+            // Ragdoll components are set to Enemy layer in PlayerRagdoll.OnNetworkSpawn()
+
+            if(_pendingPodiumVisualRestore != null) {
+                StopCoroutine(_pendingPodiumVisualRestore);
+            }
+            _pendingPodiumVisualRestore = StartCoroutine(RestorePodiumVisualsWhenBlackoutReady());
+            _awaitingPodiumSnap = true;
+        }
+
+        private IEnumerator RestorePodiumVisualsWhenBlackoutReady() {
+            while(!PostMatchManager.IsPodiumBlackoutActiveLocal) {
+                yield return null;
+            }
+
+            ApplyPodiumVisualRestore();
+            _pendingPodiumVisualRestore = null;
+        }
+
+        private void ApplyPodiumVisualRestore() {
             if(playerController != null) {
                 var worldModelRoot = playerController.PlayerModelRoot;
                 GameObject worldWeapon = null;
@@ -108,7 +128,6 @@ namespace Game.Match {
                     worldWeapon.SetActive(true);
                 }
 
-                // Enable renderers
                 if(_visualController != null) {
                     _visualController.SetRenderersEnabled(true);
                 }
@@ -120,11 +139,6 @@ namespace Game.Match {
             if(_podiumSkinned != null) {
                 _podiumSkinned.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             }
-
-            // Note: Main player object should be set to Default layer in inspector
-            // Ragdoll components are set to Enemy layer in PlayerRagdoll.OnNetworkSpawn()
-
-            _awaitingPodiumSnap = true;
         }
 
         public void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {

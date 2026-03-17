@@ -18825,6 +18825,50 @@ PrefabInstance:
       propertyPath: GlobalObjectIdHash
       value: 1934715552
       objectReference: {fileID: 0}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: hopballSpawnPoints.Array.size
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'hopballSpawnPoints.Array.data[0]'
+      value: 
+      objectReference: {fileID: 248881162}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'hopballSpawnPoints.Array.data[1]'
+      value: 
+      objectReference: {fileID: 37005069}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'hopballSpawnPoints.Array.data[2]'
+      value: 
+      objectReference: {fileID: 787791331}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'hopballSpawnPoints.Array.data[3]'
+      value: 
+      objectReference: {fileID: 1355356368}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'hopballSpawnPoints.Array.data[4]'
+      value: 
+      objectReference: {fileID: 1752990273}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'hopballSpawnPoints.Array.data[5]'
+      value: 
+      objectReference: {fileID: 1043487705}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'hopballSpawnPoints.Array.data[6]'
+      value: 
+      objectReference: {fileID: 1394977996}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'hopballSpawnPoints.Array.data[7]'
+      value: 
+      objectReference: {fileID: 1306442342}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'hopballSpawnPoints.Array.data[8]'
+      value: 
+      objectReference: {fileID: 170628730}
+    - target: {fileID: 4910961619472946389, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
+      propertyPath: 'hopballSpawnPoints.Array.data[9]'
+      value: 
+      objectReference: {fileID: 1648490368}
     - target: {fileID: 5291913631630434188, guid: facce53182bc5ee4789b6b2a26facee9, type: 3}
       propertyPath: m_LocalPosition.x
       value: -21.89437

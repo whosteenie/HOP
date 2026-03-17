@@ -249,6 +249,7 @@ namespace Game.Hopball {
             }
 
             EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            EventBus.Subscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
             EventBus.Subscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
             EventBus.Subscribe<PlayerHopballDeathDropRequestedEvent>(OnPlayerHopballDeathDropRequested);
             EventBus.Subscribe<PlayerHopballPickupRequestedEvent>(OnPlayerHopballPickupRequested);
@@ -285,6 +286,7 @@ namespace Game.Hopball {
                 HopballController.Instance.OnControllerUnregistered(this);
             }
             EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            EventBus.Unsubscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
             EventBus.Unsubscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
             EventBus.Unsubscribe<PlayerHopballDeathDropRequestedEvent>(OnPlayerHopballDeathDropRequested);
             EventBus.Unsubscribe<PlayerHopballPickupRequestedEvent>(OnPlayerHopballPickupRequested);
@@ -303,9 +305,12 @@ namespace Game.Hopball {
         }
 
         private void OnPostMatchStarted(PostMatchStartedEvent _) {
+            CancelPostMatchHopballTransitions();
+        }
+
+        private void OnPostMatchBlackoutReady(PostMatchBlackoutReadyEvent _) {
             if(playerController == null) return;
 
-            CancelPostMatchHopballTransitions();
             ClearHopballReference();
             CleanupHopballVisuals();
 

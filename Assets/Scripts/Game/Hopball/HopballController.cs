@@ -148,7 +148,7 @@ namespace Game.Hopball {
         base.OnNetworkSpawn();
         NetworkAuthority.TryConfigureSessionOwnerObject(this);
         RegisterSessionOwnerCallbacks();
-        EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+        EventBus.Subscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
         
         // Cache NetworkTransform reference
         if(_networkTransform == null) {
@@ -183,7 +183,7 @@ namespace Game.Hopball {
 
     public override void OnNetworkDespawn() {
         base.OnNetworkDespawn();
-        EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+        EventBus.Unsubscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
 
         // Clear singleton instance
         if(Instance == this) {
@@ -220,7 +220,7 @@ namespace Game.Hopball {
         }
     }
 
-    private void OnPostMatchStarted(PostMatchStartedEvent _) {
+    private void OnPostMatchBlackoutReady(PostMatchBlackoutReadyEvent _) {
         var targets = GetComponentsInChildren<Target>(true);
         foreach(var t in targets) {
             if(t != null) {
