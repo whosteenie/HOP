@@ -84,9 +84,6 @@ namespace Game.Menu.Main {
         private Button _privateMatchBackButton;
         private Action _privateMatchBackClickHandler;
 
-        public Action OnLoadoutPanelRequested;
-        public Action<ulong, string, bool> OnLoadoutProfileViewRequested;
-
         #endregion
 
         #region Unity Lifecycle
@@ -209,6 +206,7 @@ namespace Game.Menu.Main {
 
         private void InitializeSubManagers() {
             if(voiceOverlayManager == null) voiceOverlayManager = GetComponentInChildren<VoiceOverlayManager>();
+            var loadoutManager = uiManager != null ? uiManager.loadoutManager : null;
 
             if(uiManager != null) {
                 if(uiManager.uiDocument == null) uiManager.uiDocument = uiDocument;
@@ -225,17 +223,29 @@ namespace Game.Menu.Main {
             // Force init so dropdowns are bound regardless of script execution order (setup panel may be hidden at Start).
             if(Root != null)
                 privateMatchSetupManager.Initialize(Root);
-            if(sessionManager != null)
-                privateMatchSetupManager.SetSessionManager(sessionManager);
+            if(sessionManager != null) {
+                privateMatchSetupManager.SetSessionHooks(
+                    () => sessionManager.IsHost,
+                    sessionManager.ShowContextMenuForPartyMember);
+            }
+
+            if(loadoutManager != null) {
+                loadoutManager.ConfigureMainMenuHooks(
+                    uiDocument,
+                    () => OnButtonClicked(false),
+                    () => OnButtonClicked(true),
+                    MouseEnter,
+                    () => ShowPanel(MainMenuPanel));
+            }
         }
 
         private void ShowLoadoutPanel() {
-            OnLoadoutPanelRequested?.Invoke();
+            uiManager?.loadoutManager?.ShowLoadout();
             TransitionToState(MainMenuPanelState.Loadout);
         }
 
         private void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
-            OnLoadoutProfileViewRequested?.Invoke(steamId, playerName, isEditable);
+            uiManager?.loadoutManager?.ShowProfileView(steamId, playerName, isEditable);
             TransitionToState(MainMenuPanelState.Loadout);
         }
 

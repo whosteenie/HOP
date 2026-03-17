@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Events;
 using Game.Match;
-using Game.Menu.Main;
 using Game.Social;
 using Game.UI.Core;
 using Network.Steam;
@@ -36,7 +35,8 @@ namespace Game.Menu.PrivateMatch {
         public Action OnBackRequested;
         public Action<PrivateMatchDraftSettings> OnStartRequested;
 
-        private MainMenuSessionManager _sessionManager;
+        private Func<bool> _isHostResolver;
+        private Action<Vector2, SteamId, bool> _showContextMenuForPartyMember;
 
         private DropdownField _gamemodeDropdown;
         private DropdownField _mapDropdown;
@@ -155,8 +155,9 @@ namespace Game.Menu.PrivateMatch {
             RefreshTeamPreview();
         }
 
-        public void SetSessionManager(MainMenuSessionManager sessionManager) {
-            _sessionManager = sessionManager;
+        public void SetSessionHooks(Func<bool> isHostResolver, Action<Vector2, SteamId, bool> showContextMenuForPartyMember) {
+            _isHostResolver = isHostResolver;
+            _showContextMenuForPartyMember = showContextMenuForPartyMember;
         }
 
         public PrivateMatchDraftSettings GetDraftSettings() => _draft;
@@ -699,12 +700,12 @@ namespace Game.Menu.PrivateMatch {
                 if(evt.button != 1) return;
                 // Use current draft gamemode at click time. Host can switch any player (including themselves).
                 var showSwitchTeam = MatchSettingsManager.IsTeamBasedMode(_draft.GamemodeId)
-                    && _sessionManager != null && _sessionManager.IsHost;
+                    && (_isHostResolver?.Invoke() ?? false);
                 if(Debug.isDebugBuild) {
                     Debug.Log($"[PrivateMatchSetup] Row right-click: steamId={steamId.Value} gamemode={_draft.GamemodeId} showSwitchTeam={showSwitchTeam}");
                 }
 
-                if(_sessionManager != null) _sessionManager.ShowContextMenuForPartyMember(evt.position, steamId, showSwitchTeam);
+                _showContextMenuForPartyMember?.Invoke(evt.position, steamId, showSwitchTeam);
 
                 evt.StopPropagation();
             });

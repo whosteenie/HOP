@@ -2,10 +2,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Events;
-using Game.Menu.Main;
 using Game.Player.Visual;
 using Game.Progression;
 using Game.Settings;
+using Game.UI.Misc;
 using Game.UI.Core;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -140,8 +140,6 @@ namespace Game.Menu.Loadout {
         private bool _customizationDirty;
         private bool _hasUnsavedChanges;
 
-        [SerializeField] private MainMenuManager mainMenuManager;
-
         // Unsaved changes UI
         private VisualElement _loadoutUnsavedModal;
         private Button _loadoutUnsavedYes;
@@ -159,6 +157,11 @@ namespace Game.Menu.Loadout {
 
         public Action OnApplyCustomizationRequested;
         public Action OnReloadCustomizationRequested;
+        public Action ShowMainMenuPanelRequested { get; set; }
+
+        private Action _buttonClickAction;
+        private Action _backButtonClickAction;
+        private EventCallback<MouseEnterEvent> _buttonHoverHandler;
 
         protected override void Awake() {
             base.Awake();
@@ -166,34 +169,17 @@ namespace Game.Menu.Loadout {
                 Debug.LogWarning("[LoadoutManager] Multiple instances detected. Using the most recently awakened instance.");
             }
             Instance = this;
-
-            if(mainMenuManager == null) {
-                mainMenuManager = MainMenuManager.Instance;
-            }
-            if(mainMenuManager != null && uiDocument == null) {
-                uiDocument = mainMenuManager.uiDocument;
-            }
             ResetPreviewCameraTarget();
         }
 
         protected override void OnEnable() {
             base.OnEnable();
-            if(mainMenuManager != null) {
-                mainMenuManager.OnLoadoutPanelRequested -= ShowLoadout;
-                mainMenuManager.OnLoadoutPanelRequested += ShowLoadout;
-                mainMenuManager.OnLoadoutProfileViewRequested -= ShowProfileView;
-                mainMenuManager.OnLoadoutProfileViewRequested += ShowProfileView;
-            }
             // Subscribe to resolution changes
             EventBus.Unsubscribe<ResolutionChangedEvent>(OnResolutionChanged);
             EventBus.Subscribe<ResolutionChangedEvent>(OnResolutionChanged);
         }
 
         protected override void OnDisable() {
-            if(mainMenuManager != null) {
-                mainMenuManager.OnLoadoutPanelRequested -= ShowLoadout;
-                mainMenuManager.OnLoadoutProfileViewRequested -= ShowProfileView;
-            }
             // Stop brute force rendering
             _previewActive = false;
             _showingStats = false;
@@ -235,6 +221,21 @@ namespace Game.Menu.Loadout {
             LoadSavedLoadout();
         }
 
+        public void ConfigureMainMenuHooks(UIDocument sharedDocument,
+            Action buttonClickAction,
+            Action backButtonClickAction,
+            EventCallback<MouseEnterEvent> buttonHoverHandler,
+            Action showMainMenuPanelRequested) {
+            if(uiDocument == null) {
+                uiDocument = sharedDocument;
+            }
+
+            _buttonClickAction = buttonClickAction;
+            _backButtonClickAction = backButtonClickAction;
+            _buttonHoverHandler = buttonHoverHandler;
+            ShowMainMenuPanelRequested = showMainMenuPanelRequested;
+        }
+
         protected override Dictionary<string, Type> GetRequiredElements() {
             return new Dictionary<string, Type> {
                 { "weapon-selection-container", typeof(VisualElement) },
@@ -256,7 +257,7 @@ namespace Game.Menu.Loadout {
             base.OnDestroy();
         }
 
-        private void ShowLoadout() {
+        public void ShowLoadout() {
             Setup3DPreview();
 
             // Mark preview as active for brute force rendering
@@ -277,7 +278,7 @@ namespace Game.Menu.Loadout {
             FinishShowLoadout();
         }
 
-        private void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
+        public void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
             _isInspectMode = !isEditable;
             _inspectTargetSteamId = steamId;
             _inspectTargetName = playerName;
@@ -483,7 +484,7 @@ namespace Game.Menu.Loadout {
                 EventCallback<ClickEvent> yesHandler = _ => OnLoadoutUnsavedYes();
                 _loadoutUnsavedYes.RegisterCallback(yesHandler);
                 RegisterCleanup(() => _loadoutUnsavedYes.UnregisterCallback(yesHandler));
-                EventCallback<MouseEnterEvent> yesEnterHandler = MainMenuManager.MouseEnter;
+                EventCallback<MouseEnterEvent> yesEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
                 _loadoutUnsavedYes.RegisterCallback(yesEnterHandler);
                 RegisterCleanup(() => _loadoutUnsavedYes.UnregisterCallback(yesEnterHandler));
             }
@@ -492,7 +493,7 @@ namespace Game.Menu.Loadout {
                 EventCallback<ClickEvent> noHandler = _ => OnLoadoutUnsavedNo();
                 _loadoutUnsavedNo.RegisterCallback(noHandler);
                 RegisterCleanup(() => _loadoutUnsavedNo.UnregisterCallback(noHandler));
-                EventCallback<MouseEnterEvent> noEnterHandler = MainMenuManager.MouseEnter;
+                EventCallback<MouseEnterEvent> noEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
                 _loadoutUnsavedNo.RegisterCallback(noEnterHandler);
                 RegisterCleanup(() => _loadoutUnsavedNo.UnregisterCallback(noEnterHandler));
             }
@@ -500,7 +501,7 @@ namespace Game.Menu.Loadout {
                 EventCallback<ClickEvent> cancelHandler = _ => OnLoadoutUnsavedCancel();
                 _loadoutUnsavedCancel.RegisterCallback(cancelHandler);
                 RegisterCleanup(() => _loadoutUnsavedCancel.UnregisterCallback(cancelHandler));
-                EventCallback<MouseEnterEvent> cancelEnterHandler = MainMenuManager.MouseEnter;
+                EventCallback<MouseEnterEvent> cancelEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
                 _loadoutUnsavedCancel.RegisterCallback(cancelEnterHandler);
                 RegisterCleanup(() => _loadoutUnsavedCancel.UnregisterCallback(cancelEnterHandler));
             }
@@ -513,7 +514,7 @@ namespace Game.Menu.Loadout {
             };
             _statsButton.clicked += statsClickHandler;
             RegisterCleanup(() => _statsButton.clicked -= statsClickHandler);
-            EventCallback<MouseEnterEvent> statsEnterHandler = MainMenuManager.MouseEnter;
+            EventCallback<MouseEnterEvent> statsEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
             _statsButton.RegisterCallback(statsEnterHandler);
             RegisterCleanup(() => _statsButton.UnregisterCallback(statsEnterHandler));
 
@@ -527,14 +528,12 @@ namespace Game.Menu.Loadout {
             _applyLoadoutButton = QRequired<Button>("apply-loadout-button");
 
             Action applyClickHandler = () => {
-                if(mainMenuManager != null) {
-                    MainMenuManager.OnButtonClicked();
-                }
+                (_buttonClickAction ?? (() => UISound.PlayButtonClick(false)))();
                 OnApplyLoadoutClicked();
             };
             _applyLoadoutButton.clicked += applyClickHandler;
             RegisterCleanup(() => _applyLoadoutButton.clicked -= applyClickHandler);
-            EventCallback<MouseEnterEvent> applyEnterHandler = MainMenuManager.MouseEnter;
+            EventCallback<MouseEnterEvent> applyEnterHandler = _buttonHoverHandler ?? (_ => UISound.PlayButtonHover());
             _applyLoadoutButton.RegisterCallback(applyEnterHandler);
             RegisterCleanup(() => _applyLoadoutButton.UnregisterCallback(applyEnterHandler));
 
@@ -561,17 +560,17 @@ namespace Game.Menu.Loadout {
             if(_backLoadoutButton != null) {
                 // Unregister any existing handlers first
                 _backLoadoutButton.clicked -= OnBackClicked;
-                _backLoadoutButton.UnregisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+                if(_buttonHoverHandler != null) {
+                    _backLoadoutButton.UnregisterCallback(_buttonHoverHandler);
+                }
 
                 // Register handlers
                 _backLoadoutButton.clicked += () => {
-                    if(mainMenuManager != null) {
-                        MainMenuManager.OnButtonClicked(true);
-                    }
+                    (_backButtonClickAction ?? (() => UISound.PlayButtonClick(true)))();
 
                     OnBackClicked();
                 };
-                _backLoadoutButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+                _backLoadoutButton.RegisterCallback(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
             } else {
                 Debug.LogError("[LoadoutManager] Back button not found!");
             }
@@ -580,16 +579,16 @@ namespace Game.Menu.Loadout {
         private void SetupEventHandlers() {
             // Weapon slot clicks (main equipped slot - opens dropdown)
             _primarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_primaryDropdown));
-            _primarySlot.RegisterCallback<ClickEvent>(_ => MainMenuManager.OnButtonClicked());
-            _primarySlot.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            _primarySlot.RegisterCallback<ClickEvent>(_ => (_buttonClickAction ?? (() => UISound.PlayButtonClick(false)))());
+            _primarySlot.RegisterCallback<MouseEnterEvent>(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
 
             _secondarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_secondaryDropdown));
-            _secondarySlot.RegisterCallback<ClickEvent>(_ => MainMenuManager.OnButtonClicked());
-            _secondarySlot.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            _secondarySlot.RegisterCallback<ClickEvent>(_ => (_buttonClickAction ?? (() => UISound.PlayButtonClick(false)))());
+            _secondarySlot.RegisterCallback<MouseEnterEvent>(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
 
             _tertiarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_tertiaryDropdown));
-            _tertiarySlot.RegisterCallback<ClickEvent>(_ => MainMenuManager.OnButtonClicked());
-            _tertiarySlot.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            _tertiarySlot.RegisterCallback<ClickEvent>(_ => (_buttonClickAction ?? (() => UISound.PlayButtonClick(false)))());
+            _tertiarySlot.RegisterCallback<MouseEnterEvent>(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
 
             // Populate weapon dropdowns
             PopulateWeaponDropdown(_primaryDropdown.Q<ScrollView>("primary-scroll"), primaryWeapons,
@@ -1647,8 +1646,8 @@ namespace Game.Menu.Loadout {
 
             // Show main menu panel immediately
             var loadoutPanel = QOptional<VisualElement>("loadout-panel");
-            if(mainMenuManager != null) {
-                mainMenuManager.ShowPanel(mainMenuManager.MainMenuPanel);
+            if(ShowMainMenuPanelRequested != null) {
+                ShowMainMenuPanelRequested.Invoke();
             } else {
                 var mainMenuPanel = QOptional<VisualElement>("main-menu-panel");
                 if(mainMenuPanel != null) {
@@ -1775,9 +1774,7 @@ namespace Game.Menu.Loadout {
         }
 
         private void OnLoadoutUnsavedYes() {
-            if(mainMenuManager != null) {
-                MainMenuManager.OnButtonClicked();
-            }
+            (_buttonClickAction ?? (() => UISound.PlayButtonClick(false)))();
 
             OnApplyLoadoutClicked();
             HideLoadoutUnsavedModal();
@@ -1785,9 +1782,7 @@ namespace Game.Menu.Loadout {
         }
 
         private void OnLoadoutUnsavedNo() {
-            if(mainMenuManager != null) {
-                MainMenuManager.OnButtonClicked(true);
-            }
+            (_backButtonClickAction ?? (() => UISound.PlayButtonClick(true)))();
 
             RevertLoadoutChanges();
             HideLoadoutUnsavedModal();
@@ -1795,9 +1790,7 @@ namespace Game.Menu.Loadout {
         }
 
         private void OnLoadoutUnsavedCancel() {
-            if(mainMenuManager != null) {
-                MainMenuManager.OnButtonClicked(true);
-            }
+            (_backButtonClickAction ?? (() => UISound.PlayButtonClick(true)))();
 
             HideLoadoutUnsavedModal();
         }
