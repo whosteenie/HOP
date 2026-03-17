@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Events;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
@@ -12,11 +12,12 @@ namespace Game.Player.Visual {
     /// Handles enabled state, materials, bounds, and caching.
     /// Shadow casting modes are handled by PlayerShadow.cs
     /// </summary>
-    [RequireComponent(typeof(PlayerController))]
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerRenderer : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerVisualContext _playerContext;
 
         private WeaponManager _weaponManager;
         private Transform _worldWeaponSocket;
@@ -46,21 +47,17 @@ namespace Game.Player.Visual {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[PlayerRenderer] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve<IPlayerVisualContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[PlayerRenderer] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_weaponManager == null) _weaponManager = playerController.WeaponManager;
-            if(_worldWeaponSocket == null) _worldWeaponSocket = playerController.WorldWeaponSocket;
-            if(_playerMesh == null) _playerMesh = playerController.PlayerMesh;
-            if(_fpCameraTransform == null && playerController.FpCamera != null) {
-                _fpCameraTransform = playerController.FpCamera.transform;
+            if(_weaponManager == null) _weaponManager = _playerContext.WeaponManager;
+            if(_worldWeaponSocket == null) _worldWeaponSocket = _playerContext.WorldWeaponSocket;
+            if(_playerMesh == null) _playerMesh = _playerContext.PlayerMesh;
+            if(_fpCameraTransform == null && _playerContext.FpCamera != null) {
+                _fpCameraTransform = _playerContext.FpCamera.transform;
             }
 
             _renderersCacheValid = false;
@@ -78,8 +75,8 @@ namespace Game.Player.Visual {
         }
 
         private void OnPlayerWorldWeaponPresentationRefreshRequested(PlayerWorldWeaponPresentationRefreshRequestedEvent evt) {
-            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
-            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            if(evt == null || _playerContext?.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != _playerContext.NetworkObjectId) return;
             SetWorldWeaponRenderersEnabled(true);
         }
 

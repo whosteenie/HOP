@@ -2,7 +2,6 @@ using Events;
 using Game.Audio.System;
 using Game.Match;
 using Game.Player.Contracts;
-using Game.Player.Visual;
 using Game.Weapon.Presentation;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -24,7 +23,6 @@ namespace Game.Player.Movement {
         private SwingGrapple _swingGrapple;
         private WallRunController _wallRunController;
         private MantleController _mantleController;
-        private PlayerAnimationController _animationController;
         private NetworkAudioRelay _audioRelay;
         private Transform _playerTransform;
 
@@ -125,7 +123,6 @@ namespace Game.Player.Movement {
                 _wallRunController = GetComponent<WallRunController>();
             }
             if(_mantleController == null) _mantleController = GetComponent<MantleController>();
-            if(_animationController == null) _animationController = _playerContext.AnimationController;
             if(_audioRelay == null) _audioRelay = _playerContext.AudioRelay;
 
             _obstacleMask = _playerContext.WorldLayer | _playerContext.EnemyLayer;
@@ -294,9 +291,7 @@ namespace Game.Player.Movement {
                 }
             }
 
-            if(_animationController != null) {
-                _animationController.SetCrouching(targetCrouchState);
-            }
+            _playerContext.SetCrouchingAnimation(targetCrouchState);
 
             var targetTransition = targetCrouchState ? 1f : 0f;
             _crouchTransition = Mathf.Lerp(_crouchTransition, targetTransition, 10f * Time.deltaTime);
@@ -572,9 +567,7 @@ namespace Game.Player.Movement {
                 }
             }
 
-            if(_animationController != null) {
-                _animationController.TriggerJumpAnimation();
-            }
+            _playerContext.TriggerJumpAnimation();
         }
 
         /// <summary>
@@ -630,8 +623,7 @@ namespace Game.Player.Movement {
                 }
             }
 
-            if(_animationController)
-                _animationController.TriggerJumpAnimation();
+            _playerContext.TriggerJumpAnimation();
         }
 
         private void HandleJumpPadCollision(ControllerColliderHit hit, float force) {
@@ -771,8 +763,8 @@ namespace Game.Player.Movement {
                 netIsSliding.Value = true;
             }
             
-            if (IsOwner && _animationController != null) {
-                _animationController.SetSlidingState(true, playTrigger: true);
+            if(IsOwner) {
+                _playerContext.SetSlidingAnimationState(true, playTrigger: true);
             }
 
             if(IsOwner && _audioRelay != null && _playerContext?.NetworkObject != null) {
@@ -883,8 +875,8 @@ namespace Game.Player.Movement {
             }
 
             // Sync animation state
-            if (IsOwner && _animationController != null) {
-                _animationController.SetSlidingState(false);
+            if(IsOwner) {
+                _playerContext.SetSlidingAnimationState(false);
             }
         }
 
@@ -909,8 +901,8 @@ namespace Game.Player.Movement {
             }
 
             // Sync animation state
-            if (IsOwner && _animationController != null) {
-                _animationController.SetSlidingState(false);
+            if(IsOwner) {
+                _playerContext.SetSlidingAnimationState(false);
             }
         }
 

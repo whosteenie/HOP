@@ -1,5 +1,5 @@
 using Game.Audio.System;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -7,11 +7,12 @@ namespace Game.Player.Visual {
     /// <summary>
     /// Handles all animation state management for the player.
     /// </summary>
-    [RequireComponent(typeof(PlayerController))]
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerAnimationController : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerVisualContext _playerContext;
 
         private Animator _playerAnimator;
         private NetworkAudioRelay _audioRelay;
@@ -53,19 +54,15 @@ namespace Game.Player.Visual {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[PlayerAnimationController] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve<IPlayerVisualContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[PlayerAnimationController] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
-            if(_audioRelay == null) _audioRelay = playerController.AudioRelay;
-            if(_playerTransform == null) _playerTransform = playerController.PlayerTransform;
+            if(_playerAnimator == null) _playerAnimator = _playerContext.PlayerAnimator;
+            if(_audioRelay == null) _audioRelay = _playerContext.AudioRelay;
+            if(_playerTransform == null) _playerTransform = _playerContext.PlayerTransform;
         }
 
         public override void OnNetworkSpawn() {
@@ -93,17 +90,17 @@ namespace Game.Player.Visual {
             _playerAnimator.SetBool(IsGroundedHash, !IsFalling);
 
             var isWallRunning = IsOwner
-                ? playerController != null && playerController.IsWallRunning
+                ? _playerContext != null && _playerContext.IsWallRunning
                 : _remoteIsWallRunning;
             var isRightWallRun = IsOwner
-                ? playerController != null && playerController.IsRightWallRunning
+                ? _playerContext != null && _playerContext.IsRightWallRunning
                 : _remoteIsRightWallRun;
             _playerAnimator.SetBool(IsWallRunningHash, isWallRunning);
             _playerAnimator.SetBool(RightWallRunHash, isRightWallRun);
             _playerAnimator.SetFloat(WallRunDirectionHash,
                 IsOwner ? GetWallRunDirection(horizontalVelocity, isWallRunning) : _remoteWallRunDirection);
 
-            var isGrounded = playerController != null && playerController.IsGrounded;
+            var isGrounded = _playerContext != null && _playerContext.IsGrounded;
             if((isGrounded && !IsJumping) || IsFalling) {
             }
         }
@@ -149,8 +146,8 @@ namespace Game.Player.Visual {
             // This allows jump->fall transitions to work in the animator
             if(!isGrounded) {
                 IsFalling = true;
-                if(playerController != null && playerController.NetIsFalling != null) {
-                    playerController.NetIsFalling.Value = true;
+                if(_playerContext != null && _playerContext.NetIsFalling != null) {
+                    _playerContext.NetIsFalling.Value = true;
                 }
 
                 // Track peak height while rising (for distance calculations)
@@ -163,8 +160,8 @@ namespace Game.Player.Visual {
                 // Reset when grounded
                 _fallStartHeight = 0f;
                 IsFalling = false;
-                if(playerController != null && playerController.NetIsFalling != null) {
-                    playerController.NetIsFalling.Value = false;
+                if(_playerContext != null && _playerContext.NetIsFalling != null) {
+                    _playerContext.NetIsFalling.Value = false;
                 }
             }
 
@@ -174,7 +171,7 @@ namespace Game.Player.Visual {
                     TriggerLandingAnimation();
                     // Only play landing sound if enough time has passed since spawn/respawn
                     if(_audioRelay != null && Time.time - _lastSpawnTime >= LandingSoundCooldown) {
-                        _audioRelay.RequestPlayAttached("foley.tile.jump.land", new NetworkObjectReference(playerController.NetworkObject),
+                        _audioRelay.RequestPlayAttached("foley.tile.jump.land", new NetworkObjectReference(_playerContext.NetworkObject),
                             allowOverlap: true);
                     }
                 }
@@ -182,9 +179,9 @@ namespace Game.Player.Visual {
                 IsJumping = false;
                 IsFalling = false;
                 _fallStartHeight = 0f;
-                if(playerController != null) {
-                    playerController.NetIsJumping.Value = false;
-                    if(playerController.NetIsFalling != null) playerController.NetIsFalling.Value = false;
+                if(_playerContext != null) {
+                    _playerContext.NetIsJumping.Value = false;
+                    if(_playerContext.NetIsFalling != null) _playerContext.NetIsFalling.Value = false;
                 }
             }
 
@@ -212,9 +209,9 @@ namespace Game.Player.Visual {
             _playerAnimator.SetBool(IsJumpingHash, true);
             IsJumping = true;
 
-            if(playerController == null) return;
-            playerController.NetIsJumping.Value = true;
-            playerController.jumpAnimationSequence.Value++;
+            if(_playerContext == null) return;
+            _playerContext.NetIsJumping.Value = true;
+            _playerContext.JumpAnimationSequence.Value++;
         }
 
         /// <summary>
@@ -231,13 +228,13 @@ namespace Game.Player.Visual {
             // Set IsFallingHash based on _isFalling state to ensure consistency
             _playerAnimator.SetBool(IsFallingHash, IsFalling);
 
-            var isGrounded = playerController != null && playerController.IsGrounded;
+            var isGrounded = _playerContext != null && _playerContext.IsGrounded;
             _playerAnimator.SetBool(IsGroundedHash, isGrounded);
 
-            if(playerController == null) return;
-            playerController.NetIsJumping.Value = false;
-            playerController.NetIsFalling.Value = false;
-            playerController.landAnimationSequence.Value++;
+            if(_playerContext == null) return;
+            _playerContext.NetIsJumping.Value = false;
+            _playerContext.NetIsFalling.Value = false;
+            _playerContext.LandAnimationSequence.Value++;
         }
 
         /// <summary>
@@ -247,8 +244,8 @@ namespace Game.Player.Visual {
             if(_playerAnimator == null) return;
             if(!IsOwner) return;
             _playerAnimator.SetTrigger(MantleTriggerHash);
-            if(playerController != null) {
-                playerController.mantleAnimationSequence.Value++;
+            if(_playerContext != null) {
+                _playerContext.MantleAnimationSequence.Value++;
             }
         }
 
@@ -355,13 +352,13 @@ namespace Game.Player.Visual {
                 _playerAnimator.SetFloat(WallRunDirectionHash, 1f);
             }
 
-            if(IsOwner && playerController != null) {
-                playerController.NetIsJumping.Value = false;
-                playerController.NetIsFalling.Value = false;
-                playerController.NetIsSliding.Value = false;
-                playerController.NetIsWallRunning.Value = false;
-                playerController.NetIsRightWallRun.Value = false;
-                playerController.NetWallRunDirection.Value = 1f;
+            if(IsOwner && _playerContext != null) {
+                _playerContext.NetIsJumping.Value = false;
+                _playerContext.NetIsFalling.Value = false;
+                _playerContext.NetIsSliding.Value = false;
+                _playerContext.NetIsWallRunning.Value = false;
+                _playerContext.NetIsRightWallRun.Value = false;
+                _playerContext.NetWallRunDirection.Value = 1f;
             }
 
             _remoteIsWallRunning = false;

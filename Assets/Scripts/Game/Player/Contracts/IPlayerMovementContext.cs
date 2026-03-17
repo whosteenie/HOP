@@ -1,5 +1,4 @@
 using Game.Audio.System;
-using Game.Player.Visual;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -11,7 +10,6 @@ namespace Game.Player.Contracts {
         CinemachineCamera FpCamera { get; }
         Transform FpCameraTransform { get; }
         Camera WeaponCamera { get; }
-        PlayerAnimationController AnimationController { get; }
         NetworkAudioRelay AudioRelay { get; }
         NetworkObject NetworkObject { get; }
         LayerMask WorldLayer { get; }
@@ -38,6 +36,10 @@ namespace Game.Player.Contracts {
         Game.Weapon.Core.Weapon CurrentWeapon { get; }
 
         void SetLookTilt(float tilt);
+        void SetCrouchingAnimation(bool isCrouching);
+        void SetSlidingAnimationState(bool isSliding, bool playTrigger = false);
+        void TriggerJumpAnimation();
+        void TriggerMantleAnimation();
         GameObject GetCurrentFpWeapon();
     }
 }

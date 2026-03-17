@@ -1,5 +1,5 @@
 using System.Collections;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
@@ -8,11 +8,14 @@ namespace Game.Player.Visual {
     /// <summary>
     /// Handles all visual, material, and renderer management for the player.
     /// </summary>
-    [RequireComponent(typeof(PlayerController))]
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerVisualController : NetworkBehaviour {
+        private static readonly int OutlineColorId = Shader.PropertyToID("_OutlineColor");
+
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerVisualContext _playerContext;
 
         private PlayerShadow _playerShadow;
         private PlayerRenderer _playerRenderer;
@@ -31,42 +34,38 @@ namespace Game.Player.Visual {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[PlayerVisualController] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve<IPlayerVisualContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[PlayerVisualController] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
             }
 
             if(_playerShadow == null) {
-                _playerShadow = playerController.PlayerShadow;
+                _playerShadow = GetComponent<PlayerShadow>();
             }
 
             if(_playerRenderer == null) {
-                _playerRenderer = playerController.PlayerRenderer;
+                _playerRenderer = GetComponent<PlayerRenderer>();
             }
 
             if(_weaponManager == null) {
-                _weaponManager = playerController.WeaponManager;
+                _weaponManager = _playerContext.WeaponManager;
             }
 
             if(_playerMesh == null) {
-                _playerMesh = playerController.PlayerMesh;
+                _playerMesh = _playerContext.PlayerMesh;
             }
 
             if(_playerModelRoot == null) {
-                _playerModelRoot = playerController.PlayerModelRoot;
+                _playerModelRoot = _playerContext.PlayerModelRoot;
             }
 
             if(_worldWeaponSocket == null) {
-                _worldWeaponSocket = playerController.WorldWeaponSocket;
+                _worldWeaponSocket = _playerContext.WorldWeaponSocket;
             }
 
             if(_worldWeaponPrefabs == null || _worldWeaponPrefabs.Length == 0) {
-                _worldWeaponPrefabs = playerController.WorldWeaponPrefabs;
+                _worldWeaponPrefabs = _playerContext.WorldWeaponPrefabs;
             }
             
 
@@ -97,10 +96,7 @@ namespace Game.Player.Visual {
         /// Updates the tag glow on the FP weapon arms.
         /// </summary>
         public void UpdateFpArmTagGlow(bool isTagged, GameObject weaponInstance) {
-            if(weaponInstance == null || playerController == null) return;
-
-            var teamManager = playerController.TeamManager;
-            if(teamManager == null) return;
+            if(weaponInstance == null || _playerContext == null) return;
 
             var renderers = ResolveFpArmRenderers(weaponInstance);
             if(renderers.Length == 0) return;
@@ -110,7 +106,7 @@ namespace Game.Player.Visual {
 
                 foreach(var r in renderers) {
                     r.GetPropertyBlock(_tagPropertyBlock, 0); // Get from index 0 (Outline)
-                    _tagPropertyBlock.SetColor(PlayerTeamManager.OutlineColorID, teamManager.TaggedGlow);
+                    _tagPropertyBlock.SetColor(OutlineColorId, _playerContext.TaggedGlowColor);
                     r.SetPropertyBlock(_tagPropertyBlock, 0);
                 }
             } else {
@@ -262,7 +258,7 @@ namespace Game.Player.Visual {
         public void VerifyAndFixVisibility() {
             // Only check if world model should be visible
             if(_playerModelRoot == null || !_playerModelRoot.activeSelf) return;
-            if(playerController == null || playerController.IsDead) return;
+            if(_playerContext == null || _playerContext.IsDead) return;
 
             if(_playerRenderer != null) {
                 _playerRenderer.VerifyAndFixVisibility();

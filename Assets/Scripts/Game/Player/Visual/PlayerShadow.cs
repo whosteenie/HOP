@@ -1,6 +1,6 @@
 using Events;
 using Game.Match;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
@@ -11,11 +11,12 @@ namespace Game.Player.Visual {
     /// Handles shadow casting mode management for player renderers.
     /// Enhanced to centralize all shadow mode logic from PlayerController.
     /// </summary>
-    [RequireComponent(typeof(PlayerController))]
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerShadow : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerVisualContext _playerContext;
 
         private WeaponManager _weaponManager;
         private PlayerRenderer _playerRenderer;
@@ -41,21 +42,17 @@ namespace Game.Player.Visual {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[PlayerShadow] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve<IPlayerVisualContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[PlayerShadow] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_weaponManager == null) _weaponManager = playerController.WeaponManager;
-            if(_playerRenderer == null) _playerRenderer = playerController.PlayerRenderer;
-            if(_worldWeaponSocket == null) _worldWeaponSocket = playerController.WorldWeaponSocket;
+            if(_weaponManager == null) _weaponManager = _playerContext.WeaponManager;
+            if(_playerRenderer == null) _playerRenderer = GetComponent<PlayerRenderer>();
+            if(_worldWeaponSocket == null) _worldWeaponSocket = _playerContext.WorldWeaponSocket;
             if(_worldWeaponPrefabs == null || _worldWeaponPrefabs.Length == 0) {
-                _worldWeaponPrefabs = playerController.WorldWeaponPrefabs;
+                _worldWeaponPrefabs = _playerContext.WorldWeaponPrefabs;
             }
 
             _renderersCacheValid = false;
@@ -79,8 +76,8 @@ namespace Game.Player.Visual {
         }
 
         private void OnPlayerWorldWeaponPresentationRefreshRequested(PlayerWorldWeaponPresentationRefreshRequestedEvent evt) {
-            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
-            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            if(evt == null || _playerContext?.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != _playerContext.NetworkObjectId) return;
 
             if(evt.UsePodiumShadowState) {
                 ApplyPodiumShadowState();
@@ -90,19 +87,19 @@ namespace Game.Player.Visual {
         }
 
         private void OnPlayerHolsterShadowRefreshRequested(PlayerHolsterShadowRefreshRequestedEvent evt) {
-            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
-            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            if(evt == null || _playerContext?.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != _playerContext.NetworkObjectId) return;
             UpdateHolsterShadowState();
         }
 
         /// <summary>Sets shadow casting mode for all SkinnedMeshRenderers.</summary>
         private void SetSkinnedMeshShadowMode(ShadowCastingMode mode, ShadowCastingMode? ownerMode = null, bool? isEnabled = null) {
             RefreshRendererCacheIfNeeded();
-            var isOwner = playerController != null && playerController.IsOwner;
+            var isOwner = _playerContext != null && _playerContext.IsOwner;
 
             Transform fpCameraTransform = null;
-            if(playerController != null && playerController.FpCamera != null) {
-                fpCameraTransform = playerController.FpCamera.transform;
+            if(_playerContext != null && _playerContext.FpCamera != null) {
+                fpCameraTransform = _playerContext.FpCamera.transform;
             }
 
             foreach(var smr in _cachedSkinnedRenderers) {
@@ -142,8 +139,8 @@ namespace Game.Player.Visual {
             RefreshRendererCacheIfNeeded();
 
             Transform fpCameraTransform = null;
-            if(playerController != null && playerController.FpCamera != null) {
-                fpCameraTransform = playerController.FpCamera.transform;
+            if(_playerContext != null && _playerContext.FpCamera != null) {
+                fpCameraTransform = _playerContext.FpCamera.transform;
             }
 
             foreach(var mr in _cachedRenderers) {
@@ -304,7 +301,7 @@ namespace Game.Player.Visual {
         /// </summary>
         /// <summary>Updates holster shadow state for the owner.</summary>
         public void UpdateHolsterShadowState() {
-            if(playerController == null || !playerController.IsOwner) return;
+            if(_playerContext == null || !_playerContext.IsOwner) return;
             var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
             if(isPostMatch) {
                 TrySetHolsterShadowState(true, false, ShadowCastingMode.On);
@@ -316,7 +313,7 @@ namespace Game.Player.Visual {
         private void InitializeHolsterData() {
             if(_holsterDataInitialized) return;
             _holsterDataInitialized = true;
-            var weaponManager = playerController != null ? playerController.WeaponManager : null;
+            var weaponManager = _playerContext != null ? _playerContext.WeaponManager : null;
             _holsterData = new WeaponHolsterData(weaponManager);
         }
 

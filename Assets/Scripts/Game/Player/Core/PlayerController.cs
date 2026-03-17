@@ -25,7 +25,7 @@ namespace Game.Player.Core {
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NetworkAudioRelay))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
-    public class PlayerController : NetworkBehaviour, IPlayerMovementContext {
+    public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext {
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -1169,6 +1169,14 @@ namespace Game.Player.Core {
         Vector3 IPlayerMovementContext.FullVelocity => GetFullVelocity;
         NetworkVariable<Vector4> IPlayerMovementContext.PlayerBaseColorNetwork => playerBaseColor;
         void IPlayerMovementContext.SetLookTilt(float tilt) => SetLookTilt(tilt);
+        void IPlayerMovementContext.SetCrouchingAnimation(bool isCrouching) => animationController?.SetCrouching(isCrouching);
+        void IPlayerMovementContext.SetSlidingAnimationState(bool isSliding, bool playTrigger) => animationController?.SetSlidingState(isSliding, playTrigger);
+        void IPlayerMovementContext.TriggerJumpAnimation() => animationController?.TriggerJumpAnimation();
+        void IPlayerMovementContext.TriggerMantleAnimation() => animationController?.TriggerMantleAnimation();
+        Color IPlayerVisualContext.TaggedGlowColor => playerTeamManager != null ? playerTeamManager.TaggedGlow : Color.white;
+        NetworkVariable<int> IPlayerVisualContext.JumpAnimationSequence => jumpAnimationSequence;
+        NetworkVariable<int> IPlayerVisualContext.LandAnimationSequence => landAnimationSequence;
+        NetworkVariable<int> IPlayerVisualContext.MantleAnimationSequence => mantleAnimationSequence;
 
         GameObject IPlayerMovementContext.GetCurrentFpWeapon() {
             return weaponManager != null ? weaponManager.GetCurrentFpWeapon() : null;

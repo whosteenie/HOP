@@ -153,9 +153,7 @@ namespace Game.Player.Movement {
             _mantleStartPosition = _playerContext.Position;
             _mantleTargetPosition = targetPosition;
 
-            if(_playerContext?.AnimationController != null) {
-                _playerContext.AnimationController.TriggerMantleAnimation();
-            }
+            _playerContext.TriggerMantleAnimation();
 
             if(_movementController != null) _movementController.ResetVelocity();
 

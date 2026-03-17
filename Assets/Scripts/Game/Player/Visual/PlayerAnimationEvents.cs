@@ -1,5 +1,5 @@
 using System;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Game.Weapon.Manager;
 using UnityEngine;
 
@@ -7,24 +7,42 @@ namespace Game.Player.Visual {
     public class PlayerAnimationEvents : MonoBehaviour {
         public event Action OnPutAwayComplete;
 
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
         [SerializeField] private bool debugAnimationEvents;
+        private IPlayerVisualContext _playerContext;
         private WeaponManager _weaponManager;
 
         private void Awake() {
-            // Preserve prefab/inspector wiring. Only attempt to auto-find if not assigned.
-            if(playerController == null) {
-                playerController = GetComponentInParent<PlayerController>();
-                if(playerController == null) {
-                    playerController = transform.root.GetComponent<PlayerController>();
+            if(playerContextSource == null) {
+                foreach(var behaviour in GetComponentsInParent<MonoBehaviour>(true)) {
+                    if(behaviour == null) continue;
+                    var candidate = behaviour as IPlayerVisualContext;
+                    if(candidate != null) {
+                        playerContextSource = behaviour;
+                        break;
+                    }
                 }
-                if(playerController == null) {
-                    playerController = transform.root.GetComponentInChildren<PlayerController>();
+
+                if(playerContextSource == null) {
+                    foreach(var behaviour in transform.root.GetComponentsInChildren<MonoBehaviour>(true)) {
+                        if(behaviour == null) continue;
+                        var candidate = behaviour as IPlayerVisualContext;
+                        if(candidate != null) {
+                            playerContextSource = behaviour;
+                            break;
+                        }
+                    }
                 }
             }
 
-            if(playerController != null) {
-                _weaponManager = playerController.WeaponManager;
+            if(!PlayerContractResolver.TryResolve<IPlayerVisualContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[PlayerAnimationEvents] IPlayerVisualContext not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_playerContext != null) {
+                _weaponManager = _playerContext.WeaponManager;
             }
         }
 
@@ -35,8 +53,7 @@ namespace Game.Player.Visual {
             if(debugAnimationEvents && Debug.isDebugBuild) {
                 Debug.Log($"[PlayerAnimationEvents] PlayWalkSound event on {name}");
             }
-            if(playerController == null) return;
-            playerController.PlayWalkSound();
+            _playerContext?.PlayWalkSound();
         }
 
         /// <summary>
@@ -46,8 +63,7 @@ namespace Game.Player.Visual {
             if(debugAnimationEvents && Debug.isDebugBuild) {
                 Debug.Log($"[PlayerAnimationEvents] PlayRunSound event on {name}");
             }
-            if(playerController == null) return;
-            playerController.PlayRunSound();
+            _playerContext?.PlayRunSound();
         }
 
         /// <summary>
