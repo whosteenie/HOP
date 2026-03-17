@@ -2,11 +2,11 @@ using Game.Player.Combat;
 using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Kinemation;
-using Game.Weapon.Manager;
+using Game.Weapon.Presentation;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Game.Weapon.Presentation {
+namespace Game.Weapon.Manager {
     internal sealed class WeaponFpPresentation {
         private readonly WeaponManager _root;
 

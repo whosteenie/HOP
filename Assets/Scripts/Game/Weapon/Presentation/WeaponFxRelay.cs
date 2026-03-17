@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using Diagnostics;
 using Game.Player.Core;
 using Game.Weapon.Core;
-using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -11,7 +10,6 @@ namespace Game.Weapon.Presentation {
     public class WeaponFxRelay : NetworkBehaviour {
         [SerializeField] private PlayerController playerController;
         private NetworkObject _playerNetworkObject;
-        private WeaponManager _playerWeaponManager;
         private readonly List<PendingRemoteShotFx> _pendingRemoteShotFx = new();
 
         private struct PendingRemoteShotFx {
@@ -41,10 +39,6 @@ namespace Game.Weapon.Presentation {
 
             if(_playerNetworkObject == null) {
                 _playerNetworkObject = playerController.NetworkObject;
-            }
-
-            if(_playerWeaponManager == null) {
-                _playerWeaponManager = playerController.WeaponManager;
             }
         }
 
@@ -82,9 +76,9 @@ namespace Game.Weapon.Presentation {
         internal void QueueRemoteShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
             NetworkObjectReference hitPlayerRef, bool playMuzzleFlash, Vector3 shooterVelocity) {
             ValidateComponents();
-            if(_playerNetworkObject == null || _playerWeaponManager == null) return;
+            if(_playerNetworkObject == null) return;
             if(_playerNetworkObject.IsOwner) return;
-            var weapon = _playerWeaponManager.CurrentWeapon;
+            var weapon = playerController.CurrentWeapon;
             if(weapon == null) return;
 
             _pendingRemoteShotFx.Add(new PendingRemoteShotFx {

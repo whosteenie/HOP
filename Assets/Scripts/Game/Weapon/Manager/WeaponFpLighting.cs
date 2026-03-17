@@ -1,7 +1,6 @@
-using Game.Weapon.Manager;
 using UnityEngine;
 
-namespace Game.Weapon.Presentation {
+namespace Game.Weapon.Manager {
     internal sealed class WeaponFpLighting {
         private readonly WeaponManager _root;
 

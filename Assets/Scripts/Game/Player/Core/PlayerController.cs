@@ -913,6 +913,7 @@ namespace Game.Player.Core {
         #region Weapons
 
         public WeaponManager WeaponManager => weaponManager;
+        public Weapon.Core.Weapon CurrentWeapon => weaponManager != null ? weaponManager.CurrentWeapon : null;
         public GrappleController GrappleController => grappleController;
         public WeaponDamageRelay DamageRelay => damageRelay;
         public WeaponFxRelay FxRelay => fxRelay;
