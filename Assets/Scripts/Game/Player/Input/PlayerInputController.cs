@@ -70,9 +70,9 @@ namespace Game.Player.Input {
         }
 
         private Weapon.Core.Weapon CurrentWeapon => WeaponManager == null ? null : WeaponManager.CurrentWeapon;
-        private bool IsMantling => _playerContext != null && _playerContext.IsMantling;
-        private bool CanMantleJump => _playerContext != null && _playerContext.CanMantleJump;
-        private bool IsGrappling => _playerContext != null && _playerContext.IsGrappling;
+        private bool IsMantling => _playerContext is { IsMantling: true };
+        private bool CanMantleJump => _playerContext is { CanMantleJump: true };
+        private bool IsGrappling => _playerContext is { IsGrappling: true };
 
         private bool _sprintBtnDown;
         private bool _crouchBtnDown;

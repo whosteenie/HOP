@@ -4,7 +4,7 @@ using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
 using Game.Match;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.Spawning;
@@ -26,7 +26,9 @@ namespace Game.Player.Combat {
         private bool HasCombatAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerCombatContext _playerContext;
 
         private PlayerTagController _tagController;
         private PlayerVisualController _visualController;
@@ -39,7 +41,6 @@ namespace Game.Player.Combat {
         private ClientNetworkTransform _clientNetworkTransform;
         private Transform _playerTransform;
         private PlayerMovementController _movementController;
-        private PlayerTeamManager _teamManager;
         private GameObject _playerModelRoot;
         private Transform _worldWeaponSocket;
         private Animator _playerAnimator;
@@ -97,34 +98,29 @@ namespace Game.Player.Combat {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[PlayerHealthController] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[PlayerHealthController] IPlayerCombatContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_playerTransform == null) _playerTransform = playerController.PlayerTransform;
-            if(_tagController == null) _tagController = playerController.TagController;
-            if(_visualController == null) _visualController = playerController.VisualController;
-            if(_animationController == null) _animationController = playerController.AnimationController;
-            if(_playerShadow == null) _playerShadow = playerController.PlayerShadow;
-            if(_playerRagdoll == null) _playerRagdoll = playerController.PlayerRagdoll;
-            if(_deathCameraController == null) _deathCameraController = playerController.DeathCameraController;
-            if(_weaponManager == null) _weaponManager = playerController.WeaponManager;
-            if(_characterController == null) _characterController = playerController.CharacterController;
-            if(_clientNetworkTransform == null) _clientNetworkTransform = playerController.ClientNetworkTransform;
-            if(_movementController == null) _movementController = playerController.MovementController;
-            if(_teamManager == null) _teamManager = playerController.TeamManager;
-            if(_playerModelRoot == null) _playerModelRoot = playerController.PlayerModelRoot;
-            if(_worldWeaponSocket == null) _worldWeaponSocket = playerController.WorldWeaponSocket;
-            if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
-            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
-            if(_impulseSource == null) _impulseSource = playerController.ImpulseSource;
-            if(_weaponCameraController == null) _weaponCameraController = playerController.WeaponCameraController;
+            if(_playerTransform == null) _playerTransform = _playerContext.PlayerTransform;
+            if(_tagController == null) _tagController = GetComponent<PlayerTagController>();
+            if(_visualController == null) _visualController = GetComponent<PlayerVisualController>();
+            if(_animationController == null) _animationController = GetComponent<PlayerAnimationController>();
+            if(_playerShadow == null) _playerShadow = GetComponent<PlayerShadow>();
+            if(_playerRagdoll == null) _playerRagdoll = GetComponent<PlayerRagdoll>();
+            if(_deathCameraController == null) _deathCameraController = GetComponent<DeathCameraController>();
+            if(_weaponManager == null) _weaponManager = _playerContext.WeaponManager;
+            if(_characterController == null) _characterController = _playerContext.CharacterController;
+            if(_clientNetworkTransform == null) _clientNetworkTransform = _playerContext.ClientNetworkTransform;
+            if(_movementController == null) _movementController = GetComponent<PlayerMovementController>();
+            if(_playerModelRoot == null) _playerModelRoot = _playerContext.PlayerModelRoot;
+            if(_worldWeaponSocket == null) _worldWeaponSocket = _playerContext.WorldWeaponSocket;
+            if(_playerAnimator == null) _playerAnimator = _playerContext.PlayerAnimator;
+            if(_fpCamera == null) _fpCamera = _playerContext.FpCamera;
+            if(_impulseSource == null) _impulseSource = _playerContext.ImpulseSource;
+            if(_weaponCameraController == null) _weaponCameraController = _playerContext.WeaponCameraController;
         }
 
         public override void OnNetworkSpawn() {
@@ -134,13 +130,13 @@ namespace Game.Player.Combat {
         }
 
         private void RefreshStateBindings() {
-            if(playerController == null) {
+            if(_playerContext == null) {
                 return;
             }
 
-            netHealth = playerController.NetHealth;
-            netIsDead = playerController.NetIsDead;
-            deaths = playerController.Deaths;
+            netHealth = _playerContext.NetHealth;
+            netIsDead = _playerContext.NetIsDead;
+            deaths = _playerContext.Deaths;
         }
 
         /// <summary>Syncs authoritative health shadow from replicated network state.</summary>
@@ -246,7 +242,7 @@ namespace Game.Player.Combat {
                 
                 TryForceHopballDrop("OutOfBoundsDeath");
 
-                if(playerController != null && playerController.PlayerName != null) {
+                if(_playerContext is { PlayerName: not null }) {
                 }
                 BroadcastKillClientRpc("HOP", attackerId, OwnerClientId, null);
                 
@@ -272,9 +268,7 @@ namespace Game.Player.Combat {
                 var nonTaggedShootingTagged = false;
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
                     if(attackerClient.PlayerObject == null) return false;
-                    var attacker = attackerClient.PlayerObject.GetComponent<PlayerController>();
-                    if(attacker == null) return false;
-                    var attackerTagController = attacker.GetComponent<PlayerTagController>();
+                    var attackerTagController = attackerClient.PlayerObject.GetComponent<PlayerTagController>();
 
                     if(attackerTagController != null && !attackerTagController.IsTagged.Value && 
                        _tagController != null && _tagController.IsTagged.Value) {
@@ -283,8 +277,8 @@ namespace Game.Player.Combat {
                             attackerTagController.ApplyTimeTaggedDeltaAuthority(-1);
                         }
 
-                        if(playerController != null) {
-                            playerController.PlayHitEffectsClientRpc(hitPoint, amount);
+                        if(_playerContext != null) {
+                            _playerContext.PlayHitEffects(hitPoint, amount);
                         }
                     }
                 }
@@ -305,15 +299,13 @@ namespace Game.Player.Combat {
                     bodyPartTag);
                 CommitAuthoritativeHealthShadow(newHp, isLethalHit);
 
-                if(playerController != null) {
-                    playerController.PlayHitEffectsClientRpc(hitPoint, amount);
+                if(_playerContext != null) {
+                    _playerContext.PlayHitEffects(hitPoint, amount);
                 }
 
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
                     if(attackerClient.PlayerObject == null) return false;
-                    var attacker = attackerClient.PlayerObject.GetComponent<PlayerController>();
-                    if(attacker != null && attacker.DamageDealt != null &&
-                       attacker.TryGetComponent<PlayerCombatController>(out var attackerHealthController)) {
+                    if(attackerClient.PlayerObject.TryGetComponent<PlayerCombatController>(out var attackerHealthController)) {
                         attackerHealthController.AddDamageDealtAuthority(actualDealt);
                     }
                 }
@@ -345,17 +337,13 @@ namespace Game.Player.Combat {
 
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var killerClient)) {
                     if(killerClient.PlayerObject == null) return false;
-                    var killer = killerClient.PlayerObject.GetComponent<PlayerController>();
-                    if(killer != null) {
-                        if(killer.TryGetComponent<PlayerCombatController>(out var killerHealthController)) {
-                            killerHealthController.AddKillAuthority();
-                        }
-                        AwardAssists(attackerId);
-                        var killerName = killer.PlayerName != null ? killer.PlayerName.Value.ToString() : "Player";
-                        if(playerController != null && playerController.PlayerName != null) {
-                        }
-                        BroadcastKillClientRpc(killerName, attackerId, OwnerClientId, weaponId);
+                    if(killerClient.PlayerObject.TryGetComponent<PlayerCombatController>(out var killerHealthController)) {
+                        killerHealthController.AddKillAuthority();
                     }
+                    AwardAssists(attackerId);
+                    var killerState = MatchPlayerStateProxy.GetForPlayer(attackerId);
+                    var killerName = killerState != null ? killerState.playerName.Value.ToString() : "Player";
+                    BroadcastKillClientRpc(killerName, attackerId, OwnerClientId, weaponId);
                 }
 
                 // Reserve spawn point immediately when player dies (server-side)
@@ -430,13 +418,13 @@ namespace Game.Player.Combat {
                     _deathCameraController.EnableDeathCamera();
                 }
 
-                var wasHoldingHopball = playerController != null && playerController.IsHoldingHopball;
+                var wasHoldingHopball = _playerContext is { IsHoldingHopball: true };
                 if(_playerShadow != null) {
                     _playerShadow.ApplyDeathShadowState(wasHoldingHopball);
                 }
 
                 if(IsOwner && _fpCamera != null) {
-                    _fpCamera.Lens.FieldOfView = playerController != null ? playerController.BaseFov : 80f;
+                    _fpCamera.Lens.FieldOfView = _playerContext != null ? _playerContext.BaseFov : 80f;
                 }
             }
 
@@ -456,10 +444,7 @@ namespace Game.Player.Combat {
 
             SpawnPoint reservedPoint = null;
             if(isTeamBased) {
-                var team = SpawnPoint.Team.TeamA;
-                if(_teamManager != null && _teamManager.netTeam != null) {
-                    team = _teamManager.netTeam.Value;
-                }
+                var team = _playerContext != null ? _playerContext.CurrentTeam : SpawnPoint.Team.TeamA;
                 if(SpawnManager.Instance != null) {
                     reservedPoint = SpawnManager.Instance.ReserveSpawnPoint(OwnerClientId, team);
                 }
@@ -507,8 +492,8 @@ namespace Game.Player.Combat {
             var isTeamBased = matchSettings != null &&
                               MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
             var team = SpawnPoint.Team.TeamA;
-            if(isTeamBased && _teamManager != null && _teamManager.netTeam != null) {
-                team = _teamManager.netTeam.Value;
+            if(isTeamBased && _playerContext != null) {
+                team = _playerContext.CurrentTeam;
             }
 
             if(_reservedSpawnPoint != null) {
@@ -604,9 +589,7 @@ namespace Game.Player.Combat {
             const float holdDuration = 0.5f;
             yield return new WaitForSeconds(holdDuration);
 
-            if(playerController != null) {
-                playerController.SetOutOfBoundsGraceWindow(outOfBoundsGraceAfterRespawnSeconds);
-            }
+            _playerContext?.SetOutOfBoundsGraceWindow(outOfBoundsGraceAfterRespawnSeconds);
             _deathStatePending = false;
             CommitAuthoritativeHealthShadow(MaxHealth, false);
             ResetHealthAndRegenerationState();
@@ -647,11 +630,8 @@ namespace Game.Player.Combat {
                 ("enabled", true),
                 ("reason", "RespawnComplete"));
 
-            if(playerController != null) playerController.ResetLookPitchFromRespawn();
-
-            if(playerController != null) {
-                playerController.lookInput = Vector2.zero;
-            }
+            _playerContext?.ResetLookPitchFromRespawn();
+            _playerContext?.ClearLookInput();
 
             if(_movementController != null) {
                 _movementController.ResetVelocity();
@@ -675,8 +655,8 @@ namespace Game.Player.Combat {
                 _weaponManager.ApplyTpWeaponStateOnRespawn();
             }
 
-            if(playerController == null) return;
-            var sampledMove = playerController.ResampleHeldMovementInputFromRespawn("RespawnControlRestore");
+            if(_playerContext == null) return;
+            var sampledMove = _playerContext.ResampleHeldMovementInputFromRespawn("RespawnControlRestore");
             FlowLog.Emit(FlowEventIds.PlayerControlState,
                 ("player", OwnerClientId),
                 ("enabled", true),
@@ -708,9 +688,7 @@ namespace Game.Player.Combat {
                     _playerShadow.ApplyOwnerDefaultShadowState();
                 }
 
-                if(playerController != null) {
-                    playerController.ResetWeaponState(resetAllAmmo: true, switchToWeapon0: true, updateHUD: true);
-                }
+                _playerContext?.ResetWeaponState(resetAllAmmo: true, switchToWeapon0: true, updateHUD: true);
             } else {
                 StartCoroutine(ShowVisualsAfterPositionSync(expectedSpawnPosition));
             }
@@ -866,18 +844,18 @@ namespace Game.Player.Combat {
         }
 
         private void AddDamageDealtAuthority(float delta) {
-            if(delta <= 0f || playerController == null || playerController.DamageDealt == null) return;
-            playerController.DamageDealt.Value += delta;
+            if(delta <= 0f || _playerContext == null || _playerContext.DamageDealt == null) return;
+            _playerContext.DamageDealt.Value += delta;
         }
 
         private void AddKillAuthority() {
-            if(playerController == null || playerController.Kills == null) return;
-            playerController.Kills.Value++;
+            if(_playerContext == null || _playerContext.Kills == null) return;
+            _playerContext.Kills.Value++;
         }
 
         private void AddAssistAuthority() {
-            if(playerController == null || playerController.Assists == null) return;
-            playerController.Assists.Value++;
+            if(_playerContext == null || _playerContext.Assists == null) return;
+            _playerContext.Assists.Value++;
         }
 
         private static void ResetAnimatorState(Animator animator) {
@@ -938,9 +916,7 @@ namespace Game.Player.Combat {
                 if(assist.Damage < AssistMinDamage) continue;
                 if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(assist.AttackerId, out var client)) continue;
                 if(client.PlayerObject == null) continue;
-                var controller = client.PlayerObject.GetComponent<PlayerController>();
-                if(controller == null || controller.Assists == null) continue;
-                if(controller.TryGetComponent<PlayerCombatController>(out var assistHealthController)) {
+                if(client.PlayerObject.TryGetComponent<PlayerCombatController>(out var assistHealthController)) {
                     assistHealthController.AddAssistAuthority();
                 }
             }
@@ -981,11 +957,11 @@ namespace Game.Player.Combat {
         }
 
         private float GetOutOfBoundsKillY() {
-            return playerController != null ? playerController.GetOutOfBoundsKillY() : OutOfBoundsKillYDefault;
+            return _playerContext != null ? _playerContext.GetOutOfBoundsKillY() : OutOfBoundsKillYDefault;
         }
 
         private bool IsYLevelOutOfBoundsKillEnabled() {
-            return playerController == null || playerController.IsYLevelOutOfBoundsKillEnabled();
+            return _playerContext == null || _playerContext.IsYLevelOutOfBoundsKillEnabled();
         }
     }
 }

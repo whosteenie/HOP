@@ -1,13 +1,15 @@
 using System.Linq;
 using Diagnostics;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Player.Combat {
     public class PlayerRagdoll : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerRagdollContext _playerContext;
 
         private CharacterController _characterController;
         private Animator _playerAnimator;
@@ -41,18 +43,14 @@ namespace Game.Player.Combat {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[PlayerRagdoll] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[PlayerRagdoll] IPlayerRagdollContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_characterController == null) _characterController = playerController.CharacterController;
-            if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
+            if(_characterController == null) _characterController = _playerContext.CharacterController;
+            if(_playerAnimator == null) _playerAnimator = _playerContext.PlayerAnimator;
         }
 
         public override void OnNetworkSpawn() {

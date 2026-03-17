@@ -1,4 +1,4 @@
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Network.Core;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -11,7 +11,9 @@ namespace Game.Player.Combat {
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerStatsController : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerStatsContext _playerContext;
 
         [Header("Velocity Tracking")]
         [SerializeField] private float velocitySampleInterval = 0.1f;
@@ -21,16 +23,16 @@ namespace Game.Player.Combat {
 
         public NetworkVariable<float> AverageVelocity {
             get {
-                if(playerController == null) return MissingAverageVelocityState;
-                var playerState = playerController.PlayerState;
+                if(_playerContext == null) return MissingAverageVelocityState;
+                var playerState = _playerContext.PlayerState;
                 return playerState != null ? playerState.averageVelocity : MissingAverageVelocityState;
             }
         }
 
         public NetworkVariable<int> PingMs {
             get {
-                if(playerController == null) return MissingPingState;
-                var playerState = playerController.PlayerState;
+                if(_playerContext == null) return MissingPingState;
+                var playerState = _playerContext.PlayerState;
                 return playerState != null ? playerState.pingMs : MissingPingState;
             }
         }
@@ -50,12 +52,8 @@ namespace Game.Player.Combat {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController != null) return;
-            Debug.LogError("[PlayerStatsController] PlayerController not found!");
+            if(PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) return;
+            Debug.LogError("[PlayerStatsController] IPlayerStatsContext not found!");
             enabled = false;
         }
 
@@ -74,9 +72,9 @@ namespace Game.Player.Combat {
         /// Should be called every frame when the player is moving.
         /// </summary>
         public void UpdateAuthorityStats() {
-            if(!NetworkAuthority.HasGlobalAuthority(this) || playerController == null || AverageVelocity == null) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this) || _playerContext == null || AverageVelocity == null) return;
 
-            var speed = playerController.ObservedServerMovementSpeed;
+            var speed = _playerContext.ObservedServerMovementSpeed;
             const float walkSpeed = 5f;
             if(speed >= walkSpeed) {
                 _velSampleAccum += speed;
@@ -98,7 +96,7 @@ namespace Game.Player.Combat {
         /// Updates the player's ping based on the network transport.
         /// </summary>
         private void UpdatePing() {
-            if(!NetworkAuthority.HasGlobalAuthority(this) || playerController == null || PingMs == null) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this) || _playerContext == null || PingMs == null) return;
 
             var networkManager = NetworkManager;
             if(networkManager == null || !networkManager.IsListening) {
@@ -108,7 +106,7 @@ namespace Game.Player.Combat {
             var transport = networkManager.NetworkConfig.NetworkTransport as UnityTransport;
             if(!transport) return;
 
-            var rtt = transport.GetCurrentRtt(playerController.OwnerClientId);
+            var rtt = transport.GetCurrentRtt(_playerContext.OwnerClientId);
             PingMs.Value = (int)rtt;
         }
     }

@@ -1,7 +1,7 @@
 using Events;
 using Game.Audio.System;
 using Game.Match;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
@@ -15,8 +15,8 @@ namespace Game.Player.Combat {
         private bool HasTagAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
-        private PlayerTeamManager _teamManager;
+        [SerializeField] private MonoBehaviour playerContextSource;
+        private IPlayerTagContext _playerContext;
         private MatchPlayerStateProxy _cachedPlayerState;
         private MatchPlayerStateProxy _boundPlayerState;
         private static readonly NetworkVariable<int> MissingIntState = new();
@@ -63,17 +63,9 @@ namespace Game.Player.Combat {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[PlayerTagController] PlayerController not found!");
-                enabled = false;
-                return;
-            }
-
-            if(_teamManager == null) _teamManager = playerController.TeamManager;
+            if(PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) return;
+            Debug.LogError("[PlayerTagController] IPlayerTagContext not found!");
+            enabled = false;
         }
 
         public override void OnNetworkSpawn() {
@@ -81,14 +73,6 @@ namespace Game.Player.Combat {
 
             // Component references should be assigned in the inspector
             // Only use GetComponent as a last resort fallback if not assigned
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(_teamManager == null) {
-                _teamManager = GetComponent<PlayerTeamManager>();
-            }
-
             // Network-dependent initialization
             // Subscribe to tag state changes
             MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
@@ -98,8 +82,8 @@ namespace Game.Player.Combat {
             TryBindTagState();
 
             // Update outline on spawn if already tagged
-            if(_teamManager != null) {
-                _teamManager.UpdateOutlineColour();
+            if(_playerContext != null) {
+                _playerContext.UpdateTeamOutlineColour();
             }
         }
 
@@ -148,21 +132,17 @@ namespace Game.Player.Combat {
 
             if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) return;
 
-            PlayerController attacker = null;
-            if(attackerClient.PlayerObject != null) {
-                attacker = attackerClient.PlayerObject.GetComponent<PlayerController>();
-            }
             PlayerTagController attackerTagController = null;
-            if(attacker != null) {
-                attackerTagController = attacker.GetComponent<PlayerTagController>();
+            if(attackerClient.PlayerObject != null) {
+                attackerTagController = attackerClient.PlayerObject.GetComponent<PlayerTagController>();
             }
 
             if(attackerTagController == null || !attackerTagController.IsTagged.Value) {
                 return;
             }
 
-            if(playerController != null) {
-                playerController.PlayHitEffectsClientRpc(hitPoint, amount);
+            if(_playerContext != null) {
+                _playerContext.PlayHitEffects(hitPoint, amount);
             }
 
             var wasTagged = IsTagged.Value;
@@ -183,27 +163,24 @@ namespace Game.Player.Combat {
         /// </summary>
         private void OnTaggedStateChanged(bool oldValue, bool newValue) {
             // Update HUD for Tag mode
-            if(IsOwner && playerController != null) {
+            if(IsOwner && _playerContext != null) {
                 var matchSettings = MatchSettingsManager.Instance;
                 if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
                     EventBus.Publish(new UpdateTagStatusEvent(newValue));
                 }
             }
 
-            if(playerController != null) {
-                EventBus.Publish(new PlayerTagStateChangedEvent(playerController.OwnerClientId, newValue));
+            if(_playerContext != null) {
+                EventBus.Publish(new PlayerTagStateChangedEvent(_playerContext.OwnerClientId, newValue));
             }
 
-            // Update outline color via PlayerTeamManager
-            if(_teamManager != null) {
-                _teamManager.UpdateOutlineColour();
+            if(_playerContext != null) {
+                _playerContext.UpdateTeamOutlineColour();
             }
 
             // Update FP weapon glow (owner only)
-            if(!IsOwner || playerController == null) return;
-            var weaponManager = playerController.WeaponManager;
-            if(weaponManager == null) return;
-            weaponManager.UpdateAllFpArmTagGlow(newValue);
+            if(!IsOwner || _playerContext == null) return;
+            _playerContext.UpdateFpArmTagGlow(newValue);
         }
 
         [Rpc(SendTo.Everyone)]
@@ -213,23 +190,17 @@ namespace Game.Player.Combat {
             var taggerName = "Unknown";
             var taggedName = "Unknown";
 
-            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggerClientId, out var taggerClient)) {
-                PlayerController tagger = null;
-                if(taggerClient.PlayerObject != null) {
-                    tagger = taggerClient.PlayerObject.GetComponent<PlayerController>();
-                }
-                if(tagger != null) {
-                    taggerName = tagger.PlayerName.Value.ToString();
+            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggerClientId, out _)) {
+                var taggerState = MatchPlayerStateProxy.GetForPlayer(taggerClientId);
+                if(taggerState != null) {
+                    taggerName = taggerState.playerName.Value.ToString();
                 }
             }
 
-            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggedClientId, out var taggedClient)) {
-                PlayerController taggedPlayer = null;
-                if(taggedClient.PlayerObject != null) {
-                    taggedPlayer = taggedClient.PlayerObject.GetComponent<PlayerController>();
-                }
-                if(taggedPlayer != null) {
-                    taggedName = taggedPlayer.PlayerName.Value.ToString();
+            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggedClientId, out _)) {
+                var taggedState = MatchPlayerStateProxy.GetForPlayer(taggedClientId);
+                if(taggedState != null) {
+                    taggedName = taggedState.playerName.Value.ToString();
                 }
             }
 
@@ -247,13 +218,10 @@ namespace Game.Player.Combat {
         public void BroadcastTagTransferFromHopClientRpc(ulong taggedClientId) {
             var taggedName = "Unknown";
 
-            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggedClientId, out var taggedClient)) {
-                PlayerController taggedPlayer = null;
-                if(taggedClient.PlayerObject != null) {
-                    taggedPlayer = taggedClient.PlayerObject.GetComponent<PlayerController>();
-                }
-                if(taggedPlayer != null) {
-                    taggedName = taggedPlayer.PlayerName.Value.ToString();
+            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggedClientId, out _)) {
+                var taggedState = MatchPlayerStateProxy.GetForPlayer(taggedClientId);
+                if(taggedState != null) {
+                    taggedName = taggedState.playerName.Value.ToString();
                 }
             }
 
@@ -305,9 +273,7 @@ namespace Game.Player.Combat {
         private void ApplyTagVictimAuthority() {
             IsTagged.Value = true;
 
-            if(playerController != null && playerController.WeaponManager != null) {
-                playerController.WeaponManager.DrainCurrentWeaponAmmoForTag();
-            }
+            _playerContext?.DrainCurrentWeaponAmmoForTag();
 
             Tagged.Value++;
             lastTagStatsUpdateTime = Time.time;
@@ -320,23 +286,23 @@ namespace Game.Player.Combat {
         }
 
         private MatchPlayerStateProxy ResolvePlayerState() {
-            if(playerController == null) {
+            if(_playerContext == null) {
                 return null;
             }
 
             if(_cachedPlayerState != null &&
-               _cachedPlayerState.RepresentedClientId == playerController.OwnerClientId &&
+               _cachedPlayerState.RepresentedClientId == _playerContext.OwnerClientId &&
                _cachedPlayerState.NetworkObject != null &&
                _cachedPlayerState.NetworkObject.IsSpawned) {
                 return _cachedPlayerState;
             }
 
-            _cachedPlayerState = MatchPlayerStateProxy.GetForPlayer(playerController.OwnerClientId);
+            _cachedPlayerState = MatchPlayerStateProxy.GetForPlayer(_playerContext.OwnerClientId);
             return _cachedPlayerState;
         }
 
         private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
-            if(playerController == null || playerClientId != playerController.OwnerClientId) {
+            if(_playerContext == null || playerClientId != _playerContext.OwnerClientId) {
                 return;
             }
 
@@ -345,7 +311,7 @@ namespace Game.Player.Combat {
         }
 
         private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
-            if(playerController == null || playerClientId != playerController.OwnerClientId) {
+            if(_playerContext == null || playerClientId != _playerContext.OwnerClientId) {
                 return;
             }
 

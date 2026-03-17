@@ -7,6 +7,7 @@ using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Input;
 using Game.Player.Movement;
+using Game.Spawning;
 using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
@@ -25,7 +26,7 @@ namespace Game.Player.Core {
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NetworkAudioRelay))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
-    public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext, IPlayerLookContext {
+    public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext, IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext, IPlayerCombatContext {
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -265,7 +266,7 @@ namespace Game.Player.Core {
         #region Public Properties
  
         public float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
-        public float BaseFov => lookController != null ? lookController.BaseFov : 80f;
+        private float BaseFov => lookController != null ? lookController.BaseFov : 80f;
         public bool IsJumpHeld => playerInputController != null && playerInputController.IsJumpHeld;
         public WallRunController WallRunController => wallRunController;
         public bool IsWallRunning => wallRunController != null && wallRunController.IsWallRunning;
@@ -302,7 +303,8 @@ namespace Game.Player.Core {
         internal void LoadMaterialCustomizationFromPrefsForSpawn() => LoadMaterialCustomizationFromPrefs();
         internal void ClearTriggerOobCountdownFromPresentation() => ClearTriggerOobCountdownServer();
         internal void HideTriggerOobCountdownLocalFromPresentation() => HideTriggerOobCountdownLocal();
-        internal void ResetLookPitchFromRespawn() {
+
+        private void ResetLookPitchFromRespawn() {
             if(lookController != null) {
                 lookController.ResetPitch();
             }
@@ -320,7 +322,7 @@ namespace Game.Player.Core {
             }
         }
 
-        internal Vector2 ResampleHeldMovementInputFromRespawn(string reason = "Unknown") =>
+        private Vector2 ResampleHeldMovementInputFromRespawn(string reason = "Unknown") =>
             playerInputController != null ? playerInputController.ResampleHeldMovementInput(reason) : Vector2.zero;
 
         #endregion
@@ -746,15 +748,15 @@ namespace Game.Player.Core {
             _movementValidation.ApplyServerMovementCorrection(correctedPosition, correctedRotation);
         }
 
-        public void SetOutOfBoundsGraceWindow(float seconds) {
+        private void SetOutOfBoundsGraceWindow(float seconds) {
             _outOfBounds.SetOutOfBoundsGraceWindow(seconds);
         }
 
-        public float GetOutOfBoundsKillY() {
+        private float GetOutOfBoundsKillY() {
             return _outOfBounds.GetOutOfBoundsKillY();
         }
 
-        public bool IsYLevelOutOfBoundsKillEnabled() {
+        private bool IsYLevelOutOfBoundsKillEnabled() {
             return _outOfBounds.IsYLevelOutOfBoundsKillEnabled();
         }
 
@@ -832,7 +834,7 @@ namespace Game.Player.Core {
         /// <summary>
         /// Resets the player's weapon state, ammo, and HUD.
         /// </summary>
-        public void ResetWeaponState(bool resetAllAmmo = false, bool switchToWeapon0 = false, bool updateHUD = false) {
+        private void ResetWeaponState(bool resetAllAmmo = false, bool switchToWeapon0 = false, bool updateHUD = false) {
             _weaponPresentation.ResetWeaponState(resetAllAmmo, switchToWeapon0, updateHUD);
         }
 
@@ -1089,7 +1091,7 @@ namespace Game.Player.Core {
         }
 
         public float AverageVelocity => statsController != null ? statsController.AverageVelocity.Value : 0f;
-        public float ObservedServerMovementSpeed => _movementValidation.ObservedServerMovementSpeed;
+        private float ObservedServerMovementSpeed => _movementValidation.ObservedServerMovementSpeed;
 
         #endregion
 
@@ -1135,7 +1137,7 @@ namespace Game.Player.Core {
         }
 
         [Rpc(SendTo.Everyone)]
-        public void PlayHitEffectsClientRpc(Vector3 hitPoint, float amount) {
+        private void PlayHitEffectsClientRpc(Vector3 hitPoint, float amount) {
             if(IsOwner) {
                 if(AudioService.Instance != null) {
                     AudioService.Instance.Play("ui.hit.hurt", Vector3.zero);
@@ -1221,6 +1223,62 @@ namespace Game.Player.Core {
         void IPlayerInputContext.SetSniperZoomActive(bool active, float zoomFov) {
             if(lookController != null) lookController.SetSniperZoomActive(active, zoomFov);
         }
+
+        CharacterController IPlayerRagdollContext.CharacterController => characterController;
+        Animator IPlayerRagdollContext.PlayerAnimator => playerAnimator;
+
+        CinemachineCamera IPlayerDeathCameraContext.FpCamera => fpCamera;
+        CinemachineCamera IPlayerDeathCameraContext.DeathCamera => deathCamera;
+        SkinnedMeshRenderer IPlayerDeathCameraContext.PlayerMesh => playerMesh;
+
+        MatchPlayerStateProxy IPlayerStatsContext.PlayerState => PlayerState;
+        float IPlayerStatsContext.ObservedServerMovementSpeed => ObservedServerMovementSpeed;
+
+        void IPlayerTagContext.PlayHitEffects(Vector3 hitPoint, float amount) => PlayHitEffectsClientRpc(hitPoint, amount);
+        void IPlayerTagContext.UpdateTeamOutlineColour() {
+            if(playerTeamManager != null) playerTeamManager.UpdateOutlineColour();
+        }
+
+        void IPlayerTagContext.UpdateFpArmTagGlow(bool isTagged) {
+            if(weaponManager != null) weaponManager.UpdateAllFpArmTagGlow(isTagged);
+        }
+
+        void IPlayerTagContext.DrainCurrentWeaponAmmoForTag() {
+            if(weaponManager != null) weaponManager.DrainCurrentWeaponAmmoForTag();
+        }
+
+        Transform IPlayerCombatContext.PlayerTransform => PlayerTransform;
+        CharacterController IPlayerCombatContext.CharacterController => characterController;
+        ClientNetworkTransform IPlayerCombatContext.ClientNetworkTransform => clientNetworkTransform;
+        WeaponManager IPlayerCombatContext.WeaponManager => weaponManager;
+        GameObject IPlayerCombatContext.PlayerModelRoot => playerModelRoot;
+        Transform IPlayerCombatContext.WorldWeaponSocket => worldWeaponSocket;
+        Animator IPlayerCombatContext.PlayerAnimator => playerAnimator;
+        CinemachineCamera IPlayerCombatContext.FpCamera => fpCamera;
+        WeaponCameraController IPlayerCombatContext.WeaponCameraController => weaponCameraController;
+        CinemachineImpulseSource IPlayerCombatContext.ImpulseSource => impulseSource;
+        NetworkVariable<float> IPlayerCombatContext.NetHealth => NetHealth;
+        NetworkVariable<bool> IPlayerCombatContext.NetIsDead => NetIsDead;
+        NetworkVariable<int> IPlayerCombatContext.Deaths => Deaths;
+        NetworkVariable<float> IPlayerCombatContext.DamageDealt => DamageDealt;
+        NetworkVariable<int> IPlayerCombatContext.Kills => Kills;
+        NetworkVariable<int> IPlayerCombatContext.Assists => Assists;
+        NetworkVariable<FixedString64Bytes> IPlayerCombatContext.PlayerName => PlayerName;
+        bool IPlayerCombatContext.IsHoldingHopball => IsHoldingHopball;
+        float IPlayerCombatContext.BaseFov => BaseFov;
+        SpawnPoint.Team IPlayerCombatContext.CurrentTeam => playerTeamManager != null && playerTeamManager.netTeam != null
+            ? playerTeamManager.netTeam.Value
+            : SpawnPoint.Team.TeamA;
+        void IPlayerCombatContext.SetOutOfBoundsGraceWindow(float seconds) => SetOutOfBoundsGraceWindow(seconds);
+        void IPlayerCombatContext.ResetLookPitchFromRespawn() => ResetLookPitchFromRespawn();
+        void IPlayerCombatContext.ClearLookInput() => lookInput = Vector2.zero;
+        Vector2 IPlayerCombatContext.ResampleHeldMovementInputFromRespawn(string reason) =>
+            ResampleHeldMovementInputFromRespawn(reason);
+        void IPlayerCombatContext.ResetWeaponState(bool resetAllAmmo, bool switchToWeapon0, bool updateHUD) =>
+            ResetWeaponState(resetAllAmmo, switchToWeapon0, updateHUD);
+        void IPlayerCombatContext.PlayHitEffects(Vector3 hitPoint, float amount) => PlayHitEffectsClientRpc(hitPoint, amount);
+        float IPlayerCombatContext.GetOutOfBoundsKillY() => GetOutOfBoundsKillY();
+        bool IPlayerCombatContext.IsYLevelOutOfBoundsKillEnabled() => IsYLevelOutOfBoundsKillEnabled();
 
         Transform IPlayerLookContext.PlayerTransform => PlayerTransform;
         CinemachineCamera IPlayerLookContext.FpCamera => fpCamera;
