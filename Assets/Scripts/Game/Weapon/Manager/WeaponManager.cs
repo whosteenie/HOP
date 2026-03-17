@@ -249,6 +249,7 @@ namespace Game.Weapon.Manager {
         public void TriggerPullOutAnimation() => _switch.TriggerPullOutAnimation();
         public void CancelPendingPullOutForPostMatch() => _switch.CancelPendingPullOutForPostMatch();
         public void SetTpWeaponIndexForPodium() => _switch.SetTpWeaponIndexForPodium();
+        public void RestoreCurrentWeaponPresentationAfterHopballDrop() => _switch.RestoreCurrentWeaponPresentationAfterHopballDrop();
         public void ProcessWeaponSwitchRequest(int newIndex) => _switch.ProcessWeaponSwitchRequest(newIndex);
         public GameObject GetCurrentFpWeapon() => _fpPresentation != null ? _fpPresentation.GetCurrentFpWeapon() : null;
         public GameObject GetFpWeaponHolderRootForDisconnect() =>

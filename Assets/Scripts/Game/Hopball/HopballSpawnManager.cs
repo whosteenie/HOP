@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Diagnostics;
 using Events;
@@ -11,6 +12,7 @@ using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Debug = UnityEngine.Debug;
 
 namespace Game.Hopball {
     /// <summary>
@@ -661,6 +663,14 @@ namespace Game.Hopball {
             Vector3 dropPosition, Quaternion dropRotation, ulong requestingClientId, Vector3 playerVelocity,
             string dropReason) {
             if(hopball == null) return;
+            var dropTimer = Stopwatch.StartNew();
+
+            void LogDropStep(string stepName) {
+                if(!Debug.isDebugBuild) return;
+                Debug.Log(
+                    $"[HopballDropTiming] client={requestingClientId} reason={dropReason} step={stepName} elapsedMs={dropTimer.Elapsed.TotalMilliseconds:F1}");
+            }
+
             if(!hopball.IsEquipped) {
                 FlowLog.Emit(FlowEventIds.AnomalyHopballMismatch,
                     ("serverHolder", hopball.HolderController != null ? hopball.HolderController.OwnerClientId.ToString() : "None"),
@@ -671,7 +681,9 @@ namespace Game.Hopball {
             }
 
             hopball.PrepareDropClientRpc();
+            LogDropStep("PrepareDropClientRpc");
             await Cysharp.Threading.Tasks.UniTask.WaitForEndOfFrame();
+            LogDropStep("WaitForEndOfFrame");
 
             PlayerController requestingController = null;
             if(NetworkManager.Singleton != null &&
@@ -706,6 +718,7 @@ namespace Game.Hopball {
                     hopballRadius = capsuleCollider.radius * Mathf.Max(lossyScale.x, lossyScale.z);
                 }
             }
+            LogDropStep("ResolveColliderRadius");
 
             var finalDropPosition = dropPosition;
             var worldLayer = LayerMask.GetMask("Default", "World");
@@ -723,6 +736,7 @@ namespace Game.Hopball {
                     }
                 }
             }
+            LogDropStep("WallCastAdjustment");
 
             const float raycastDistance = 15f;
             const float safetyMargin = 0.2f;
@@ -747,6 +761,7 @@ namespace Game.Hopball {
                     finalDropPosition = new Vector3(finalDropPosition.x, groundHeight, finalDropPosition.z);
                 }
             }
+            LogDropStep("GroundingAdjustment");
 
             var currentScale = hopball.transform.localScale;
             var networkTransform = hopball.GetComponent<Unity.Netcode.Components.NetworkTransform>();
@@ -766,15 +781,20 @@ namespace Game.Hopball {
                 hopballTransform.rotation = dropRotation;
                 hopballTransform.localScale = currentScale;
             }
+            LogDropStep("TeleportApplied");
 
             hopball.transform.SetParent(null);
             rb.position = finalDropPosition;
             rb.rotation = dropRotation;
+            LogDropStep("ParentAndRigidbodySet");
             Physics.SyncTransforms();
+            LogDropStep("PhysicsSyncTransforms");
 
             await Cysharp.Threading.Tasks.UniTask.WaitForFixedUpdate();
+            LogDropStep("WaitForFixedUpdate");
 
             hopball.SetDropped();
+            LogDropStep("SetDropped");
             FlowLog.Emit(FlowEventIds.HopballDropCommitted,
                 ("player", requestingClientId),
                 ("hopballNetId", hopball.NetworkObjectId),
@@ -789,8 +809,10 @@ namespace Game.Hopball {
                 ballVelocity.y = -2f;
             }
             hopball.Rigidbody.linearVelocity = ballVelocity;
+            LogDropStep("ApplyVelocity");
 
             PublishHopballDropPresentationClientRpc(requestingClientId);
+            LogDropStep("PublishDropPresentation");
         }
     }
 }

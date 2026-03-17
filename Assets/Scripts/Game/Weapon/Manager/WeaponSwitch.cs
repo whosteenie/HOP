@@ -69,6 +69,12 @@ namespace Game.Weapon.Manager {
                 }
             }
 
+            if(newIndex == _root.CurrentWeaponIndexInternal && isHoldingHopball) {
+                _root.RestoreCurrentWeaponPresentationAfterHopballDrop();
+                TriggerPullOutAnimation();
+                return;
+            }
+
             if(newIndex == _root.CurrentWeaponIndexInternal && !isHoldingHopball && !isRestoringAfterDissolve) {
                 return;
             }
@@ -421,6 +427,26 @@ namespace Game.Weapon.Manager {
                     _root.PlayerControllerRef.NetworkObjectId, usePodiumShadowState: true));
             }
 
+            _root.EnsureWorldWeaponShadowStateInternal();
+        }
+
+        public void RestoreCurrentWeaponPresentationAfterHopballDrop() {
+            if(_root.CurrentWeaponIndexInternal < 0 || _root.CurrentWeaponIndexInternal >= _root.FpWeaponInstancesRef.Count) {
+                return;
+            }
+
+            var currentFp = _root.FpWeaponInstancesRef[_root.CurrentWeaponIndexInternal];
+            if(currentFp != null) {
+                WeaponManager.EnsureHierarchyActiveInternal(currentFp);
+                currentFp.SetActive(true);
+            }
+
+            if(_root.CurrentWorldWeaponInstanceInternal != null) {
+                _root.CurrentWorldWeaponInstanceInternal.SetActive(true);
+            }
+
+            _root.RefreshHolsterVisibility();
+            _root.RefreshHolsterShadowState();
             _root.EnsureWorldWeaponShadowStateInternal();
         }
 

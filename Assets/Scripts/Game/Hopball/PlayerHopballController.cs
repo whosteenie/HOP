@@ -1222,20 +1222,7 @@ namespace Game.Hopball {
         /// </summary>
         private void ShowWeapons() {
             if(_weaponManager == null) return;
-
-            // Show FP weapon for current selection
-            var currentFp = _weaponManager.GetCurrentFpWeapon();
-            if(currentFp != null && !currentFp.activeSelf) {
-                currentFp.SetActive(true);
-            }
-
-            // Show world weapon for current selection
-            var worldWeapon = _weaponManager.CurrentWorldWeaponInstance;
-            if(worldWeapon != null && !worldWeapon.activeSelf) {
-                worldWeapon.SetActive(true);
-            }
-
-            // Clear stored references (no longer needed)
+            _weaponManager.RestoreCurrentWeaponPresentationAfterHopballDrop();
         }
 
         // ========================================================================
