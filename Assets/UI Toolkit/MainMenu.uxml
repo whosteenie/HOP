@@ -104,8 +104,9 @@
                             <ui:IntegerField name="private-match-score-input" value="50" class="value-input private-match-input"/>
                         </ui:VisualElement>
                         <ui:VisualElement name="private-match-koth-speed-row" class="setting-row hidden">
-                            <ui:Label text="HILL SPEED" class="setting-label"/>
-                            <ui:IntegerField name="private-match-koth-speed-input" value="1" class="value-input private-match-input"/>
+                            <ui:Label text="HILL MOVE SPEED" class="setting-label"/>
+                            <ui:SliderInt name="private-match-koth-speed-slider" low-value="50" high-value="300" value="100" fill="true" class="setting-slider private-match-koth-speed-slider"/>
+                            <ui:Label name="private-match-koth-speed-value" text="1.00x" class="private-match-multiplier-value"/>
                         </ui:VisualElement>
                         <ui:VisualElement name="private-match-tagged-row" class="setting-row">
                             <ui:Label text="TAGGED PLAYERS" class="setting-label"/>

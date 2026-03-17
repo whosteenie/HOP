@@ -27,10 +27,7 @@ namespace Game.Match {
 
         private int EffectiveWinScore =>
             MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : winScore;
-        private int EffectivePointsPerInterval =>
-            MatchSettingsManager.Instance != null
-                ? Mathf.Max(1, MatchSettingsManager.Instance.GetKothHillSpeed())
-                : Mathf.Max(1, pointsPerInterval);
+        private int EffectivePointsPerInterval => Mathf.Max(1, pointsPerInterval);
 
         [Header("Spawn Points")]
         [Tooltip("Additional Y offset when spawning to prevent floor clipping")] [SerializeField]

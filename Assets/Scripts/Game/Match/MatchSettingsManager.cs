@@ -27,8 +27,8 @@ namespace Game.Match {
         [HideInInspector] public bool swapWeaponsOnDeath = true;
         /// <summary> Score limit to win (e.g. Hopball, KOTH). Set from private match draft. </summary>
         public int scoreToWin = 50;
-        /// <summary> KOTH hill score speed (points per interval). Set from private match draft. </summary>
-        public int kothHillSpeed = 1;
+        /// <summary> KOTH hill movement speed multiplier stored as a percentage (100 = 1.00x). </summary>
+        public int kothHillSpeed = 100;
         /// <summary> Number of tagged players (Gun Tag only). Set from private match draft. </summary>
         public int taggedPlayers = 1;
 
@@ -96,7 +96,20 @@ namespace Game.Match {
         public bool IsPreMatchCountdownEnabled() => preMatchCountdownEnabled;
         public bool ShouldSwapWeaponsOnDeath() => swapWeaponsOnDeath;
         public int GetScoreToWin() => scoreToWin >= 0 ? scoreToWin : 50;
-        public int GetKothHillSpeed() => kothHillSpeed > 0 ? kothHillSpeed : 1;
+        public int GetKothHillSpeedPercent() {
+            if(kothHillSpeed <= 0) {
+                return 100;
+            }
+
+            // Backward compatibility: older runtime/session values used small integers like 1, 2, 3
+            // to mean "normal / faster / fastest", not literal percentages.
+            if(kothHillSpeed <= 10) {
+                return kothHillSpeed * 100;
+            }
+
+            return kothHillSpeed;
+        }
+        public float GetKothHillSpeedMultiplier() => Mathf.Max(0.01f, GetKothHillSpeedPercent() / 100f);
         public int GetTaggedPlayers() => taggedPlayers > 0 ? taggedPlayers : 1;
         public bool IsInfiniteMatchTimer() => GetMatchDurationSeconds() == 0;
         public bool IsInfiniteScoreLimit() => GetScoreToWin() == 0;

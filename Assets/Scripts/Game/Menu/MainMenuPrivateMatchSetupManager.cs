@@ -43,7 +43,8 @@ namespace Game.Menu {
         private Button _preMatchCountdownToggle;
         private Button _swapWeaponsOnDeathToggle;
         private IntegerField _scoreToWinField;
-        private IntegerField _kothHillSpeedField;
+        private SliderInt _kothHillSpeedSlider;
+        private Label _kothHillSpeedValueLabel;
         private IntegerField _taggedPlayersField;
         private Button _startButton;
         private Button _backButton;
@@ -81,7 +82,7 @@ namespace Game.Menu {
                 { "private-match-prematch-countdown-toggle", typeof(Button) },
                 { "private-match-swap-on-death-toggle", typeof(Button) },
                 { "private-match-score-input", typeof(IntegerField) },
-                { "private-match-koth-speed-input", typeof(IntegerField) },
+                { "private-match-koth-speed-slider", typeof(SliderInt) },
                 { "private-match-tagged-input", typeof(IntegerField) },
                 { "private-match-start-button", typeof(Button) }
             };
@@ -94,7 +95,8 @@ namespace Game.Menu {
             _preMatchCountdownToggle = QRequired<Button>("private-match-prematch-countdown-toggle");
             _swapWeaponsOnDeathToggle = QRequired<Button>("private-match-swap-on-death-toggle");
             _scoreToWinField = QRequired<IntegerField>("private-match-score-input");
-            _kothHillSpeedField = QRequired<IntegerField>("private-match-koth-speed-input");
+            _kothHillSpeedSlider = QRequired<SliderInt>("private-match-koth-speed-slider");
+            _kothHillSpeedValueLabel = QOptional<Label>("private-match-koth-speed-value");
             _taggedPlayersField = QRequired<IntegerField>("private-match-tagged-input");
             _startButton = QRequired<Button>("private-match-start-button");
             _backButton = QOptional<Button>("private-match-back-button");
@@ -221,7 +223,7 @@ namespace Game.Menu {
                 UsePreMatchCountdown = true,
                 SwapWeaponsOnDeath = true,
                 ScoreToWin = Mathf.Max(1, GetDefaultScoreToWin(initialMode)),
-                KothHillSpeed = Mathf.Max(1, GetDefaultKothHillSpeed()),
+                KothHillSpeed = Mathf.Clamp(GetDefaultKothHillSpeedPercent(), KothHillSpeedMinPercent, KothHillSpeedMaxPercent),
                 TaggedPlayers = Mathf.Max(1, defaultTaggedPlayers),
                 MapId = string.Empty
             };
@@ -230,13 +232,14 @@ namespace Game.Menu {
             _gamemodeDropdown.value = _draft.GamemodeId;
             _matchTimerField.value = _draft.MatchTimerSeconds;
             _scoreToWinField.value = _draft.ScoreToWin;
-            _kothHillSpeedField.value = _draft.KothHillSpeed;
+            _kothHillSpeedSlider.value = _draft.KothHillSpeed;
             _taggedPlayersField.value = _draft.TaggedPlayers;
             SetCheckboxValue(_preMatchCountdownToggle, _draft.UsePreMatchCountdown);
             SetCheckboxValue(_swapWeaponsOnDeathToggle, _draft.SwapWeaponsOnDeath);
             _suppressEvents = false;
             ApplyInfiniteFieldDisplay(_matchTimerField, _draft.MatchTimerSeconds == 0);
             ApplyInfiniteFieldDisplay(_scoreToWinField, _draft.ScoreToWin == 0);
+            RefreshKothHillSpeedDisplay();
             RefreshScoreToWinVisibility();
             RefreshKothHillSpeedVisibility();
             RefreshTaggedRowVisibility();
@@ -245,7 +248,6 @@ namespace Game.Menu {
         private void BindEvents() {
             RegisterDigitsOnlyInput(_matchTimerField);
             RegisterDigitsOnlyInput(_scoreToWinField);
-            RegisterDigitsOnlyInput(_kothHillSpeedField);
             RegisterDigitsOnlyInput(_taggedPlayersField);
 
             _gamemodeDropdown.RegisterValueChangedCallback(OnGamemodeChanged);
@@ -286,9 +288,8 @@ namespace Game.Menu {
             RegisterSanitizeOnCommit(_scoreToWinField, 0, int.MaxValue, v => _draft.ScoreToWin = v);
             RegisterInfiniteFieldDisplay(_scoreToWinField);
 
-            _kothHillSpeedField.RegisterValueChangedCallback(OnKothHillSpeedChanged);
-            RegisterCleanup(() => _kothHillSpeedField.UnregisterValueChangedCallback(OnKothHillSpeedChanged));
-            RegisterSanitizeOnCommit(_kothHillSpeedField, 1, int.MaxValue, v => _draft.KothHillSpeed = v);
+            _kothHillSpeedSlider.RegisterValueChangedCallback(OnKothHillSpeedChanged);
+            RegisterCleanup(() => _kothHillSpeedSlider.UnregisterValueChangedCallback(OnKothHillSpeedChanged));
 
             _taggedPlayersField.RegisterValueChangedCallback(OnTaggedPlayersChanged);
             RegisterCleanup(() => _taggedPlayersField.UnregisterValueChangedCallback(OnTaggedPlayersChanged));
@@ -397,15 +398,20 @@ namespace Game.Menu {
             return string.Equals(gamemodeId, "KOTH", StringComparison.OrdinalIgnoreCase) ? 200 : 50;
         }
 
-        private static int GetDefaultKothHillSpeed() {
+        private const int KothHillSpeedMinPercent = 50;
+        private const int KothHillSpeedMaxPercent = 300;
+
+        private static int GetDefaultKothHillSpeedPercent() {
             var settings = MatchSettingsManager.Instance;
-            return settings != null ? Mathf.Max(1, settings.GetKothHillSpeed()) : 1;
+            return settings != null
+                ? Mathf.Clamp(settings.GetKothHillSpeedPercent(), KothHillSpeedMinPercent, KothHillSpeedMaxPercent)
+                : 100;
         }
 
         private void ApplyGamemodeDefaults(string gamemodeId) {
             _draft.MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimer());
             _draft.ScoreToWin = Mathf.Max(1, GetDefaultScoreToWin(gamemodeId));
-            _draft.KothHillSpeed = Mathf.Max(1, GetDefaultKothHillSpeed());
+            _draft.KothHillSpeed = Mathf.Clamp(GetDefaultKothHillSpeedPercent(), KothHillSpeedMinPercent, KothHillSpeedMaxPercent);
             if(_matchTimerField != null) {
                 _suppressEvents = true;
                 _matchTimerField.value = _draft.MatchTimerSeconds;
@@ -417,10 +423,11 @@ namespace Game.Menu {
                 _suppressEvents = false;
             }
 
-            if(_kothHillSpeedField == null) return;
+            if(_kothHillSpeedSlider == null) return;
             _suppressEvents = true;
-            _kothHillSpeedField.value = _draft.KothHillSpeed;
+            _kothHillSpeedSlider.value = _draft.KothHillSpeed;
             _suppressEvents = false;
+            RefreshKothHillSpeedDisplay();
         }
 
         private void RefreshMapChoicesForGamemode(string gamemodeId) {
@@ -947,8 +954,14 @@ namespace Game.Menu {
 
         private void OnKothHillSpeedChanged(ChangeEvent<int> evt) {
             if(_suppressEvents) return;
-            _draft.KothHillSpeed = evt.newValue;
+            _draft.KothHillSpeed = Mathf.Clamp(evt.newValue, KothHillSpeedMinPercent, KothHillSpeedMaxPercent);
+            RefreshKothHillSpeedDisplay();
             RefreshStatusLabel();
+        }
+
+        private void RefreshKothHillSpeedDisplay() {
+            if(_kothHillSpeedValueLabel == null) return;
+            _kothHillSpeedValueLabel.text = $"{_draft.KothHillSpeed / 100f:F2}x";
         }
 
         private void OnStartClicked() {
@@ -969,8 +982,11 @@ namespace Game.Menu {
             var countdownText = _draft.UsePreMatchCountdown ? "ON" : "OFF";
             var loadoutSwapText = _draft.SwapWeaponsOnDeath ? "ON DEATH" : "INSTANT";
             var scoreText = _draft.ScoreToWin <= 0 ? "INFINITE" : _draft.ScoreToWin.ToString();
+            var kothSpeedText = string.Equals(_draft.GamemodeId, "KOTH", StringComparison.OrdinalIgnoreCase)
+                ? $"  |  HILL SPEED: {_draft.KothHillSpeed / 100f:F2}x"
+                : string.Empty;
             _statusLabel.text =
-                $"MODE: {mode}  |  MAP: {map}  |  TIME: {timeText}  |  COUNTDOWN: {countdownText}  |  LOADOUT SWAP: {loadoutSwapText}  |  SCORE: {scoreText}";
+                $"MODE: {mode}  |  MAP: {map}  |  TIME: {timeText}  |  COUNTDOWN: {countdownText}  |  LOADOUT SWAP: {loadoutSwapText}  |  SCORE: {scoreText}{kothSpeedText}";
         }
     }
 }

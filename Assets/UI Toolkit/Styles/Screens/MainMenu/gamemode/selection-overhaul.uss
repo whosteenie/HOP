@@ -359,6 +359,29 @@
     -unity-text-align: middle-center;
 }
 
+.private-match-settings-column .setting-row > .private-match-koth-speed-slider {
+    flex-grow: 1;
+    max-width: 220px;
+    margin-right: 12px;
+}
+
+.private-match-multiplier-value {
+    width: 72px;
+    min-width: 72px;
+    height: 44px;
+    min-height: 44px;
+    background-color: rgba(10, 10, 16, 0.9);
+    border-width: 1px;
+    border-color: rgba(255, 60, 60, 0.45);
+    border-radius: 6px;
+    color: var(--color-text-primary);
+    font-size: 18px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
 .private-match-status-label {
     margin-top: 10px;
     color: rgba(240, 240, 240, 0.8);

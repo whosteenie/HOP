@@ -38,7 +38,7 @@ namespace Game.Adapters {
             matchSettings.preMatchCountdownEnabled   = true;
             matchSettings.swapWeaponsOnDeath         = true;
             matchSettings.scoreToWin                 = ResolveDefaultPublicScoreToWinGame(mode);
-            matchSettings.kothHillSpeed              = 1;
+            matchSettings.kothHillSpeed              = 100;
             matchSettings.taggedPlayers              = 1;
         }
 

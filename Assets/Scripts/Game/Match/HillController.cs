@@ -53,10 +53,19 @@ namespace Game.Match {
         private const float KingTimeProgressionChunkSeconds = 1f;
         private bool _sessionOwnerCallbacksRegistered;
         private float _localKingProgressionSeconds;
-        private float EffectiveMoveSpeed =>
-            MatchSettingsManager.Instance != null
-                ? Mathf.Max(0.1f, MatchSettingsManager.Instance.GetKothHillSpeed())
-                : Mathf.Max(0.1f, moveSpeed);
+        private float EffectiveMoveSpeed {
+            get {
+                var baseMoveSpeed = Mathf.Max(0.1f, moveSpeed);
+                if(MatchSettingsManager.Instance == null) {
+                    return baseMoveSpeed;
+                }
+
+                // Treat the match setting as a human-scale multiplier so a value of 1 preserves the
+                // tuned default hill movement instead of collapsing it to 1 unit/sec.
+                var configuredSpeedScale = MatchSettingsManager.Instance.GetKothHillSpeedMultiplier();
+                return baseMoveSpeed * configuredSpeedScale;
+            }
+        }
         private bool HasHillAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         public SpawnPoint.Team? ControllingTeam {
