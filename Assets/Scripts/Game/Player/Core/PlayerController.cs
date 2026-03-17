@@ -265,6 +265,8 @@ namespace Game.Player.Core {
 
         public float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
         public WallRunController WallRunController => wallRunController;
+        public bool IsWallRunning => wallRunController != null && wallRunController.IsWallRunning;
+        public bool IsRightWallRunning => wallRunController != null && wallRunController.IsRightWallRun;
 
         internal bool DisableKinemationFrameworkComponentsConfigured => disableKinemationFrameworkComponents;
         internal bool DisableOnlyKinemationFrameworkCameraComponents => disableOnlyKinemationFrameworkCameraComponents;

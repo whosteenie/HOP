@@ -92,12 +92,11 @@ namespace Game.Player.Visual {
             _playerAnimator.SetBool(IsFallingHash, IsFalling);
             _playerAnimator.SetBool(IsGroundedHash, !IsFalling);
 
-            var wallRunController = playerController != null ? playerController.WallRunController : null;
             var isWallRunning = IsOwner
-                ? wallRunController != null && wallRunController.IsWallRunning
+                ? playerController != null && playerController.IsWallRunning
                 : _remoteIsWallRunning;
             var isRightWallRun = IsOwner
-                ? wallRunController != null && wallRunController.IsRightWallRun
+                ? playerController != null && playerController.IsRightWallRunning
                 : _remoteIsRightWallRun;
             _playerAnimator.SetBool(IsWallRunningHash, isWallRunning);
             _playerAnimator.SetBool(RightWallRunHash, isRightWallRun);
