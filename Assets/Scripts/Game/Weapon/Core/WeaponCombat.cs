@@ -279,8 +279,10 @@ namespace Game.Weapon.Core {
                     shooterVelocityAtShot);
             }
 
-            if(_weapon.FxRelay != null && _weapon.PlayerController != null && _weapon.PlayerController.IsOwner) {
-                _weapon.FxRelay.RequestShotFx(
+            if(_weapon.PlayerController != null &&
+               _weapon.PlayerController.IsOwner &&
+               _weapon.PlayerController.FxRelay != null) {
+                _weapon.PlayerController.FxRelay.RequestShotFx(
                     endPoint,
                     hitNormal,
                     madeImpact,

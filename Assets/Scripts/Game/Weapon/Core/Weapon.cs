@@ -104,8 +104,6 @@ namespace Game.Weapon.Core {
 
         private WeaponDamageRelay DamageRelay { get; set; }
 
-        internal WeaponFxRelay FxRelay { get; private set; }
-
         internal NetworkAudioRelay AudioRelay { get; private set; }
 
         internal KinFpWeaponDriver KinDriver { get; set; }
@@ -224,7 +222,6 @@ namespace Game.Weapon.Core {
             EnemyLayerMask = playerController.EnemyLayer;
             WorldLayerMask = playerController.WorldLayer;
             if(DamageRelay == null) DamageRelay = playerController.DamageRelay;
-            if(FxRelay == null) FxRelay = playerController.FxRelay;
             if(AudioRelay == null) AudioRelay = playerController.AudioRelay;
             if(Manager == null) Manager = playerController.WeaponManager;
 
