@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using Events;
-using Game.Menu.Game;
 using Game.Menu.Loadout;
 using Game.Progression;
 using Game.UI.Core;
@@ -165,12 +164,19 @@ namespace Game.Menu.Main {
         /// Called externally to hide game menu UI when in main menu.
         /// </summary>
         public static void InitializeGameMenuVisibility() {
-            var gameMenu = GameMenuManager.Instance;
-            if(gameMenu == null || !gameMenu.TryGetComponent(out UIDocument doc) || doc == null) return;
-            var gameRoot = doc.rootVisualElement;
-            var rootContainer = gameRoot?.Q<VisualElement>("root-container");
-            if(rootContainer != null) {
+            var documents = FindObjectsByType<UIDocument>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach(var doc in documents) {
+                if(doc == null || !doc.isActiveAndEnabled) continue;
+
+                var gameRoot = doc.rootVisualElement;
+                var rootContainer = gameRoot?.Q<VisualElement>("root-container");
+                if(rootContainer == null) continue;
+
+                var respawnFadeOverlay = gameRoot.Q<VisualElement>("respawn-fade-overlay");
+                if(respawnFadeOverlay == null) continue;
+
                 rootContainer.style.display = DisplayStyle.None;
+                return;
             }
         }
 
