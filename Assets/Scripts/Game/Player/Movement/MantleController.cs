@@ -157,7 +157,7 @@ namespace Game.Player.Movement {
                 playerController.AnimationController.TriggerMantleAnimation();
             }
 
-            playerController.ResetVelocity();
+            playerController.MovementController?.ResetVelocity();
             playerController.MovementController?.SetMantling(true);
 
             if(_mantleRoutine != null) {
@@ -213,7 +213,7 @@ namespace Game.Player.Movement {
             if(!IsMantling) return;
             IsMantling = false;
 
-            playerController.ResetVelocity();
+            playerController.MovementController?.ResetVelocity();
             playerController.MovementController?.SetMantling(false);
 
             _postMantleJumpCooldown = applyJumpCooldown ? PostMantleJumpDelay : 0f;

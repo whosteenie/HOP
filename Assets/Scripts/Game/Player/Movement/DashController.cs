@@ -86,7 +86,7 @@ namespace Game.Player.Movement {
             characterController.Move(boostedVel * Time.deltaTime);
 
             if(!(_dashTimer >= dashDuration)) return;
-            playerController.SetVelocity(new Vector3(boostedVel.x, 0f, boostedVel.z));
+            playerController.MovementController?.SetVelocity(new Vector3(boostedVel.x, 0f, boostedVel.z));
             EndDash();
         }
 

@@ -16,7 +16,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityPlayerInputComponent = UnityEngine.InputSystem.PlayerInput;
 
-namespace Game.Player.Look {
+namespace Game.Player.Input {
     public class PlayerInputController : NetworkBehaviour {
         #region Serialized Fields
 

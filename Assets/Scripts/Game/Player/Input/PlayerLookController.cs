@@ -5,7 +5,7 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player.Look {
+namespace Game.Player.Input {
     /// <summary>
     /// Handles camera/look logic for the player.
     /// </summary>

@@ -71,8 +71,8 @@ namespace Game.Player.Core {
                 if(Time.time - _lastDeathTime < 4f) return;
                 _lastDeathTime = Time.time;
                 ClearTriggerOobCountdownServer();
-                if(_player.HealthController != null) {
-                    _player.HealthController.ApplyDamageServer_Auth(1000f, _player.PlayerTransform.position, Vector3.up,
+                if(_player.CombatController != null) {
+                    _player.CombatController.ApplyDamageServer_Auth(1000f, _player.PlayerTransform.position, Vector3.up,
                         ulong.MaxValue);
                 }
                 return;
@@ -106,8 +106,8 @@ namespace Game.Player.Core {
 
             _lastDeathTime = Time.time;
             ClearTriggerOobCountdownServer();
-            if(_player.HealthController != null) {
-                _player.HealthController.ApplyDamageServer_Auth(1000f, _player.PlayerTransform.position, Vector3.up,
+            if(_player.CombatController != null) {
+                _player.CombatController.ApplyDamageServer_Auth(1000f, _player.PlayerTransform.position, Vector3.up,
                     ulong.MaxValue);
             }
         }

@@ -345,7 +345,7 @@ namespace Game.Weapon.Core {
             }
 
             var player = playerObject.GetComponent<PlayerController>();
-            var healthController = player != null ? player.HealthController : null;
+            var healthController = player != null ? player.CombatController : null;
             if(healthController == null) {
                 return;
             }

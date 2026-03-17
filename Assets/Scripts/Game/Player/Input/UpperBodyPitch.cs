@@ -3,7 +3,7 @@ using Game.Player.Core;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player.Look {
+namespace Game.Player.Input {
     public class UpperBodyPitch : NetworkBehaviour {
         [Header("References")]
         [SerializeField] private PlayerController playerController;

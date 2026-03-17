@@ -110,10 +110,10 @@ namespace Game.Player.Movement {
 
             // Keep momentum when releasing. During a jumppad launch, do not apply vertical velocity
             // from the swing so the launch's upward velocity is preserved.
-            playerController.SetVelocity(new Vector3(_currentVelocity.x, 0f, _currentVelocity.z));
+            playerController.MovementController?.SetVelocity(new Vector3(_currentVelocity.x, 0f, _currentVelocity.z));
             var inJumpPadLaunch = playerController.MovementController != null && playerController.MovementController.IsInJumpPadLaunch;
             if(!inJumpPadLaunch) {
-                playerController.AddVerticalVelocity(_currentVelocity.y);
+                playerController.MovementController?.AddVerticalVelocity(_currentVelocity.y);
             }
         }
 

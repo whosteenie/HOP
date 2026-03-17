@@ -22,7 +22,7 @@ namespace Game.Player.Combat {
     /// Handles health, damage, death, and respawn logic for the player.
     /// </summary>
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
-    public class PlayerHealthController : NetworkBehaviour {
+    public class PlayerCombatController : NetworkBehaviour {
         private bool HasCombatAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         [Header("References")]
@@ -313,7 +313,7 @@ namespace Game.Player.Combat {
                     if(attackerClient.PlayerObject == null) return false;
                     var attacker = attackerClient.PlayerObject.GetComponent<PlayerController>();
                     if(attacker != null && attacker.DamageDealt != null &&
-                       attacker.TryGetComponent<PlayerHealthController>(out var attackerHealthController)) {
+                       attacker.TryGetComponent<PlayerCombatController>(out var attackerHealthController)) {
                         attackerHealthController.AddDamageDealtAuthority(actualDealt);
                     }
                 }
@@ -347,7 +347,7 @@ namespace Game.Player.Combat {
                     if(killerClient.PlayerObject == null) return false;
                     var killer = killerClient.PlayerObject.GetComponent<PlayerController>();
                     if(killer != null) {
-                        if(killer.TryGetComponent<PlayerHealthController>(out var killerHealthController)) {
+                        if(killer.TryGetComponent<PlayerCombatController>(out var killerHealthController)) {
                             killerHealthController.AddKillAuthority();
                         }
                         AwardAssists(attackerId);
@@ -940,7 +940,7 @@ namespace Game.Player.Combat {
                 if(client.PlayerObject == null) continue;
                 var controller = client.PlayerObject.GetComponent<PlayerController>();
                 if(controller == null || controller.Assists == null) continue;
-                if(controller.TryGetComponent<PlayerHealthController>(out var assistHealthController)) {
+                if(controller.TryGetComponent<PlayerCombatController>(out var assistHealthController)) {
                     assistHealthController.AddAssistAuthority();
                 }
             }

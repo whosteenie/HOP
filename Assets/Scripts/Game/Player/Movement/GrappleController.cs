@@ -640,9 +640,14 @@ namespace Game.Player.Movement {
 
                 // Apply momentum to FpController
                 if(playerController != null) {
+                    var ownerMovementController = playerController.MovementController;
+                    if(ownerMovementController == null) {
+                        return;
+                    }
+
                     // Set horizontal velocity (preserve some existing momentum)
                     var horizontalVelocity = new Vector3(finalVelocity.x, 0f, finalVelocity.z);
-                    playerController.SetVelocity(horizontalVelocity);
+                    ownerMovementController.SetVelocity(horizontalVelocity);
 
                     // During JP handoff, suppress grapple upward boost so pad launch fully owns vertical.
                     // For downward/flat release directions, only horizontal carry is allowed.
@@ -650,13 +655,11 @@ namespace Game.Player.Movement {
                                              allowUpwardReleaseMomentum &&
                                              !applyJumpPadLaunchCompensation;
                     if(addVerticalImpulse) {
-                        playerController.AddVerticalVelocity(finalVelocity.y);
+                        ownerMovementController.AddVerticalVelocity(finalVelocity.y);
                     }
 
                     // Try to initiate slide if grounded and crouching at speed
-                    if(playerController.MovementController != null) {
-                        playerController.MovementController.TryInitiateSlideFromGrapple();
-                    }
+                    ownerMovementController.TryInitiateSlideFromGrapple();
                 }
             }
 

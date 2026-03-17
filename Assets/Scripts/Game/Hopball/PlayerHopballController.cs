@@ -35,7 +35,7 @@ namespace Game.Hopball {
         [SerializeField] private PlayerController playerController;
 
         private WeaponManager _weaponManager;
-        private PlayerHealthController _healthController; // For worldWeaponSocket reference
+        private PlayerCombatController _combatController; // For worldWeaponSocket reference
         private CinemachineCamera _fpCamera; // First-person camera (for FP weapon socket)
         private Transform _worldWeaponSocket;
         private Target _playerTarget; // OSI Target component on this player
@@ -1244,7 +1244,7 @@ namespace Game.Hopball {
             }
 
             if(_weaponManager == null) _weaponManager = playerController.WeaponManager;
-            if(_healthController == null) _healthController = playerController.HealthController;
+            if(_combatController == null) _combatController = playerController.CombatController;
             if(_fpCamera == null) _fpCamera = playerController.FpCamera;
             if(_worldWeaponSocket == null) _worldWeaponSocket = playerController.WorldWeaponSocket;
             _hopballLayer = playerController.HopballLayer;

@@ -4,7 +4,7 @@ using Events;
 using Game.Audio.System;
 using Game.Match;
 using Game.Player.Combat;
-using Game.Player.Look;
+using Game.Player.Input;
 using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.Weapon.Core;
@@ -77,7 +77,7 @@ namespace Game.Player.Core {
         [Header("Gameplay Controllers")]
         [SerializeField] private PlayerStatsController statsController;
 
-        [SerializeField] private PlayerHealthController healthController;
+        [SerializeField] private PlayerCombatController combatController;
         [SerializeField] private PlayerAnimationController animationController;
         [SerializeField] private PlayerTagController tagController;
         [SerializeField] private PlayerPodiumController podiumController;
@@ -343,7 +343,7 @@ namespace Game.Player.Core {
             grappleController = grappleController ? grappleController : GetComponent<GrappleController>();
             wallRunController = wallRunController ? wallRunController : GetComponent<WallRunController>();
             statsController = statsController ? statsController : GetComponent<PlayerStatsController>();
-            healthController = healthController ? healthController : GetComponent<PlayerHealthController>();
+            combatController = combatController ? combatController : GetComponent<PlayerCombatController>();
             animationController = animationController ? animationController : GetComponent<PlayerAnimationController>();
             tagController = tagController ? tagController : GetComponent<PlayerTagController>();
             podiumController = podiumController ? podiumController : GetComponent<PlayerPodiumController>();
@@ -369,7 +369,7 @@ namespace Game.Player.Core {
             if(movementController == null) missingRefs.Add(nameof(movementController));
             if(lookController == null) missingRefs.Add(nameof(lookController));
             if(wallRunController == null) missingRefs.Add(nameof(wallRunController));
-            if(healthController == null) missingRefs.Add(nameof(healthController));
+            if(combatController == null) missingRefs.Add(nameof(combatController));
             if(animationController == null) missingRefs.Add(nameof(animationController));
             if(weaponManager == null) missingRefs.Add(nameof(weaponManager));
             if(audioRelay == null) missingRefs.Add(nameof(audioRelay));
@@ -656,8 +656,8 @@ namespace Game.Player.Core {
             ValidateServerMovement(authPos);
             HandleOutOfBoundsChecks(authPos);
 
-            if(healthController != null) {
-                healthController.UpdateHealthRegeneration();
+            if(combatController != null) {
+                combatController.UpdateHealthRegeneration();
             }
 
             if(statsController != null) {
@@ -801,8 +801,8 @@ namespace Game.Player.Core {
 
         public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
             string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
-            if(healthController != null) {
-                return healthController.ApplyDamageServer_Auth(amount, hitPoint, hitDirection, attackerId, bodyPartTag,
+            if(combatController != null) {
+                return combatController.ApplyDamageServer_Auth(amount, hitPoint, hitDirection, attackerId, bodyPartTag,
                     isHeadshot, weaponId);
             }
 
@@ -817,8 +817,8 @@ namespace Game.Player.Core {
         /// Resets the player's health and regeneration state.
         /// </summary>
         public void ResetHealthAndRegenerationState() {
-            if(healthController != null)
-                healthController.ResetHealthAndRegenerationState();
+            if(combatController != null)
+                combatController.ResetHealthAndRegenerationState();
         }
 
         public Color CurrentBaseColor => new(
@@ -871,12 +871,6 @@ namespace Game.Player.Core {
                 podiumController.SetPostMatchControlLock(locked, lockLook, resetVelocity);
             } else if(IsOwner) {
                 LockLook = locked && lockLook;
-            }
-        }
-
-        public void ResetVelocity() {
-            if(movementController != null) {
-                movementController.ResetVelocity();
             }
         }
 
@@ -957,7 +951,7 @@ namespace Game.Player.Core {
         public PlayerMovementController MovementController => movementController;
         public PlayerLookController LookController => lookController;
         public PlayerStatsController StatsController => statsController;
-        public PlayerHealthController HealthController => healthController;
+        public PlayerCombatController CombatController => combatController;
         public PlayerTagController TagController => tagController;
         public PlayerPodiumController PodiumController => podiumController;
         public PlayerTeamManager TeamManager => playerTeamManager;
@@ -1095,18 +1089,6 @@ namespace Game.Player.Core {
 
         public float AverageVelocity => statsController != null ? statsController.AverageVelocity.Value : 0f;
         public float ObservedServerMovementSpeed => _movementValidation.ObservedServerMovementSpeed;
-
-        public void SetVelocity(Vector3 horizontalVelocity) {
-            if(movementController != null) {
-                movementController.SetVelocity(horizontalVelocity);
-            }
-        }
-
-        public void AddVerticalVelocity(float verticalBoost) {
-            if(movementController != null) {
-                movementController.AddVerticalVelocity(verticalBoost);
-            }
-        }
 
         #endregion
 
