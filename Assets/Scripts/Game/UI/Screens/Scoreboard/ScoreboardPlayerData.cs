@@ -1,7 +1,7 @@
 using System.Collections.Generic;
+using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Core;
-using Game.Spawning;
 using UnityEngine;
 
 namespace Game.UI.Screens.Scoreboard {

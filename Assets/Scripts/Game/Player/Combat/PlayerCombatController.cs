@@ -5,7 +5,6 @@ using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Contracts;
-using Game.Spawning;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using Game.Weapon.Presentation;

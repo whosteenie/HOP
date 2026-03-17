@@ -4,7 +4,7 @@ using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Spawning {
+namespace Game.Match {
     public class SpawnManager : NetworkBehaviour {
         public static SpawnManager Instance { get; private set; }
 

@@ -1,7 +1,7 @@
-using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine;
 
-namespace Game.Spawning {
+namespace Game.Match {
     public class SpawnPoint : MonoBehaviour {
     public enum Team {
         TeamA,

@@ -7,7 +7,6 @@ using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Input;
 using Game.Player.Movement;
-using Game.Spawning;
 using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
@@ -1282,9 +1281,9 @@ namespace Game.Player.Core {
                 movementController.ResetVelocity();
             }
         }
-        void IPlayerCombatContext.SetRenderersEnabled(bool enabled) {
+        void IPlayerCombatContext.SetRenderersEnabled(bool renderersEnabled) {
             if(visualController != null) {
-                visualController.SetRenderersEnabled(enabled);
+                visualController.SetRenderersEnabled(renderersEnabled);
             }
         }
         void IPlayerCombatContext.InvalidateRendererCache() {

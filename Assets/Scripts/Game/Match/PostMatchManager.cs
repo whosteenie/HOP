@@ -5,7 +5,6 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
-using Game.Spawning;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Network.Core;
