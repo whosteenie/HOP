@@ -1295,6 +1295,10 @@ namespace Game.Player.Core {
         NetworkVariable<int> IPlayerCombatContext.Assists => Assists;
         NetworkVariable<FixedString64Bytes> IPlayerCombatContext.PlayerName => PlayerName;
         bool IPlayerCombatContext.IsHoldingHopball => IsHoldingHopball;
+        bool IPlayerCombatContext.IsGunTagMode => IsGunTagMode;
+        bool IPlayerCombatContext.IsTeamBasedMode => IsTeamBasedMode;
+        bool IPlayerCombatContext.IsPostMatchFlowStarted => IsPostMatchFlowStarted;
+        string IPlayerCombatContext.CurrentGameModeId => CurrentGameModeId;
         float IPlayerCombatContext.BaseFov => BaseFov;
         SpawnPoint.Team IPlayerCombatContext.CurrentTeam => CurrentTeam;
         void IPlayerCombatContext.SetOutOfBoundsGraceWindow(float seconds) => SetOutOfBoundsGraceWindow(seconds);

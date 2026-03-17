@@ -29,6 +29,10 @@ namespace Game.Player.Contracts {
         NetworkVariable<int> Assists { get; }
         NetworkVariable<FixedString64Bytes> PlayerName { get; }
         bool IsHoldingHopball { get; }
+        bool IsGunTagMode { get; }
+        bool IsTeamBasedMode { get; }
+        bool IsPostMatchFlowStarted { get; }
+        string CurrentGameModeId { get; }
         float BaseFov { get; }
         SpawnPoint.Team CurrentTeam { get; }
 

@@ -199,13 +199,12 @@ namespace Game.Player.Combat {
             RefreshStateBindings();
             if(!HasCombatAuthority || netIsDead == null || _deathStatePending) return false;
             if(ResolveAuthoritativeIsDead()) return false;
-            var activeMode = MatchSettingsManager.Instance != null
-                ? MatchSettingsManager.Instance.selectedGameModeId
+            var activeMode = _playerContext != null && !string.IsNullOrEmpty(_playerContext.CurrentGameModeId)
+                ? _playerContext.CurrentGameModeId
                 : "Unknown";
 
             if(attackerId == ulong.MaxValue) {
-                var oobMatchSettings = MatchSettingsManager.Instance;
-                var isOobTagMode = oobMatchSettings != null && oobMatchSettings.selectedGameModeId == "Gun Tag";
+                var isOobTagMode = _playerContext is { IsGunTagMode: true };
                 if(isOobTagMode && _tagController != null && !_tagController.IsTagged.Value) {
                     _tagController.ApplyTimeTaggedDeltaAuthority(GunTagOobNonTaggedPenaltySeconds);
                 }
@@ -242,8 +241,7 @@ namespace Game.Player.Combat {
             }
 
             // Check if we're in Tag mode
-            var matchSettings = MatchSettingsManager.Instance;
-            var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
+            var isTagMode = _playerContext is { IsGunTagMode: true };
 
             _lastHitPoint = hitPoint;
             _lastHitDirection = hitDirection;
@@ -300,10 +298,7 @@ namespace Game.Player.Combat {
 
                 TrackAssistDamage(attackerId, actualDealt);
 
-                var isPostMatchFlowStarted = false;
-                if(PostMatchManager.Instance != null) {
-                    isPostMatchFlowStarted = PostMatchManager.Instance.PostMatchFlowStarted;
-                }
+                var isPostMatchFlowStarted = _playerContext is { IsPostMatchFlowStarted: true };
                 if(!isLethalHit || isPostMatchFlowStarted)
                     return false;
                 _deathStatePending = true;
@@ -325,12 +320,14 @@ namespace Game.Player.Combat {
 
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var killerClient)) {
                     if(killerClient.PlayerObject == null) return false;
+                    var killerName = "Player";
                     if(killerClient.PlayerObject.TryGetComponent<PlayerCombatController>(out var killerHealthController)) {
                         killerHealthController.AddKillAuthority();
+                        if(killerHealthController._playerContext is { PlayerName: not null }) {
+                            killerName = killerHealthController._playerContext.PlayerName.Value.ToString();
+                        }
                     }
                     AwardAssists(attackerId);
-                    var killerState = MatchPlayerStateProxy.GetForPlayer(attackerId);
-                    var killerName = killerState != null ? killerState.playerName.Value.ToString() : "Player";
                     BroadcastKillClientRpc(killerName, attackerId, OwnerClientId, weaponId);
                 }
 
@@ -422,9 +419,7 @@ namespace Game.Player.Combat {
         private void ReserveSpawnPointForDeath() {
             if(!HasCombatAuthority) return;
 
-            var matchSettings = MatchSettingsManager.Instance;
-            var isTeamBased = matchSettings != null &&
-                              MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
+            var isTeamBased = _playerContext is { IsTeamBasedMode: true };
 
             SpawnPoint reservedPoint = null;
             if(isTeamBased) {
@@ -472,9 +467,7 @@ namespace Game.Player.Combat {
 
             Vector3 position;
             Quaternion rotation;
-            var matchSettings = MatchSettingsManager.Instance;
-            var isTeamBased = matchSettings != null &&
-                              MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
+            var isTeamBased = _playerContext is { IsTeamBasedMode: true };
             var team = SpawnPoint.Team.TeamA;
             if(isTeamBased && _playerContext != null) {
                 team = _playerContext.CurrentTeam;
