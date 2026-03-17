@@ -197,23 +197,6 @@ namespace Game.Menu.PrivateMatch {
             RefreshValidationAndStartButton();
         }
 
-        public void SetInitialGamemode(string gamemodeId) {
-            if(string.IsNullOrWhiteSpace(gamemodeId)) return;
-            if(string.Equals(_draft.GamemodeId, gamemodeId, StringComparison.Ordinal)) return;
-
-            _draft.GamemodeId = gamemodeId;
-            ApplyGamemodeDefaults(gamemodeId);
-            if(_gamemodeDropdown != null) {
-                _suppressEvents = true;
-                _gamemodeDropdown.value = gamemodeId;
-                _suppressEvents = false;
-            }
-            RefreshMapChoicesForGamemode(_draft.GamemodeId);
-            RefreshTaggedRowVisibility();
-            RefreshStatusLabel();
-            RefreshValidationAndStartButton();
-        }
-
         private void SetupDefaults() {
             var modeChoices = BuildGamemodeChoices();
             _gamemodeDropdown.choices = modeChoices;

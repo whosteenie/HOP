@@ -1,4 +1,3 @@
-using System.Linq;
 using Diagnostics;
 using Game.Player.Contracts;
 using Unity.Netcode;
@@ -105,13 +104,6 @@ namespace Game.Player.Combat {
                     fallback.AddForce(_hitDir * RagdollForce, ForceMode.Impulse);
                 }
             }
-        }
-
-        /// <summary>
-        /// Gets a rigidbody by its GameObject tag (e.g., "Head" for headshots).
-        /// </summary>
-        private Rigidbody GetRigidbodyByTag(string rbTag) {
-            return _ragdollRigidbodies.FirstOrDefault(rb => rb != null && rb.CompareTag(rbTag));
         }
 
         private Rigidbody GetClosestRigidbody(Vector3 point) {

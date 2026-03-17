@@ -10,8 +10,6 @@ namespace Game.Progression {
         // Stats
         public PlayerStats stats = new();
 
-        public float playTimeSeconds;
-        
         // Challenges
         public List<ActiveChallengeData> dailyChallenges = new();
         public string lastDailyReset; // Stored as DateTime string
@@ -46,7 +44,6 @@ namespace Game.Progression {
         public int jumpPadsUsed;
         // Average Speed can be calculated: TotalDistanceTraveled / TotalPlayTimeSeconds
         
-        public int highestHypeRank; // 0=D, 1=C, ... 6=SSS
     }
 
     [Serializable]

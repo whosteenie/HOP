@@ -21,10 +21,6 @@ namespace Game.Menu.Main {
         private UIModalHost _modalHost;
         private VisualElement MainMenuPanel { get; set; }
         private VisualElement _gamemodePanel;
-        private VisualElement _lobbyPanel;
-        private VisualElement _loadoutPanel;
-        private VisualElement _optionsPanel;
-        private VisualElement _creditsPanel;
         private Button _cardGunTag;
 
         // HUD / Global Containers
@@ -187,11 +183,11 @@ namespace Game.Menu.Main {
             // Panels (required)
             MainMenuPanel = QRequired<VisualElement>("main-menu-panel");
             PlayGamemodePanel = QOptional<VisualElement>("play-gamemode-panel");
-            _lobbyPanel = QOptional<VisualElement>("lobby-panel");
-            _loadoutPanel = QOptional<VisualElement>("loadout-panel");
             _playerNameLabel = QOptional<Label>("player-name-label");
-            _optionsPanel = QOptional<VisualElement>("options-panel");
-            _creditsPanel = QOptional<VisualElement>("credits-panel");
+            _ = QOptional<VisualElement>("lobby-panel");
+            _ = QOptional<VisualElement>("loadout-panel");
+            _ = QOptional<VisualElement>("options-panel");
+            _ = QOptional<VisualElement>("credits-panel");
 
             // Buttons (required)
             _playButtonMatchmaking = QRequired<Button>("play-button-matchmaking");
@@ -667,14 +663,6 @@ namespace Game.Menu.Main {
             _toastRoutine = StartCoroutine(ToastRoutine());
         }
 
-        /// <summary>
-        /// Back-compat coroutine wrapper. Prefer <see cref="ShowToast"/>.
-        /// </summary>
-        public IEnumerator CopyToast(string message) {
-            ShowToast(message);
-            yield return null;
-        }
-
         private IEnumerator ToastRoutine() {
             if(_toastLabel == null) yield break;
 
@@ -828,13 +816,6 @@ namespace Game.Menu.Main {
             return Application.internetReachability == NetworkReachability.NotReachable;
         }
 
-        // Getters for external access
-        public VisualElement GetGamemodePanel() => _gamemodePanel;
-        public VisualElement GetLobbyPanel() => _lobbyPanel;
-        public VisualElement GetLoadoutPanel() => _loadoutPanel;
-        public VisualElement GetOptionsPanel() => _optionsPanel;
-        public VisualElement GetCreditsPanel() => _creditsPanel;
-        public Button GetBackGamemodeButton() => _backGamemodeButton;
     }
 }
 

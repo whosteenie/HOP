@@ -29,7 +29,7 @@ namespace Game.UI.Screens {
         private Coroutine _lifetimeCheckCoroutine;
         private bool _isScoreboardVisible;
 
-        public bool IsChatOpen { get; private set; }
+        private bool IsChatOpen { get; set; }
 
         protected override void OnInitialize() {
             _chatBackground = QOptional<VisualElement>("chat-background");

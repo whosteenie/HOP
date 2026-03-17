@@ -95,8 +95,17 @@ namespace Tests.Editor {
         }
 
         private static Type GetPolicyType() {
-            var policyType = Type.GetType("Network.Session.MatchmakerPollingPolicy, Assembly-CSharp");
-            Assert.That(policyType, Is.Not.Null, "MatchmakerPollingPolicy type should exist in Assembly-CSharp.");
+            var policyType = Type.GetType("Network.Session.MatchmakerPollingPolicy, Network");
+            if(policyType == null) {
+                foreach(var assembly in AppDomain.CurrentDomain.GetAssemblies()) {
+                    policyType = assembly.GetType("Network.Session.MatchmakerPollingPolicy", throwOnError: false);
+                    if(policyType != null) {
+                        break;
+                    }
+                }
+            }
+
+            Assert.That(policyType, Is.Not.Null, "MatchmakerPollingPolicy type should exist in loaded test assemblies.");
             return policyType;
         }
 

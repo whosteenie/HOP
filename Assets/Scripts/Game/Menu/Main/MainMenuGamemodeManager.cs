@@ -194,22 +194,6 @@ namespace Game.Menu.Main {
             }
         }
         
-        public void ResetGamemodeUI() {
-             _isHost = false;
-             SetHostStatus(false, true);
-             SelectedGameMode = "Lobby";
-             UpdateGamemodeDisplay();
-        }
-
-        public void SetDefaultGamemode(string gamemode) {
-            SelectedGameMode = gamemode;
-            UpdateGamemodeDisplay();
-        }
-
-        public void CloseDropdown() {
-             if (_isGamemodeDropdownOpen) ToggleGamemodeDropdown();
-        }
-
         private string SelectedGameMode { get; set; }
 
         private IEnumerator ShowArrowWithAnimation() {

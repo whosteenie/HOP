@@ -28,9 +28,29 @@ namespace Tests.PlayMode {
         }
 
         public static Type ResolveTypeOrAssert(string assemblyQualifiedName) {
-            var resolved = Type.GetType(assemblyQualifiedName);
+            var resolved = ResolveType(assemblyQualifiedName);
             Assert.That(resolved, Is.Not.Null, $"Could not resolve type '{assemblyQualifiedName}'.");
             return resolved;
+        }
+
+        public static Type ResolveType(string typeNameOrAssemblyQualifiedName) {
+            if(string.IsNullOrWhiteSpace(typeNameOrAssemblyQualifiedName)) {
+                return null;
+            }
+
+            var resolved = Type.GetType(typeNameOrAssemblyQualifiedName);
+            if(resolved != null) {
+                return resolved;
+            }
+
+            foreach(var assembly in AppDomain.CurrentDomain.GetAssemblies()) {
+                resolved = assembly.GetType(typeNameOrAssemblyQualifiedName, throwOnError: false);
+                if(resolved != null) {
+                    return resolved;
+                }
+            }
+
+            return null;
         }
 
         public static object InvokePrivate(object target, string methodName, params object[] args) {
@@ -54,7 +74,7 @@ namespace Tests.PlayMode {
 
         public static List<BehaviourToggleState> MuteSceneBehaviours(string assemblyQualifiedTypeName) {
             var muted = new List<BehaviourToggleState>();
-            var behaviourType = Type.GetType(assemblyQualifiedTypeName);
+            var behaviourType = ResolveType(assemblyQualifiedTypeName);
             if(behaviourType == null) {
                 return muted;
             }

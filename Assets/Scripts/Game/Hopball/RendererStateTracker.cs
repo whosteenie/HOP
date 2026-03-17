@@ -76,8 +76,5 @@ namespace Game.Hopball {
             UnityEngine.Debug.LogWarning($"[RendererStateTracker] Started tracking renderer on {gameObject.name}");
         }
 
-        public void StopTracking() {
-            _isTracking = false;
-        }
     }
 }

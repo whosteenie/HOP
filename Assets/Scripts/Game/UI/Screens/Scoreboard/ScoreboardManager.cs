@@ -314,23 +314,5 @@ namespace Game.UI.Screens.Scoreboard {
                 _cachedMatchSettings ? _cachedMatchSettings : MatchSettingsManager.Instance, _localController);
         }
 
-        public bool GetLocalPlayerPlacement(out int placement, out int totalPlayers) {
-            placement = 0;
-            totalPlayers = 0;
-            var allControllers = _registry?.GetAllPlayers();
-            if(allControllers == null) return false;
-            totalPlayers = allControllers.Count;
-            if(totalPlayers == 0) return false;
-            var isTagMode = IsTagMode();
-            var sortedPlayers = _playerData.BuildSortedPlayerList(allControllers, isTagMode);
-            var localClientId = NetworkManager.Singleton.LocalClientId;
-            for(var i = 0; i < sortedPlayers.Count; i++) {
-                if(sortedPlayers[i].OwnerClientId != localClientId) continue;
-                placement = i + 1;
-                return true;
-            }
-
-            return false;
-        }
     }
 }

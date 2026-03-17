@@ -82,8 +82,6 @@ namespace Game.Hopball {
         private Coroutine _layerTransitionCoroutine;
         private bool _putAwayAnimationTriggered;
 
-        public PlayerController PlayerController => playerController;
-
         /// <summary>
         /// Clears the hopball reference. Called by Hopball when it dissolves/respawns.
         /// </summary>

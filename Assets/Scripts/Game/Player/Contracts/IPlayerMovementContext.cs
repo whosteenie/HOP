@@ -24,7 +24,6 @@ namespace Game.Player.Contracts {
         bool SprintInput { get; }
         bool CrouchInput { get; }
         bool IsJumpHeld { get; }
-        bool IsOwner { get; }
         bool IsDead { get; }
         bool IsGrounded { get; }
         bool IsHoldingHopball { get; }

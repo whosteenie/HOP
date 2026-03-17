@@ -156,10 +156,6 @@ namespace Game.Menu.Options {
             RefreshBackgroundDropdownChoices(preserveCurrentSelection);
         }
 
-        public void ApplyBackgroundPreview(string selection) {
-            ApplyBackgroundSelectionPreview(NormalizeBackgroundSelection(selection));
-        }
-
         /// <summary>
         /// Applies the preview for the current dropdown selection.
         /// When called after Apply with a non-Random selection, only applies if not Random (matches original behavior).

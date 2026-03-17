@@ -73,24 +73,6 @@ namespace Game.Social {
             }
         }
 
-        public void ClearStatus() {
-            if (_discord == null) return;
-            try {
-                _hasPendingPresence = false;
-                _pendingDetails = string.Empty;
-                _pendingState = string.Empty;
-                _pendingStartTimestamp = 0;
-
-                if (!_isReady) {
-                    return;
-                }
-
-                _discord.ClearRichPresence();
-            } catch (Exception e) {
-                Debug.LogError($"[DiscordManager] Error clearing status: {e.Message}");
-            }
-        }
-
         private void FlushPendingPresence() {
             if (_discord == null || !_isReady || !_hasPendingPresence) {
                 return;

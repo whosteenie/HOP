@@ -43,13 +43,5 @@ namespace OSI {
             return box;
         }
 
-        /// <summary>
-        /// Deactivate all the objects in the pool.
-        /// </summary>
-        public void DeactivateAllPooledObjects() {
-            foreach(var box in _pooledObjects) {
-                box.Activate(false);
-            }
-        }
     }
 }

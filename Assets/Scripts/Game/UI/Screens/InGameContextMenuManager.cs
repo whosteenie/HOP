@@ -23,8 +23,6 @@ namespace Game.UI.Screens {
         private ulong _targetSteamId;
         private string _targetPlayerId;
 
-        public bool IsOpen => _contextMenu != null && !_contextMenu.ClassListContains("hidden");
-
         protected override void Awake() {
             base.Awake();
             if(Instance != null && Instance != this) {

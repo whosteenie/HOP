@@ -194,7 +194,7 @@ namespace Game.UI.HUD {
         private void RegisterLocalPlayer(PlayerController player) {
             if(player == null) return;
             _localPlayer = player;
-            _grappleController = player.GetComponentInChildren<GrappleController>();
+            _grappleController = player.GrappleController;
             _fpCamera = player.GetComponentInChildren<CinemachineCamera>();
         }
 

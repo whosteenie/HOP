@@ -113,24 +113,6 @@ namespace Game.Menu.Shared {
             _musicFadeCoroutine = StartCoroutine(FadeOutAndStop(fadeDuration));
         }
 
-        public void StopForTransition() {
-            _allowAutoAdvance = false;
-
-            if(_musicFadeCoroutine != null) {
-                StopCoroutine(_musicFadeCoroutine);
-                _musicFadeCoroutine = null;
-            }
-
-            if(musicSource == null) {
-                EnsureMusicSource();
-            }
-
-            if(musicSource == null) return;
-
-            musicSource.volume = 0f;
-            musicSource.Stop();
-        }
-
         private void EnsureMusicSource() {
             if(musicSource == null) {
                 musicSource = GetComponent<AudioSource>();

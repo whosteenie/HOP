@@ -415,34 +415,39 @@ namespace Game.Match {
 
             if(allPlayers.Count == 0) yield break;
 
-            // Check if anyone is already tagged
-            var anyoneTagged = allPlayers.Any(p => {
+            var taggedPlayers = allPlayers.Where(p => {
                 var tagCtrl = p.GetComponent<PlayerTagController>();
                 return tagCtrl != null && tagCtrl.IsTagged.Value;
-            });
+            }).ToList();
 
-            if(anyoneTagged) yield break;
-            {
-                // Randomly select a player to be "it"
-                var randomPlayer = allPlayers[Random.Range(0, allPlayers.Count)];
-                var tagCtrl = randomPlayer.GetComponent<PlayerTagController>();
-
-                if(tagCtrl != null) {
-                    // Tag the player
-                    tagCtrl.IsTagged.Value = true;
-                    tagCtrl.Tagged.Value++;
-
-                    // Play tagged sound for the player who was designated as "it"
-                    tagCtrl.PlayTaggedSoundClientRpc();
-                }
-
-                // Broadcast to kill feed with HOP as the tagger (similar to OOB kills)
-                if(tagCtrl != null) {
-                    tagCtrl.BroadcastTagTransferFromHopClientRpc(randomPlayer.OwnerClientId);
-                }
-
+            var maxInitialTaggedPlayers = allPlayers.Count > 1 ? allPlayers.Count - 1 : 1;
+            var configuredTaggedPlayers = Mathf.Clamp(matchSettings.taggedPlayers, 1, maxInitialTaggedPlayers);
+            var additionalTaggedPlayersNeeded = configuredTaggedPlayers - taggedPlayers.Count;
+            if(additionalTaggedPlayersNeeded <= 0) {
                 _hasDesignatedInitialIt = true;
+                yield break;
             }
+
+            var untaggedPlayers = allPlayers.Where(p => {
+                var tagCtrl = p.GetComponent<PlayerTagController>();
+                return tagCtrl == null || !tagCtrl.IsTagged.Value;
+            }).ToList();
+
+            for(var i = 0; i < additionalTaggedPlayersNeeded && untaggedPlayers.Count > 0; i++) {
+                var selectedIndex = Random.Range(0, untaggedPlayers.Count);
+                var selectedPlayer = untaggedPlayers[selectedIndex];
+                untaggedPlayers.RemoveAt(selectedIndex);
+
+                var tagCtrl = selectedPlayer.GetComponent<PlayerTagController>();
+                if(tagCtrl == null) continue;
+
+                tagCtrl.IsTagged.Value = true;
+                tagCtrl.Tagged.Value++;
+                tagCtrl.PlayTaggedSoundClientRpc();
+                tagCtrl.BroadcastTagTransferFromHopClientRpc(selectedPlayer.OwnerClientId);
+            }
+
+            _hasDesignatedInitialIt = true;
         }
     }
 }

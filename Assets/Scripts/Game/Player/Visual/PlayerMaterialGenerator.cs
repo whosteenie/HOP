@@ -51,6 +51,7 @@ namespace Game.Player.Visual {
 
             // Use packet defaults if not provided
             var finalSpecularColor = specularColor ?? packet.defaultSpecularColor;
+            var finalNormalStrength = packet.normalMapStrength;
             var finalHeightStrength = heightStrength ?? packet.heightMapStrength;
             var finalEmissionColor = emissionColor ?? packet.defaultEmissionColor;
             var supportsEmission = packet.emissionMap != null;
@@ -92,7 +93,7 @@ namespace Game.Player.Visual {
             // Normal Map
             if(packet.normalMap != null) {
                 material.SetTexture(NormalMapId, packet.normalMap);
-                material.SetFloat(NormalScaleId, 1f); // Default normal strength
+                material.SetFloat(NormalScaleId, finalNormalStrength);
                 material.SetTextureScale(NormalMapId, packet.tiling);
                 material.SetTextureOffset(NormalMapId, packet.offset);
             }
@@ -228,20 +229,6 @@ namespace Game.Player.Visual {
             var specularKey = $"{specularColor.r:F3}_{specularColor.g:F3}_{specularColor.b:F3}_{specularColor.a:F3}";
             var emissionKey = $"{(emissionEnabled ? 1 : 0)}_{emissionColor.r:F3}_{emissionColor.g:F3}_{emissionColor.b:F3}_{emissionColor.a:F3}";
             return $"{packetId}_{colorKey}_{smoothness:F3}_{metallic:F3}_{specularKey}_{heightStrength:F3}_{emissionKey}";
-        }
-
-        /// <summary>
-        /// Clears the material cache. Call this when changing scenes or when memory is needed.
-        /// </summary>
-        public static void ClearCache() {
-            foreach(var material in MaterialCache.Values) {
-                if(material != null) {
-                    Destroy(material);
-                }
-            }
-
-            MaterialCache.Clear();
-            MaterialCacheOrder.Clear();
         }
 
         /// <summary>

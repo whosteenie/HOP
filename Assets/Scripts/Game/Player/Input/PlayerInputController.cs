@@ -92,7 +92,7 @@ namespace Game.Player.Input {
 
         [SerializeField] private float sniperZoomFov = 20f;
         private float _defaultFpFov = -1f;
-        
+
         /// <summary>
         /// Gets whether the jump action is currently being held (for bot recording).
         /// Respects custom keybinds including scroll wheel.
@@ -191,6 +191,7 @@ namespace Game.Player.Input {
                 if(_deferredAmmoHudRefreshRoutine != null) {
                     StopCoroutine(_deferredAmmoHudRefreshRoutine);
                 }
+
                 _deferredAmmoHudRefreshRoutine = StartCoroutine(RefreshOwnerAmmoHudDeferred());
             }
 
@@ -201,6 +202,7 @@ namespace Game.Player.Input {
                 if(_playerInputComponent != null) {
                     _playerInputComponent.enabled = false;
                 }
+
                 FlowLog.Emit(FlowEventIds.PlayerControlState,
                     ("player", OwnerClientId),
                     ("enabled", false),
@@ -209,6 +211,7 @@ namespace Game.Player.Input {
                 if(_playerInputComponent != null) {
                     _playerInputComponent.enabled = true;
                 }
+
                 FlowLog.Emit(FlowEventIds.PlayerControlState,
                     ("player", OwnerClientId),
                     ("enabled", true),
@@ -287,12 +290,12 @@ namespace Game.Player.Input {
             if(_attackAction == null || _jumpAction == null || _voiceAction == null) {
                 RefreshCachedInputActions();
             }
+
             if(_jumpAction == null) return;
 
-            if (VoiceManager.Instance != null && _voiceAction != null) {
+            if(VoiceManager.Instance != null && _voiceAction != null) {
                 var isPressed = _voiceAction.IsPressed();
                 VoiceManager.Instance.SetPttActive(isPressed && !_isChatOpen);
-
             }
 
             var attackPressed = _attackAction != null && _attackAction.IsPressed();
@@ -307,6 +310,7 @@ namespace Game.Player.Input {
                         return;
                     }
                 }
+
                 CurrentWeapon.Shoot();
             }
 
@@ -363,7 +367,7 @@ namespace Game.Player.Input {
 
                 // Always allow hold-to-jump (for scroll wheel support)
                 _playerContext?.TryJump();
-                
+
                 if(IsGrappling)
                     _playerContext?.CancelGrapple();
             }
@@ -373,7 +377,7 @@ namespace Game.Player.Input {
             } else if(_isScoreboardVisible) {
                 EventBus.Publish(new HideScoreboardEvent());
             }
-            
+
             // Handle right-click to unlock mouse when scoreboard is open
             if(!_isScoreboardVisible) return;
             if(Mouse.current == null || !Mouse.current.rightButton.wasPressedThisFrame ||
@@ -383,7 +387,6 @@ namespace Game.Player.Input {
             if(_playerContext != null) {
                 _playerContext.LockLook = true;
             }
-
         }
 
         private void UpdateHopballInteractPrompt() {
@@ -421,11 +424,13 @@ namespace Game.Player.Input {
 
         private static string GetPrimaryInteractBindingName() {
             var binding = KeybindManager.GetBindingDisplayString("interact", 0);
-            if(string.IsNullOrWhiteSpace(binding) || string.Equals(binding, "None", System.StringComparison.OrdinalIgnoreCase)) {
+            if(string.IsNullOrWhiteSpace(binding) ||
+               string.Equals(binding, "None", System.StringComparison.OrdinalIgnoreCase)) {
                 binding = KeybindManager.GetBindingDisplayString("interact", 1);
             }
 
-            return string.IsNullOrWhiteSpace(binding) || string.Equals(binding, "None", System.StringComparison.OrdinalIgnoreCase)
+            return string.IsNullOrWhiteSpace(binding) ||
+                   string.Equals(binding, "None", System.StringComparison.OrdinalIgnoreCase)
                 ? "INTERACT"
                 : binding.ToUpperInvariant();
         }
@@ -443,83 +448,6 @@ namespace Game.Player.Input {
         }
 
         /// <summary>
-        /// Sets look input externally (for bots). Bypasses Unity Input System.
-        /// </summary>
-        public void SetLookInput(Vector2 look) {
-            if(!IsOwner) return; // Only owner can set input (prevents network interference)
-            _playerContext?.SetLookInput(look);
-        }
-
-        /// <summary>
-        /// Triggers jump action externally (for bots).
-        /// </summary>
-        public void TriggerJump() {
-            if(!IsOwner || IsPausedOrDead) return;
-            var isMantling = IsMantling;
-            if(isMantling) return;
-
-            if(_playerContext is { IsGrounded: false }) {
-                _playerContext?.TryMantle();
-                if(IsMantling) return;
-            }
-
-            _playerContext?.TryJump();
-            
-            if(IsGrappling) {
-                _playerContext?.CancelGrapple();
-            }
-        }
-
-        /// <summary>
-        /// Triggers grapple action externally (for bots).
-        /// </summary>
-        public void TriggerGrapple() {
-            if(!IsOwner || IsPreMatchOrPausedOrDead) return;
-            var isMantling = IsMantling;
-            if(isMantling) return;
-
-            if(IsGrappling) {
-                _playerContext?.CancelGrapple();
-            } else {
-                _playerContext?.TryGrapple();
-            }
-        }
-
-        /// <summary>
-        /// Triggers shoot action externally (for bots).
-        /// </summary>
-        public void TriggerShoot() {
-            if(!IsOwner || IsPreMatchOrPausedOrDead) return;
-            var isMantling = IsMantling;
-            if(isMantling) return;
-            if(_playerContext is { IsHoldingHopball: true }) return;
-
-            if(CurrentWeapon == null) return;
-            if(CurrentWeapon.TryAutoReloadFromEmptyClick()) return;
-            CurrentWeapon.Shoot();
-        }
-
-        /// <summary>
-        /// Sets sprint state externally (for bots).
-        /// </summary>
-        public void SetSprintInput(bool sprint) {
-            if(!IsOwner) return; // Only owner can set input (prevents network interference)
-            if(_playerContext != null) {
-                _playerContext.SprintInputState = sprint;
-            }
-        }
-
-        /// <summary>
-        /// Sets crouch state externally (for bots).
-        /// </summary>
-        public void SetCrouchInput(bool crouch) {
-            if(!IsOwner) return; // Only owner can set input (prevents network interference)
-            if(_playerContext != null) {
-                _playerContext.CrouchInputState = crouch;
-            }
-        }
-
-        /// <summary>
         /// Reapplies current held movement action state directly from the input action map.
         /// Used after control restore where no new OnMove callback may fire if the key was already held.
         /// </summary>
@@ -528,6 +456,7 @@ namespace Game.Player.Input {
             if(_moveAction == null) {
                 RefreshCachedInputActions();
             }
+
             if(_moveAction == null) return Vector2.zero;
 
             var move = _moveAction.ReadValue<Vector2>();
@@ -682,7 +611,7 @@ namespace Game.Player.Input {
         [UsedImplicitly]
         private void OnZoom(InputValue value) {
             if(!IsOwner || IsPausedOrDead) return;
-            
+
             if(!value.isPressed) return;
 
             if(WeaponManager == null) return;
@@ -704,7 +633,8 @@ namespace Game.Player.Input {
 
         [UsedImplicitly]
         private void OnGrapple(InputValue value) {
-            if(!IsOwner || IsPreMatchOrPausedOrDead || (PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted)) return;
+            if(!IsOwner || IsPreMatchOrPausedOrDead ||
+               (PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted)) return;
             var isMantling = IsMantling;
             if(isMantling) return;
 
@@ -714,7 +644,6 @@ namespace Game.Player.Input {
                 _playerContext?.TryGrapple();
             }
         }
-
 
         #endregion
 
@@ -751,7 +680,7 @@ namespace Game.Player.Input {
         private void OnNextWeapon(InputValue _) {
             TryCycleWeaponByOffset(1);
         }
-        
+
         [UsedImplicitly]
         private void OnPreviousWeapon(InputValue _) {
             TryCycleWeaponByOffset(-1);
@@ -850,12 +779,16 @@ namespace Game.Player.Input {
                         ApplyScrollBinding(entry.binding1, ref _jumpScrollUpBound, ref _jumpScrollDownBound);
                         break;
                     case "nextweapon":
-                        ApplyScrollBinding(entry.binding0, ref _nextWeaponScrollUpBound, ref _nextWeaponScrollDownBound);
-                        ApplyScrollBinding(entry.binding1, ref _nextWeaponScrollUpBound, ref _nextWeaponScrollDownBound);
+                        ApplyScrollBinding(entry.binding0, ref _nextWeaponScrollUpBound,
+                            ref _nextWeaponScrollDownBound);
+                        ApplyScrollBinding(entry.binding1, ref _nextWeaponScrollUpBound,
+                            ref _nextWeaponScrollDownBound);
                         break;
                     case "previousweapon":
-                        ApplyScrollBinding(entry.binding0, ref _previousWeaponScrollUpBound, ref _previousWeaponScrollDownBound);
-                        ApplyScrollBinding(entry.binding1, ref _previousWeaponScrollUpBound, ref _previousWeaponScrollDownBound);
+                        ApplyScrollBinding(entry.binding0, ref _previousWeaponScrollUpBound,
+                            ref _previousWeaponScrollDownBound);
+                        ApplyScrollBinding(entry.binding1, ref _previousWeaponScrollUpBound,
+                            ref _previousWeaponScrollDownBound);
                         break;
                 }
             }
@@ -879,7 +812,7 @@ namespace Game.Player.Input {
             // Allow switching even during pull out (interruptible switching)
 
             ForceDisableSniperOverlay(false);
-            
+
             // If holding hopball, drop it first (WeaponManager will handle this, but we can also do it here for clarity)
             // Actually, WeaponManager.SwitchWeapon() will handle dropping, so we just proceed
             // Reload cancellation is handled by Weapon.SwitchToWeapon() when the weapon switch completes
@@ -917,7 +850,7 @@ namespace Game.Player.Input {
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = IsMantling;
             if(isMantling) return;
-            
+
             _playerContext?.PickupHopball();
         }
 
@@ -966,7 +899,9 @@ namespace Game.Player.Input {
                         WeaponManager.OffsetCurrentFpWeapon(sniperScopedWeaponPosition, sniperScopedWeaponRotation);
                     } else {
                         if(_cachedFpWeaponPosition.HasValue) {
-                            var rotation = _cachedFpWeaponRotation.HasValue ? _cachedFpWeaponRotation.Value : Vector3.zero;
+                            var rotation = _cachedFpWeaponRotation.HasValue
+                                ? _cachedFpWeaponRotation.Value
+                                : Vector3.zero;
                             WeaponManager.OffsetCurrentFpWeapon(_cachedFpWeaponPosition.Value, rotation);
                         }
 
@@ -979,11 +914,13 @@ namespace Game.Player.Input {
             if(_playerContext != null && _playerContext.IsSniperZoomActive != zoomEnabled) {
                 _playerContext.SetSniperZoomActive(zoomEnabled, sniperZoomFov);
             }
+
             if(playZoomSound) {
                 if(AudioService.Instance != null) {
                     AudioService.Instance.Play("ui.sniper.zoom", Vector3.zero);
                 }
             }
+
             UpdateSniperSensitivity();
         }
 
@@ -1010,5 +947,3 @@ namespace Game.Player.Input {
         #endregion
     }
 }
-
-

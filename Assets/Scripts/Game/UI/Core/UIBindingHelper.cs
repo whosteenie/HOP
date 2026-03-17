@@ -41,28 +41,5 @@ namespace Game.UI.Core {
             return missing;
         }
 
-        /// <summary>
-        /// Safely unregisters a callback, preventing errors if already unregistered or element is null.
-        /// </summary>
-        public static void SafeUnregister<TEvent>(VisualElement element, EventCallback<TEvent> callback) where TEvent : EventBase<TEvent>, new() {
-            if(element == null || callback == null) return;
-            try {
-                element.UnregisterCallback(callback);
-            } catch {
-                // Already unregistered or element destroyed - ignore
-            }
-        }
-
-        /// <summary>
-        /// Safely unregisters a clicked callback from a button.
-        /// </summary>
-        public static void SafeUnregisterClick(Button button, Action callback) {
-            if(button == null || callback == null) return;
-            try {
-                button.clicked -= callback;
-            } catch {
-                // Already unregistered or button destroyed - ignore
-            }
-        }
     }
 }

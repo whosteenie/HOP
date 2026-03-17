@@ -341,18 +341,6 @@ namespace Game.Settings {
             };
         }
 
-        public bool IsKeyPressed(string keybindName) {
-            return _actions.ContainsKey(keybindName) && _actions[keybindName].IsPressed();
-        }
-
-        public bool WasKeyPressedThisFrame(string keybindName) {
-            return _actions.ContainsKey(keybindName) && _actions[keybindName].WasPressedThisFrame();
-        }
-
-        public bool WasKeyReleasedThisFrame(string keybindName) {
-            return _actions.ContainsKey(keybindName) && _actions[keybindName].WasReleasedThisFrame();
-        }
-
         #endregion
 
         #region Helper Methods

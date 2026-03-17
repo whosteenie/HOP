@@ -20,30 +20,6 @@ namespace Game.Weapon.Manager {
 
         #region Public Loadout Selection
 
-        public int GetPrimarySelectionIndex() {
-            if(_root.CatalogRef.IsEmpty) {
-                _root.BuildKinemationWeaponLookup();
-            }
-            if(_root.PlayerControllerRef == null || _root.CatalogRef.PrimaryWeaponOptions.Count == 0) {
-                return 0;
-            }
-
-            return Mathf.Clamp(_root.PlayerControllerRef.primaryWeaponIndex.Value, 0,
-                _root.CatalogRef.PrimaryWeaponOptions.Count - 1);
-        }
-
-        public int GetSecondarySelectionIndex() {
-            if(_root.CatalogRef.IsEmpty) {
-                _root.BuildKinemationWeaponLookup();
-            }
-            if(_root.PlayerControllerRef == null || _root.CatalogRef.SecondaryWeaponOptions.Count == 0) {
-                return 0;
-            }
-
-            return Mathf.Clamp(_root.PlayerControllerRef.secondaryWeaponIndex.Value, 0,
-                _root.CatalogRef.SecondaryWeaponOptions.Count - 1);
-        }
-
         public bool ApplyOwnerLoadoutSelection(int primaryIndex, int secondaryIndex, bool deferTpRevealUntilRespawn = true) {
             if(!_root.IsOwner || _root.PlayerControllerRef == null) return false;
             if(_root.CatalogRef.IsEmpty) {

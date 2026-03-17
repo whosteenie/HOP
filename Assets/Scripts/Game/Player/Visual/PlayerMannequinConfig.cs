@@ -1678,16 +1678,6 @@ namespace Game.Player.Visual {
             return GetOptionNames(secondaryOptions, "Secondary");
         }
 
-        public int SelectedPrimaryIndex {
-            get => selectedPrimaryIndex;
-            set => selectedPrimaryIndex = value;
-        }
-
-        public int SelectedSecondaryIndex {
-            get => selectedSecondaryIndex;
-            set => selectedSecondaryIndex = value;
-        }
-
         private static string[] GetOptionNames(WeaponVisualOption[] options, string fallbackPrefix) {
             if(options == null || options.Length == 0) {
                 return new[] { $"No {fallbackPrefix} Options" };
