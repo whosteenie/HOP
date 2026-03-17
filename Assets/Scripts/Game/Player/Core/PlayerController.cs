@@ -1065,13 +1065,13 @@ namespace Game.Player.Core {
         public bool IsDead => NetIsDead is { Value: true };
         public bool IsCrouching => netIsCrouching is { Value: true };
         public bool IsGrounded => movementController != null && movementController.IsGrounded;
-        public bool IsPreMatchMovementLocked => MatchTimerManager.Instance is { IsPreMatch: true };
-        public bool IsPostMatchMovementLocked => PostMatchManager.IsPostMatchMovementLockedLocal;
-        public bool IsPostMatchFlowStarted => PostMatchManager.Instance is { PostMatchFlowStarted: true };
-        public string CurrentGameModeId => MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.selectedGameModeId : string.Empty;
-        public bool IsGunTagMode => MatchSettingsManager.Instance != null &&
-                                    MatchSettingsManager.Instance.selectedGameModeId == "Gun Tag";
-        public bool IsTeamBasedMode => MatchSettingsManager.IsTeamBasedMode(CurrentGameModeId);
+        private static bool IsPreMatchMovementLocked => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
+        private static bool IsPostMatchMovementLocked => PostMatchManager.IsPostMatchMovementLockedLocal;
+        private static bool IsPostMatchFlowStarted => PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
+        public static string CurrentGameModeId => MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.selectedGameModeId : string.Empty;
+        public static bool IsGunTagMode => MatchSettingsManager.Instance != null &&
+                                           MatchSettingsManager.Instance.selectedGameModeId == "Gun Tag";
+        public static bool IsTeamBasedMode => MatchSettingsManager.IsTeamBasedMode(CurrentGameModeId);
 
         #endregion
 
