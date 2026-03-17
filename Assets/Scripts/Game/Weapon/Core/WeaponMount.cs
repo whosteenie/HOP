@@ -47,11 +47,7 @@ namespace Game.Weapon.Core {
                 treatedGrounded = true;
             }
 
-            var lookPitch = 0f;
-            var lookController = playerController.LookController;
-            if(lookController != null) {
-                lookPitch = lookController.CurrentPitch;
-            }
+            var lookPitch = playerController.CurrentPitch;
 
             kinemationDriver.SyncLocomotion(
                 moveInput,
