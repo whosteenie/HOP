@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using Diagnostics;
 using Game.Player.Core;
-using Game.Weapon.Core;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Weapon.Presentation {
+namespace Game.Weapon.Core {
     [DefaultExecutionOrder(7005)] // Run after UpperBodyPitch + SpineProxy LateUpdate passes.
     public class WeaponFxRelay : NetworkBehaviour {
         [SerializeField] private PlayerController playerController;
@@ -13,7 +12,7 @@ namespace Game.Weapon.Presentation {
         private readonly List<PendingRemoteShotFx> _pendingRemoteShotFx = new();
 
         private struct PendingRemoteShotFx {
-            public Core.Weapon Weapon;
+            public Weapon Weapon;
             public Vector3 EndPoint;
             public Vector3 HitNormal;
             public Vector3 ShooterVelocity;
