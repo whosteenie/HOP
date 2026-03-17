@@ -1,4 +1,4 @@
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -10,7 +10,10 @@ namespace Game.Player.Movement {
     [AddComponentMenu("Shelved/Movement/Dash Controller (Unused Prototype)")]
     public class DashController : NetworkBehaviour {
         [Header("References")] [SerializeField]
-        private PlayerController playerController;
+        private MonoBehaviour playerContextSource;
+
+        private IPlayerMovementContext _playerContext;
+        private PlayerMovementController _movementController;
 
         [SerializeField] private CharacterController characterController;
         [SerializeField] private SwingGrapple swingGrapple;
@@ -28,6 +31,22 @@ namespace Game.Player.Movement {
         private Vector3 _dashVelocity;
         private float _dashCooldownTimer;
         private bool _airDashPendingGround;
+
+        private void Awake() {
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(!PlayerContractResolver.TryResolve<IPlayerMovementContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[DashController] IPlayerMovementContext not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_movementController == null) {
+                _movementController = GetComponent<PlayerMovementController>();
+            }
+        }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
@@ -48,7 +67,7 @@ namespace Game.Player.Movement {
             _netIsDashing.Value = true;
             _dashVelocity = direction * dashSpeed;
             _dashTimer = 0f;
-            _airDashPendingGround = !playerController.IsGrounded;
+            _airDashPendingGround = !_playerContext.IsGrounded;
         }
 
         private void OnDashChanged(bool _, bool dashing) {
@@ -72,12 +91,12 @@ namespace Game.Player.Movement {
 
             _dashCooldownTimer = Mathf.Max(0, _dashCooldownTimer - Time.deltaTime);
 
-            if(_airDashPendingGround && playerController.IsGrounded) {
+            if(_airDashPendingGround && _playerContext.IsGrounded) {
                 _airDashPendingGround = false;
                 _dashCooldownTimer = dashCooldown;
             }
 
-            var currentVel = playerController.GetFullVelocity;
+            var currentVel = _playerContext.FullVelocity;
             var dashDir = _dashVelocity.normalized;
             var boostedVel = currentVel + dashDir * dashSpeed;
 
@@ -86,7 +105,8 @@ namespace Game.Player.Movement {
             characterController.Move(boostedVel * Time.deltaTime);
 
             if(!(_dashTimer >= dashDuration)) return;
-            playerController.MovementController?.SetVelocity(new Vector3(boostedVel.x, 0f, boostedVel.z));
+            if(_movementController != null) _movementController.SetVelocity(new Vector3(boostedVel.x, 0f, boostedVel.z));
+
             EndDash();
         }
 
@@ -103,7 +123,7 @@ namespace Game.Player.Movement {
         /// Called when the dash input is received.
         /// </summary>
         public void OnDashInput() {
-            TryDash(playerController.moveInput);
+            TryDash(_playerContext.MoveInput);
         }
     }
 }

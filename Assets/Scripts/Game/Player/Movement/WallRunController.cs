@@ -1,4 +1,4 @@
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -9,11 +9,12 @@ namespace Game.Player.Movement {
         #region Fields: References
 
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
 
         private CharacterController _characterController;
         private CinemachineCamera _fpCamera;
         private PlayerMovementController _movementController;
+        private IPlayerMovementContext _playerContext;
 
         #endregion
 
@@ -132,16 +133,12 @@ namespace Game.Player.Movement {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) return;
-            _characterController = playerController.CharacterController;
-            _fpCamera = playerController.FpCamera;
-            _movementController = playerController.MovementController;
+            if(!PlayerContractResolver.TryResolve<IPlayerMovementContext>(this, ref playerContextSource, out _playerContext)) return;
+            _characterController = _playerContext.CharacterController;
+            _fpCamera = _playerContext.FpCamera;
+            _movementController = GetComponent<PlayerMovementController>();
             // Default to world layer if not set
-            if(wallLayer == 0) wallLayer = playerController.WorldLayer;
+            if(wallLayer == 0) wallLayer = _playerContext.WorldLayer;
         }
 
         #endregion
@@ -182,7 +179,7 @@ namespace Game.Player.Movement {
             if(!CanWallRun()) return;
             
             var canInitiate = GameSettings.Data.controls.autoWallRun 
-                || playerController.IsJumpHeld;
+                || _playerContext is { IsJumpHeld: true };
             
             if(!canInitiate || _movementController.HorizontalVelocity.magnitude < minWallRunSpeed) {
                 return;
@@ -276,7 +273,7 @@ namespace Game.Player.Movement {
             _lockedWallRunSign = 1;
             _hasLockedWallRunSign = false;
 
-            playerController.SetLookTilt(0f);
+            _playerContext?.SetLookTilt(0f);
             PublishWallRunNetworkState();
         }
 
@@ -368,12 +365,12 @@ namespace Game.Player.Movement {
         }
 
         private void PublishWallRunNetworkState() {
-            if(!IsOwner || playerController == null) return;
+            if(!IsOwner || _playerContext == null) return;
 
-            playerController.NetIsWallRunning.Value = IsWallRunning;
-            playerController.NetIsRightWallRun.Value = IsWallRunning && IsRightWallRun;
+            _playerContext.NetIsWallRunning.Value = IsWallRunning;
+            _playerContext.NetIsRightWallRun.Value = IsWallRunning && IsRightWallRun;
             var forward = transform.forward;
-            playerController.NetWallRunDirection.Value = IsWallRunning
+            _playerContext.NetWallRunDirection.Value = IsWallRunning
                 ? Mathf.Sign(Vector3.Dot(GetWallRunVelocity(forward), forward))
                 : 1f;
         }
@@ -497,13 +494,13 @@ namespace Game.Player.Movement {
         private bool TryGetKeyboardIntentSign(Vector3 wallForward, out int sign, out float strength) {
             sign = 0;
             strength = 0f;
-            if(playerController == null) return false;
+            if(_playerContext == null) return false;
 
-            var moveInput = playerController.moveInput;
+            var moveInput = _playerContext.MoveInput;
             var inputMagnitude = moveInput.magnitude;
             if(inputMagnitude < keyboardIntentInputDeadzone) return false;
 
-            var basis = playerController.PlayerTransform != null ? playerController.PlayerTransform : transform;
+            var basis = _playerContext.PlayerTransform != null ? _playerContext.PlayerTransform : transform;
             var inputDirection = basis.forward * moveInput.y + basis.right * moveInput.x;
             inputDirection.y = 0f;
             if(inputDirection.sqrMagnitude <= 0.0001f) return false;
@@ -619,7 +616,7 @@ namespace Game.Player.Movement {
         private void UpdateCameraTiltForCurrentSide() {
             if(_fpCamera == null) return;
             var tilt = IsRightWallRun ? wallRunCameraTilt : -wallRunCameraTilt;
-            playerController.SetLookTilt(tilt);
+            _playerContext?.SetLookTilt(tilt);
         }
 
         #endregion

@@ -2,7 +2,7 @@ using System.Collections;
 using Events;
 using Game.Audio.System;
 using Game.Match;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Game.Weapon.Kinemation;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -11,7 +11,10 @@ using UnityEngine;
 namespace Game.Player.Movement {
     public class GrappleController : NetworkBehaviour {
         [Header("Components")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerMovementContext _playerContext;
+        private PlayerMovementController _movementController;
 
         private CinemachineCamera _fpCamera;
         private CharacterController _characterController;
@@ -80,11 +83,11 @@ namespace Game.Player.Movement {
 
         private Vector3 CurrentPullVelocity {
             get {
-                if(!IsGrappling || playerController == null) {
+                if(!IsGrappling || _playerContext == null) {
                     return Vector3.zero;
                 }
 
-                var toPoint = _grapplePoint - playerController.Position;
+                var toPoint = _grapplePoint - _playerContext.Position;
                 if(toPoint.sqrMagnitude <= 0.0001f) {
                     return Vector3.zero;
                 }
@@ -117,7 +120,7 @@ namespace Game.Player.Movement {
             var matchSettings = MatchSettingsManager.Instance;
             var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
 
-            if(isTagMode && playerController != null && playerController.IsTagged) {
+            if(isTagMode && _playerContext is { IsTagged: true }) {
                 return TaggedPlayerCooldown;
             }
 
@@ -156,24 +159,30 @@ namespace Game.Player.Movement {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-            
-            if(_fpCamera == null) {
-                _fpCamera = playerController.FpCamera;
-            }
-            
-            if(_characterController == null) {
-                _characterController = playerController.CharacterController;
-            }
-            
-            if(_audioRelay == null) {
-                _audioRelay = playerController.AudioRelay;
+            if(!PlayerContractResolver.TryResolve<IPlayerMovementContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[GrappleController] IPlayerMovementContext not found!");
+                enabled = false;
+                return;
             }
 
-            _playerLayer = playerController.PlayerLayer;
-            GrappleableLayers = playerController.WorldLayer;
+            if(_fpCamera == null) {
+                _fpCamera = _playerContext.FpCamera;
+            }
+
+            if(_characterController == null) {
+                _characterController = _playerContext.CharacterController;
+            }
+
+            if(_audioRelay == null) {
+                _audioRelay = _playerContext.AudioRelay;
+            }
+
+            if(_movementController == null) {
+                _movementController = GetComponent<PlayerMovementController>();
+            }
+
+            _playerLayer = _playerContext.PlayerLayer;
+            GrappleableLayers = _playerContext.WorldLayer;
         }
 
         public override void OnNetworkSpawn() {
@@ -459,7 +468,7 @@ namespace Game.Player.Movement {
             if(!IsOwner) return;
             if(!CanGrapple || IsGrappling) return;
 
-            var ray = new Ray(playerController.FpCameraTransform.position, playerController.FpCameraTransform.forward);
+            var ray = new Ray(_playerContext.FpCameraTransform.position, _playerContext.FpCameraTransform.forward);
 
             if(Physics.Raycast(ray, out var hit, MaxGrappleDistance, GrappleableLayers)) {
                 StartGrapple(hit.point);
@@ -490,21 +499,18 @@ namespace Game.Player.Movement {
 
         private void StartGrapple(Vector3 targetPoint) {
             var isReloading = IsOwner &&
-                              playerController != null &&
-                              playerController.WeaponManager != null &&
-                              playerController.WeaponManager.CurrentWeapon != null &&
-                              playerController.WeaponManager.CurrentWeapon.IsReloadInProgress;
+                              _playerContext?.CurrentWeapon != null &&
+                              _playerContext.CurrentWeapon.IsReloadInProgress;
             var isHoldingHopball = IsOwner &&
-                                   playerController != null &&
-                                   playerController.IsHoldingHopball;
+                                   _playerContext is { IsHoldingHopball: true };
             var useFallbackFirstPersonGrappleVisuals = isReloading || isHoldingHopball;
 
             _useAnimatedFirstPersonGrappleVisuals = !useFallbackFirstPersonGrappleVisuals;
             _forceCameraOffsetOriginForCurrentCable = useFallbackFirstPersonGrappleVisuals;
 
             // Cancel any active slide - grapple takes full control
-            if(playerController != null && playerController.MovementController != null && playerController.MovementController.IsSliding) {
-                playerController.MovementController.CancelSlideForJump();
+            if(_movementController != null && _movementController.IsSliding) {
+                _movementController.CancelSlideForJump();
             }
 
             PublishGrappleState(true, targetPoint);
@@ -542,8 +548,10 @@ namespace Game.Player.Movement {
             }
 
             if(_audioRelay != null && IsOwner) {
-                _audioRelay.RequestPlayAttached("gameplay.grapple", new NetworkObjectReference(playerController.NetworkObject),
-                    allowOverlap: true);
+                if(_playerContext != null)
+                    _audioRelay.RequestPlayAttached("gameplay.grapple",
+                        new NetworkObjectReference(_playerContext.NetworkObject),
+                        allowOverlap: true);
             }
 
             // Publish grapple started event
@@ -564,8 +572,8 @@ namespace Game.Player.Movement {
             }
 
             // Calculate pull direction and velocity
-            var directionToPoint = (_grapplePoint - playerController.Position).normalized;
-            var distanceToPoint = Vector3.Distance(playerController.Position, _grapplePoint);
+            var directionToPoint = (_grapplePoint - _playerContext.Position).normalized;
+            var distanceToPoint = Vector3.Distance(_playerContext.Position, _grapplePoint);
 
             // If we're very close, end the grapple
             if(distanceToPoint < 1f) {
@@ -587,7 +595,7 @@ namespace Game.Player.Movement {
             var pullVelocity = directionToPoint * GrappleSpeed;
             if(elapsed >= GrappleEstablishGrace) {
                 var checkDistance = pullVelocity.magnitude * Time.deltaTime * 3f;
-                if(Physics.SphereCast(playerController.Position, _characterController.radius, directionToPoint, out var sphereHit,
+                if(Physics.SphereCast(_playerContext.Position, _characterController.radius, directionToPoint, out var sphereHit,
                        checkDistance, ~_playerLayer)) {
                     if(IsJumpPadCollider(sphereHit.collider, out var isMegaPad)) {
                         HandleJumpPadSweepHit(sphereHit, isMegaPad);
@@ -605,7 +613,7 @@ namespace Game.Player.Movement {
         }
 
         private void EndGrapple(bool applyMomentum, bool applyJumpPadLaunchCompensation = false) {
-            var movementController = playerController != null ? playerController.MovementController : null;
+            var movementController = _movementController;
             var toAnchor = _grapplePoint - transform.position;
             var distanceToAnchor = toAnchor.magnitude;
             var directionToAnchor = distanceToAnchor > 0.0001f ? toAnchor / distanceToAnchor : Vector3.zero;
@@ -639,8 +647,8 @@ namespace Game.Player.Movement {
                 var finalVelocity = GrappleSpeed * MomentumBoost * directionToAnchor;
 
                 // Apply momentum to FpController
-                if(playerController != null) {
-                    var ownerMovementController = playerController.MovementController;
+                if(_movementController != null) {
+                    var ownerMovementController = _movementController;
                     if(ownerMovementController == null) {
                         return;
                     }
@@ -725,12 +733,12 @@ namespace Game.Player.Movement {
 
         /// <summary>Handles jump pad handoff from the given collider.</summary>
         private void HandleJumpPadHandoff(Collider padCollider, bool isMegaPad) {
-            if(playerController == null) {
+            if(_movementController == null) {
                 EndGrapple(true);
                 return;
             }
 
-            var movementController = playerController.MovementController;
+            var movementController = _movementController;
             if(movementController == null) {
                 EndGrapple(true);
                 return;
@@ -762,7 +770,7 @@ namespace Game.Player.Movement {
         }
 
         private void OnPlayerTagStateChanged(PlayerTagStateChangedEvent evt) {
-            if(evt == null || playerController == null || evt.PlayerId != playerController.OwnerClientId) return;
+            if(evt == null || _playerContext == null || evt.PlayerId != OwnerClientId) return;
             if(CanGrapple) return;
             // Snap progress/remaining time to current rules when tagged state changes mid-cooldown.
             _cooldownDuration = GetCurrentCooldown();
@@ -885,11 +893,11 @@ namespace Game.Player.Movement {
 
         private Vector3 GetFpGrappleOriginPosition() {
             if(IsOwner && _forceCameraOffsetOriginForCurrentCable) {
-                var fallbackCam = playerController.FpCameraTransform;
+                var fallbackCam = _playerContext.FpCameraTransform;
                 return fallbackCam.position - fallbackCam.right * 0.3f - fallbackCam.up * 0.2f;
             }
 
-            var fpWeapon = playerController.WeaponManager != null ? playerController.WeaponManager.GetCurrentFpWeapon() : null;
+            var fpWeapon = _playerContext.GetCurrentFpWeapon();
 
             var driver = fpWeapon != null ? fpWeapon.GetComponent<KinFpWeaponDriver>() : null;
 
@@ -899,7 +907,7 @@ namespace Game.Player.Movement {
                 return handTransform.position;
 
             // Fallback: camera offset when FP hand bone unavailable (no weapon, hopball, etc.)
-            var cam = playerController.FpCameraTransform;
+            var cam = _playerContext.FpCameraTransform;
             return cam.position - cam.right * 0.3f - cam.up * 0.2f;
         }
 

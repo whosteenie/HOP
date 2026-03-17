@@ -1,5 +1,5 @@
 using Game.Audio.System;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -12,13 +12,16 @@ namespace Game.Player.Movement {
     [AddComponentMenu("Shelved/Movement/Swing Grapple (Unused Prototype)")]
     public class SwingGrapple : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
 
         [SerializeField] private CharacterController characterController;
         [SerializeField] private CinemachineCamera fpCamera;
         [SerializeField] private LineRenderer ropeRenderer;
         [SerializeField] private GrappleController pullGrapple;
         [SerializeField] private NetworkAudioRelay audioRelay;
+
+        private IPlayerMovementContext _playerContext;
+        private PlayerMovementController _movementController;
 
         [Header("Swing Settings")]
         [SerializeField] private float maxSwingDistance = 50f;
@@ -45,6 +48,8 @@ namespace Game.Player.Movement {
         private readonly NetworkVariable<Vector3> _netSwingPoint = new();
 
         private void Awake() {
+            ValidateComponents();
+
             if(audioRelay == null) {
                 audioRelay = GetComponent<NetworkAudioRelay>();
             }
@@ -61,6 +66,26 @@ namespace Game.Player.Movement {
             ropeRenderer.material = ropeMaterial ? ropeMaterial : new Material(Shader.Find("Sprites/Default"));
             ropeRenderer.startColor = ropeRenderer.endColor = ropeColor;
             ropeRenderer.enabled = false;
+        }
+
+        private void ValidateComponents() {
+            if(!PlayerContractResolver.TryResolve<IPlayerMovementContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[SwingGrapple] IPlayerMovementContext not found!");
+                enabled = false;
+                return;
+            }
+
+            if(characterController == null) {
+                characterController = _playerContext.CharacterController;
+            }
+
+            if(fpCamera == null) {
+                fpCamera = _playerContext.FpCamera;
+            }
+
+            if(_movementController == null) {
+                _movementController = GetComponent<PlayerMovementController>();
+            }
         }
 
         public override void OnNetworkSpawn() {
@@ -110,17 +135,17 @@ namespace Game.Player.Movement {
 
             // Keep momentum when releasing. During a jumppad launch, do not apply vertical velocity
             // from the swing so the launch's upward velocity is preserved.
-            playerController.MovementController?.SetVelocity(new Vector3(_currentVelocity.x, 0f, _currentVelocity.z));
-            var inJumpPadLaunch = playerController.MovementController != null && playerController.MovementController.IsInJumpPadLaunch;
-            if(!inJumpPadLaunch) {
-                playerController.MovementController?.AddVerticalVelocity(_currentVelocity.y);
-            }
+            if(_movementController != null) _movementController.SetVelocity(new Vector3(_currentVelocity.x, 0f, _currentVelocity.z));
+
+            var inJumpPadLaunch = _movementController != null && _movementController.IsInJumpPadLaunch;
+            if(inJumpPadLaunch) return;
+            if(_movementController != null) _movementController.AddVerticalVelocity(_currentVelocity.y);
         }
 
         private void StartSwing(Vector3 point) {
             _swingPoint = point;
             _ropeLength = Vector3.Distance(transform.position, _swingPoint);
-            _currentVelocity = playerController.GetFullVelocity;
+            _currentVelocity = _playerContext.FullVelocity;
 
             IsSwinging = true;
             ropeRenderer.enabled = true;

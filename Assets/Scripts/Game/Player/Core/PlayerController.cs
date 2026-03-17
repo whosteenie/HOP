@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Events;
 using Game.Audio.System;
+using Game.Player.Contracts;
 using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Input;
@@ -24,7 +25,7 @@ namespace Game.Player.Core {
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NetworkAudioRelay))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
-    public class PlayerController : NetworkBehaviour {
+    public class PlayerController : NetworkBehaviour, IPlayerMovementContext {
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -1160,6 +1161,17 @@ namespace Game.Player.Core {
             if(podiumController != null) {
                 podiumController.SnapPodiumVisualsClientRpc();
             }
+        }
+
+        Vector2 IPlayerMovementContext.MoveInput => moveInput;
+        bool IPlayerMovementContext.SprintInput => sprintInput;
+        bool IPlayerMovementContext.CrouchInput => crouchInput;
+        Vector3 IPlayerMovementContext.FullVelocity => GetFullVelocity;
+        NetworkVariable<Vector4> IPlayerMovementContext.PlayerBaseColorNetwork => playerBaseColor;
+        void IPlayerMovementContext.SetLookTilt(float tilt) => SetLookTilt(tilt);
+
+        GameObject IPlayerMovementContext.GetCurrentFpWeapon() {
+            return weaponManager != null ? weaponManager.GetCurrentFpWeapon() : null;
         }
 
         #endregion

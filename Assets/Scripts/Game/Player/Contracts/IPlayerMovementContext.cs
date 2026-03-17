@@ -1,0 +1,43 @@
+using Game.Audio.System;
+using Game.Player.Visual;
+using Unity.Cinemachine;
+using Unity.Netcode;
+using UnityEngine;
+
+namespace Game.Player.Contracts {
+    public interface IPlayerMovementContext {
+        Transform PlayerTransform { get; }
+        CharacterController CharacterController { get; }
+        CinemachineCamera FpCamera { get; }
+        Transform FpCameraTransform { get; }
+        Camera WeaponCamera { get; }
+        PlayerAnimationController AnimationController { get; }
+        NetworkAudioRelay AudioRelay { get; }
+        NetworkObject NetworkObject { get; }
+        LayerMask WorldLayer { get; }
+        LayerMask PlayerLayer { get; }
+        LayerMask EnemyLayer { get; }
+        NetworkVariable<bool> NetIsCrouching { get; }
+        NetworkVariable<bool> NetIsSliding { get; }
+        NetworkVariable<bool> NetIsWallRunning { get; }
+        NetworkVariable<bool> NetIsRightWallRun { get; }
+        NetworkVariable<float> NetWallRunDirection { get; }
+        Vector2 MoveInput { get; }
+        bool SprintInput { get; }
+        bool CrouchInput { get; }
+        bool IsJumpHeld { get; }
+        bool IsOwner { get; }
+        bool IsDead { get; }
+        bool IsGrounded { get; }
+        bool IsHoldingHopball { get; }
+        bool IsTagged { get; }
+        Vector3 Position { get; }
+        Vector3 FullVelocity { get; }
+        Color CurrentBaseColor { get; }
+        NetworkVariable<Vector4> PlayerBaseColorNetwork { get; }
+        Game.Weapon.Core.Weapon CurrentWeapon { get; }
+
+        void SetLookTilt(float tilt);
+        GameObject GetCurrentFpWeapon();
+    }
+}

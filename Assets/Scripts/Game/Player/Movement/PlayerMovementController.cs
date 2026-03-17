@@ -1,7 +1,7 @@
 using Events;
 using Game.Audio.System;
 using Game.Match;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Game.Player.Visual;
 using Game.Weapon.Presentation;
 using Unity.Cinemachine;
@@ -15,7 +15,9 @@ namespace Game.Player.Movement {
     [DefaultExecutionOrder(-90)]
     public class PlayerMovementController : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerMovementContext _playerContext;
 
         private CharacterController _characterController;
         private GrappleController _grappleController;
@@ -90,12 +92,12 @@ namespace Game.Player.Movement {
         private int _currentWallRunChain;
         private bool _wasWallRunningLastFrame;
 
-        // Input (read from PlayerController)
-        private Vector2 MoveInput => playerController == null ? Vector2.zero : playerController.moveInput;
+        // Input (read from movement player context)
+        private Vector2 MoveInput => _playerContext == null ? Vector2.zero : _playerContext.MoveInput;
 
-        private bool SprintInput => playerController != null && playerController.sprintInput;
+        private bool SprintInput => _playerContext is { SprintInput: true };
 
-        private bool CrouchInput => playerController != null && playerController.crouchInput;
+        private bool CrouchInput => _playerContext is { CrouchInput: true };
 
         // Network state (from PlayerController)
         public NetworkVariable<bool> netIsCrouching;
@@ -110,39 +112,32 @@ namespace Game.Player.Movement {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[PlayerMovementController] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve<IPlayerMovementContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[PlayerMovementController] IPlayerMovementContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_characterController == null) _characterController = playerController.CharacterController;
-            if(_playerTransform == null) _playerTransform = playerController.PlayerTransform;
-            if(_grappleController == null) _grappleController = playerController.GrappleController;
+            if(_characterController == null) _characterController = _playerContext.CharacterController;
+            if(_playerTransform == null) _playerTransform = _playerContext.PlayerTransform;
+            if(_grappleController == null) _grappleController = GetComponent<GrappleController>();
             if(_wallRunController == null) {
-                _wallRunController = playerController.WallRunController;
-                if (_wallRunController == null) {
-                    _wallRunController = GetComponent<WallRunController>();
-                }
+                _wallRunController = GetComponent<WallRunController>();
             }
-            if(_mantleController == null) _mantleController = playerController.MantleController;
-            if(_animationController == null) _animationController = playerController.AnimationController;
-            if(_audioRelay == null) _audioRelay = playerController.AudioRelay;
+            if(_mantleController == null) _mantleController = GetComponent<MantleController>();
+            if(_animationController == null) _animationController = _playerContext.AnimationController;
+            if(_audioRelay == null) _audioRelay = _playerContext.AudioRelay;
 
-            _obstacleMask = playerController.WorldLayer | playerController.EnemyLayer;
+            _obstacleMask = _playerContext.WorldLayer | _playerContext.EnemyLayer;
             _gravityY = Physics.gravity.y;
         }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
-            if(playerController == null) return;
-            netIsCrouching = playerController.NetIsCrouching;
-            netIsSliding = playerController.netIsSliding;
+            if(_playerContext == null) return;
+            netIsCrouching = _playerContext.NetIsCrouching;
+            netIsSliding = _playerContext.NetIsSliding;
         }
 
         public void HandleControllerColliderHit(ControllerColliderHit hit) {
@@ -181,8 +176,8 @@ namespace Game.Player.Movement {
                 return;
             }
 
-            if(!IsOwner || _audioRelay == null || playerController == null) return;
-            _audioRelay.RequestPlayAttached("foley.tile.walk", new NetworkObjectReference(playerController.NetworkObject),
+            if(!IsOwner || _audioRelay == null || _playerContext?.NetworkObject == null) return;
+            _audioRelay.RequestPlayAttached("foley.tile.walk", new NetworkObjectReference(_playerContext.NetworkObject),
                 allowOverlap: true);
         }
 
@@ -200,8 +195,8 @@ namespace Game.Player.Movement {
                 return;
             }
 
-            if(!IsOwner || _audioRelay == null || playerController == null) return;
-            _audioRelay.RequestPlayAttached("foley.tile.run", new NetworkObjectReference(playerController.NetworkObject),
+            if(!IsOwner || _audioRelay == null || _playerContext?.NetworkObject == null) return;
+            _audioRelay.RequestPlayAttached("foley.tile.run", new NetworkObjectReference(_playerContext.NetworkObject),
                 allowOverlap: true);
         }
 
@@ -560,8 +555,8 @@ namespace Game.Player.Movement {
                 CancelSlideForJump();
             }
 
-            if(IsOwner && _audioRelay != null) {
-                _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(playerController.NetworkObject),
+            if(IsOwner && _audioRelay != null && _playerContext?.NetworkObject != null) {
+                _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(_playerContext.NetworkObject),
                     allowOverlap: true);
             }
 
@@ -569,7 +564,7 @@ namespace Game.Player.Movement {
 
             if(!(VerticalVelocity > 0f)) return;
 
-            if(IsOwner && playerController != null) {
+            if(IsOwner && _playerContext != null) {
                 var weaponBob = FindActiveWeaponBob();
 
                 if(weaponBob != null) {
@@ -609,11 +604,11 @@ namespace Game.Player.Movement {
 
             IsInJumpPadLaunch = true;
 
-            if(IsOwner && _audioRelay != null) {
+            if(IsOwner && _audioRelay != null && _playerContext?.NetworkObject != null) {
                 // Networked jumppad + jump foley, as before.
-                _audioRelay.RequestPlayAttached("gameplay.jumppad", new NetworkObjectReference(playerController.NetworkObject),
+                _audioRelay.RequestPlayAttached("gameplay.jumppad", new NetworkObjectReference(_playerContext.NetworkObject),
                     allowOverlap: true);
-                _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(playerController.NetworkObject),
+                _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(_playerContext.NetworkObject),
                     allowOverlap: true);
             }
 
@@ -624,14 +619,14 @@ namespace Game.Player.Movement {
             if(!(VerticalVelocity > 0f)) return;
 
             // Notify WeaponBob that jump pad launch was initiated (owner only, local effect)
-            if(IsOwner && playerController != null) {
+            if(IsOwner && _playerContext != null) {
                 var weaponBob = FindActiveWeaponBob();
                 if(weaponBob != null) {
                     weaponBob.OnJumpInitiated();
                 } else {
                     Debug.LogWarning(
                         "[PlayerMovementController] LaunchFromJumpPad: WeaponBob not found! " +
-                        $"FpCamera={playerController.FpCamera != null} WeaponCamera={playerController.WeaponCamera != null}");
+                        $"FpCamera={_playerContext.FpCamera != null} WeaponCamera={_playerContext.WeaponCamera != null}");
                 }
             }
 
@@ -660,15 +655,15 @@ namespace Game.Player.Movement {
         }
 
         private WeaponBob FindActiveWeaponBob() {
-            if(playerController == null) return null;
+            if(_playerContext == null) return null;
 
-            var fpCamera = playerController.FpCamera;
+            var fpCamera = _playerContext.FpCamera;
             if(fpCamera != null) {
                 var fpBob = fpCamera.GetComponentInChildren<WeaponBob>();
                 if(fpBob != null) return fpBob;
             }
 
-            var weaponCamera = playerController.WeaponCamera;
+            var weaponCamera = _playerContext.WeaponCamera;
             return weaponCamera != null ? weaponCamera.GetComponentInChildren<WeaponBob>() : null;
         }
 
@@ -780,8 +775,8 @@ namespace Game.Player.Movement {
                 _animationController.SetSlidingState(true, playTrigger: true);
             }
 
-            if(IsOwner && _audioRelay != null) {
-                _audioRelay.RequestPlayAttached("foley.slide", new NetworkObjectReference(playerController.NetworkObject),
+            if(IsOwner && _audioRelay != null && _playerContext?.NetworkObject != null) {
+                _audioRelay.RequestPlayAttached("foley.slide", new NetworkObjectReference(_playerContext.NetworkObject),
                     allowOverlap: false);
             }
         }
@@ -828,7 +823,7 @@ namespace Game.Player.Movement {
         }
 
         private bool IsGroundWithinSlideGap() {
-            if(_characterController == null || playerController == null) return false;
+            if(_characterController == null || _playerContext == null) return false;
 
             var bounds = _characterController.bounds;
             var feet = bounds.center;
@@ -843,7 +838,7 @@ namespace Game.Player.Movement {
                 Vector3.down,
                 out _,
                 probeDistance,
-                playerController.WorldLayer,
+                _playerContext.WorldLayer,
                 QueryTriggerInteraction.Ignore);
         }
 

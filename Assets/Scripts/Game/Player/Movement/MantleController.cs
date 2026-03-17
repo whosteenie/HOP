@@ -1,11 +1,14 @@
 using System.Collections;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using UnityEngine;
 
 namespace Game.Player.Movement {
     public class MantleController : MonoBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour playerContextSource;
+
+        private IPlayerMovementContext _playerContext;
+        private PlayerMovementController _movementController;
 
         private CharacterController _characterController;
         private Transform _cameraTransform;
@@ -57,19 +60,16 @@ namespace Game.Player.Movement {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[MantleController] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve<IPlayerMovementContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[MantleController] IPlayerMovementContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_characterController == null) _characterController = playerController.CharacterController;
-            if(_cameraTransform == null) _cameraTransform = playerController.FpCamera.transform;
-            _mantleableLayers = playerController.WorldLayer;
+            if(_characterController == null) _characterController = _playerContext.CharacterController;
+            if(_cameraTransform == null) _cameraTransform = _playerContext.FpCamera.transform;
+            if(_movementController == null) _movementController = GetComponent<PlayerMovementController>();
+            _mantleableLayers = _playerContext.WorldLayer;
         }
 
         /// <summary>
@@ -79,7 +79,7 @@ namespace Game.Player.Movement {
         /// <returns>True if a mantle was started.</returns>
         public bool TryMantle(Vector3? overrideForward = null) {
             if(IsMantling) return false;
-            if(playerController.IsGrounded) return false;
+            if(_playerContext.IsGrounded) return false;
 
             var forwardVector = overrideForward ?? transform.forward;
             var playerForward = forwardVector;
@@ -90,7 +90,7 @@ namespace Game.Player.Movement {
             var foundWall = false;
 
             for(var checkHeight = MantleCheckHeightMin; checkHeight <= MantleCheckHeightMax; checkHeight += 0.3f) {
-                var sphereCheckOrigin = playerController.Position + Vector3.up * checkHeight;
+                var sphereCheckOrigin = _playerContext.Position + Vector3.up * checkHeight;
 
                 if(!Physics.SphereCast(sphereCheckOrigin, DetectionRadius, playerForward, out wallHit,
                        DetectionDistance,
@@ -128,7 +128,7 @@ namespace Game.Player.Movement {
                 return false;
             }
 
-            var ledgeHeight = ledgeHit.point.y - playerController.Position.y;
+            var ledgeHeight = ledgeHit.point.y - _playerContext.Position.y;
             if(ledgeHeight is < MinMantleHeight or > MaxMantleHeight) {
                 return false;
             }
@@ -150,15 +150,16 @@ namespace Game.Player.Movement {
             _mantleTimer = 0f;
             _postMantleJumpCooldown = 0f;
 
-            _mantleStartPosition = playerController.Position;
+            _mantleStartPosition = _playerContext.Position;
             _mantleTargetPosition = targetPosition;
 
-            if(playerController != null && playerController.AnimationController != null) {
-                playerController.AnimationController.TriggerMantleAnimation();
+            if(_playerContext?.AnimationController != null) {
+                _playerContext.AnimationController.TriggerMantleAnimation();
             }
 
-            playerController.MovementController?.ResetVelocity();
-            playerController.MovementController?.SetMantling(true);
+            if(_movementController != null) _movementController.ResetVelocity();
+
+            if(_movementController != null) _movementController.SetMantling(true);
 
             if(_mantleRoutine != null) {
                 StopCoroutine(_mantleRoutine);
@@ -213,8 +214,9 @@ namespace Game.Player.Movement {
             if(!IsMantling) return;
             IsMantling = false;
 
-            playerController.MovementController?.ResetVelocity();
-            playerController.MovementController?.SetMantling(false);
+            if(_movementController != null) _movementController.ResetVelocity();
+
+            if(_movementController != null) _movementController.SetMantling(false);
 
             _postMantleJumpCooldown = applyJumpCooldown ? PostMantleJumpDelay : 0f;
         }

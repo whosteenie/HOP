@@ -1,14 +1,13 @@
 using System.Collections;
-using Game.Player.Core;
+using Game.Player.Contracts;
 using Game.Settings;
-using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Player.Movement {
     public class SpeedTrail : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private PlayerController playerController; // assign in inspector or auto-find
+        [SerializeField] private MonoBehaviour playerContextSource; // assign in inspector or auto-find
         [SerializeField] private GameObject speedTrailEffect; // The particle system effect GameObject
 
         [Header("Trail Material Objects")]
@@ -21,8 +20,7 @@ namespace Game.Player.Movement {
         [Tooltip("The 'electric (1)' GameObject that has one material with a Color property")]
         [SerializeField] private GameObject electricObject1;
 
-        // Cache WeaponManager reference to prevent GetComponent allocations
-        private WeaponManager _weaponManager;
+        private IPlayerMovementContext _playerContext;
 
         [Header("Trail Settings")]
         [SerializeField] private float minMultiplierForTrail = 1.5f;
@@ -50,18 +48,10 @@ namespace Game.Player.Movement {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                Debug.LogError("[SpeedTrail] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve<IPlayerMovementContext>(this, ref playerContextSource, out _playerContext)) {
+                Debug.LogError("[SpeedTrail] IPlayerMovementContext not found!");
                 enabled = false;
                 return;
-            }
-
-            if(_weaponManager == null) {
-                _weaponManager = playerController.WeaponManager;
             }
 
             // Cache renderers for trail and electric objects
@@ -159,7 +149,7 @@ namespace Game.Player.Movement {
                 return;
             }
 
-            if(!playerController || speedTrailEffect == null) {
+            if(_playerContext == null || speedTrailEffect == null) {
                 SetTrailActive(false);
                 return;
             }
@@ -167,7 +157,7 @@ namespace Game.Player.Movement {
             // For owners: only show their own trail when dead (deathcam)
             // Owners see their own trail in deathcam (TP visuals), not in FP visuals
             if(IsOwner) {
-                if(!playerController.IsDead) {
+                if(!_playerContext.IsDead) {
                     SetTrailActive(false);
                     return;
                 }
@@ -175,16 +165,11 @@ namespace Game.Player.Movement {
             // For non-owners: always show other players' trails (regardless of dead/alive state)
 
             // Get the actual damage multiplier from the Weapon component
-            if(_weaponManager == null && playerController != null) {
-                _weaponManager = playerController.WeaponManager;
-            }
-
-            if(_weaponManager == null || _weaponManager.CurrentWeapon == null) {
+            var weapon = _playerContext.CurrentWeapon;
+            if(weapon == null) {
                 SetTrailActive(false);
                 return;
             }
-
-            var weapon = _weaponManager.CurrentWeapon;
             
             // Defensive check: Ensure NetworkVariable is initialized
             if(weapon.NetCurrentDamageMultiplier == null) {
@@ -252,17 +237,17 @@ namespace Game.Player.Movement {
         /// Caches the player's base color from the PlayerController.
         /// </summary>
         private void CachePlayerColor() {
-            if(playerController == null) return;
-            _currentPlayerColor = playerController.CurrentBaseColor;
+            if(_playerContext == null) return;
+            _currentPlayerColor = _playerContext.CurrentBaseColor;
         }
 
         /// <summary>
         /// Subscribes to player color changes.
         /// </summary>
         private void SubscribeToColorChanges() {
-            if(playerController == null) return;
-            playerController.playerBaseColor.OnValueChanged -= OnPlayerBaseColorChanged;
-            playerController.playerBaseColor.OnValueChanged += OnPlayerBaseColorChanged;
+            if(_playerContext == null) return;
+            _playerContext.PlayerBaseColorNetwork.OnValueChanged -= OnPlayerBaseColorChanged;
+            _playerContext.PlayerBaseColorNetwork.OnValueChanged += OnPlayerBaseColorChanged;
             CachePlayerColor();
         }
 
@@ -270,8 +255,8 @@ namespace Game.Player.Movement {
         /// Unsubscribes from player color changes.
         /// </summary>
         private void UnsubscribeFromColorChanges() {
-            if(playerController == null) return;
-            playerController.playerBaseColor.OnValueChanged -= OnPlayerBaseColorChanged;
+            if(_playerContext == null) return;
+            _playerContext.PlayerBaseColorNetwork.OnValueChanged -= OnPlayerBaseColorChanged;
         }
 
         /// <summary>
