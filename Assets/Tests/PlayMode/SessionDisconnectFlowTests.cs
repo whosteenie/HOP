@@ -18,7 +18,7 @@ namespace Tests.PlayMode {
         [SetUp]
         public void SetUp() {
             _mutedBackgroundBehaviours = PlayModeTestUtils.MuteSceneBehaviours(
-                "Game.Menu.MainMenuSessionManager, Assembly-CSharp");
+                "Game.Menu.Main.MainMenuSessionManager");
         }
 
         [TearDown]
@@ -116,7 +116,7 @@ namespace Tests.PlayMode {
             UnityEngine.Object.DontDestroyOnLoad(_networkManagerObject);
 
             _sessionObject = new GameObject(objectName);
-            var sessionManagerType = PlayModeTestUtils.ResolveTypeOrAssert("Network.Session.SessionManager, Assembly-CSharp");
+            var sessionManagerType = PlayModeTestUtils.ResolveTypeOrAssert("Network.Session.SessionManager");
 
             _sessionManagerComponent = _sessionObject.AddComponent(sessionManagerType);
             Assert.That(_sessionManagerComponent, Is.Not.Null, "Failed to add SessionManager test component.");
@@ -139,7 +139,7 @@ namespace Tests.PlayMode {
         }
 
         private void RunOnClientStoppedLogic(object sessionManager, NetworkManager networkManager, object sceneFlowService) {
-            var lifecycleType = Type.GetType("Network.Session.SessionNetworkLifecycle, Assembly-CSharp");
+            var lifecycleType = PlayModeTestUtils.ResolveTypeOrAssert("Network.Session.SessionNetworkLifecycle");
             Assert.That(lifecycleType, Is.Not.Null, "SessionNetworkLifecycle type");
             var method = lifecycleType.GetMethod("RunOnClientStoppedLogic", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.That(method, Is.Not.Null, "RunOnClientStoppedLogic");
