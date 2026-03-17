@@ -337,7 +337,7 @@ namespace Game.Hopball {
     /// <summary>
     /// Called by HopballController when ball is equipped.
     /// </summary>
-    public void SetEquipped(bool equipped, PlayerHopballController controller = null) {
+    public void SetEquipped(bool equipped, PlayerController controller = null) {
         if(!EnsureServerAuthority(nameof(SetEquipped))) return;
         IsEquipped = equipped;
         IsDropped = false;
@@ -354,8 +354,8 @@ namespace Game.Hopball {
             ApplyDissolveAmount(DissolveAmount);
 
             IsDissolving = false;
-            _equippedController = controller;
-            HolderController = controller != null ? controller.PlayerController : null;
+            HolderController = controller;
+            _equippedController = controller != null ? controller.GetComponent<PlayerHopballController>() : null;
             _nextDrainAt = -1f;
             if(controller != null) {
                 EventBus.Publish(new HopballPickedUpEvent(controller.OwnerClientId));

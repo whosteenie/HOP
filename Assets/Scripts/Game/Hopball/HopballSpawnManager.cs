@@ -624,14 +624,12 @@ namespace Game.Hopball {
 
             var requestingController = requestingPlayer.GetComponent<PlayerController>();
             if(requestingController == null) return;
-            var controller = requestingPlayer.GetComponent<PlayerHopballController>();
-            if(controller == null) return;
             FlowLog.Emit(FlowEventIds.HopballPickupCommitted,
                 ("player", requestingClientId),
                 ("hopballNetId", networkObject.NetworkObjectId),
                 ("serverHolder", requestingClientId));
 
-            hopball.SetEquipped(true, controller);
+            hopball.SetEquipped(true, requestingController);
 
             PublishHopballEquippedPresentationClientRpc(hopballRef, requestingClientId);
         }
