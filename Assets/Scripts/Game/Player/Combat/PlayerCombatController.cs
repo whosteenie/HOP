@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
-using Game.Match;
 using Game.Player.Contracts;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
@@ -63,9 +62,6 @@ namespace Game.Player.Combat {
         private float _authoritativeHealthShadowValidUntil;
         private Coroutine _respawnFadeCoroutine;
         private Coroutine _respawnTimeoutProbeCoroutine;
-
-        // Spawn reservation
-        private SpawnPoint _reservedSpawnPoint;
 
         private class AssistInfo {
             public ulong AttackerId;
@@ -418,22 +414,7 @@ namespace Game.Player.Combat {
         /// </summary>
         private void ReserveSpawnPointForDeath() {
             if(!HasCombatAuthority) return;
-
-            var isTeamBased = _playerContext is { IsTeamBasedMode: true };
-
-            SpawnPoint reservedPoint = null;
-            if(isTeamBased) {
-                var team = _playerContext != null ? _playerContext.CurrentTeam : SpawnPoint.Team.TeamA;
-                if(SpawnManager.Instance != null) {
-                    reservedPoint = SpawnManager.Instance.ReserveSpawnPoint(OwnerClientId, team);
-                }
-            } else {
-                if(SpawnManager.Instance != null) {
-                    reservedPoint = SpawnManager.Instance.ReserveSpawnPoint(OwnerClientId);
-                }
-            }
-
-            _reservedSpawnPoint = reservedPoint;
+            _playerContext?.ReserveRespawnPoint();
         }
 
         private IEnumerator RespawnTimer() {
@@ -465,34 +446,17 @@ namespace Game.Player.Combat {
         private void DoRespawnServer() {
             PrepareRespawnClientRpc();
 
-            Vector3 position;
-            Quaternion rotation;
+            var position = Vector3.zero;
+            var rotation = Quaternion.identity;
             var isTeamBased = _playerContext is { IsTeamBasedMode: true };
-            var team = SpawnPoint.Team.TeamA;
-            if(isTeamBased && _playerContext != null) {
-                team = _playerContext.CurrentTeam;
-            }
-
-            if(_reservedSpawnPoint != null) {
-                var reservedSpawnTransform = _reservedSpawnPoint.transform;
-                position = reservedSpawnTransform.position;
-                rotation = reservedSpawnTransform.rotation;
-            } else {
-                if(isTeamBased) {
-                    (position, rotation) = GetSpawnPointForTeam(team);
-                } else {
-                    (position, rotation) = GetSpawnPointFfa();
-                }
+            if(_playerContext == null || !_playerContext.TryGetReservedRespawnPose(out position, out rotation)) {
+                _playerContext?.GetFallbackRespawnPose(out position, out rotation);
             }
 
             if(IsYLevelOutOfBoundsKillEnabled()) {
                 var outOfBoundsKillY = GetOutOfBoundsKillY();
                 if(position.y <= outOfBoundsKillY) {
-                    if(isTeamBased) {
-                        (position, rotation) = GetSpawnPointForTeam(team);
-                    } else {
-                        (position, rotation) = GetSpawnPointFfa();
-                    }
+                    _playerContext?.GetFallbackRespawnPose(out position, out rotation);
 
                     if(position.y <= outOfBoundsKillY) {
                         position.y = outOfBoundsKillY + OutOfBoundsRespawnYBuffer;
@@ -502,7 +466,7 @@ namespace Game.Player.Combat {
             FlowLog.Emit(FlowEventIds.PlayerRespawnStarted,
                 ("player", OwnerClientId),
                 ("spawnPoint", position),
-                ("team", isTeamBased ? team.ToString() : "None"),
+                ("team", isTeamBased && _playerContext != null ? _playerContext.CurrentTeam.ToString() : "None"),
                 ("wasRagdolled", _playerRagdoll != null && _playerRagdoll.IsRagdoll));
 
             StartCoroutine(TeleportAfterPreparation(position, rotation));
@@ -517,36 +481,6 @@ namespace Game.Player.Combat {
 
             EventBus.Publish(new RequestRespawnFadeTransitionEvent());
         }
-
-
-        private static (Vector3 pos, Quaternion rot) GetSpawnPointForTeam(SpawnPoint.Team team) {
-            SpawnPoint point = null;
-            if(SpawnManager.Instance != null) {
-                point = SpawnManager.Instance.GetNextSpawnForRespawn(team);
-            }
-
-            if(point == null) {
-                return (Vector3.zero, Quaternion.identity);
-            }
-
-            var pointTransform = point.transform;
-            return (pointTransform.position, pointTransform.rotation);
-        }
-
-        private static (Vector3 pos, Quaternion rot) GetSpawnPointFfa() {
-            SpawnPoint point = null;
-            if(SpawnManager.Instance != null) {
-                point = SpawnManager.Instance.GetNextSpawnForRespawn();
-            }
-
-            if(point == null) {
-                return (Vector3.zero, Quaternion.identity);
-            }
-
-            var pointTransform = point.transform;
-            return (pointTransform.position, pointTransform.rotation);
-        }
-
         private IEnumerator TeleportAfterPreparation(Vector3 position, Quaternion rotation) {
             const float fadeDuration = 0.5f;
             const float buffer = 0.15f;
@@ -554,11 +488,8 @@ namespace Game.Player.Combat {
 
             yield return new WaitForSeconds(fadeDuration + buffer);
 
-            if(HasCombatAuthority && _reservedSpawnPoint != null) {
-                if(SpawnManager.Instance != null) {
-                    SpawnManager.Instance.ReleaseReservation(OwnerClientId);
-                }
-                _reservedSpawnPoint = null;
+            if(HasCombatAuthority && _playerContext != null) {
+                _playerContext.ReleaseRespawnReservation();
             }
 
             DisableRagdollAndTeleportClientRpc(position, rotation);

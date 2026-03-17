@@ -79,6 +79,8 @@ namespace Game.Player.Combat {
             MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
             MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
             MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
+            EventBus.Subscribe<PlayerTagBootstrapSnapshotRequestedEvent>(OnPlayerTagBootstrapSnapshotRequested);
+            EventBus.Subscribe<InitialTagDesignationRequestedEvent>(OnInitialTagDesignationRequested);
             TryBindTagState();
 
             // Update outline on spawn if already tagged
@@ -91,6 +93,8 @@ namespace Game.Player.Combat {
             base.OnNetworkDespawn();
             MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
             MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            EventBus.Unsubscribe<PlayerTagBootstrapSnapshotRequestedEvent>(OnPlayerTagBootstrapSnapshotRequested);
+            EventBus.Unsubscribe<InitialTagDesignationRequestedEvent>(OnInitialTagDesignationRequested);
             UnbindTagState();
         }
 
@@ -276,6 +280,22 @@ namespace Game.Player.Combat {
             IsTagged.Value = false;
             Tags.Value++;
             lastTagStatsUpdateTime = Time.time;
+        }
+
+        private void OnPlayerTagBootstrapSnapshotRequested(PlayerTagBootstrapSnapshotRequestedEvent evt) {
+            if(evt == null || !IsSpawned || _playerContext == null || !_playerContext.IsGunTagMode) return;
+            EventBus.Publish(new PlayerTagBootstrapStateReportedEvent(_playerContext.OwnerClientId, IsTagged.Value));
+        }
+
+        private void OnInitialTagDesignationRequested(InitialTagDesignationRequestedEvent evt) {
+            if(evt == null || !HasTagAuthority || _playerContext == null || evt.PlayerClientId != _playerContext.OwnerClientId) {
+                return;
+            }
+
+            IsTagged.Value = true;
+            Tagged.Value++;
+            PlayTaggedSoundClientRpc();
+            BroadcastTagTransferFromHopClientRpc(_playerContext.OwnerClientId);
         }
 
         private MatchPlayerStateProxy ResolvePlayerState() {

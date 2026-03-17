@@ -231,6 +231,67 @@ namespace Events {
         }
     }
 
+    /// <summary>
+    /// Event published when a player enters or exits a hill zone so match logic can track occupancy
+    /// without depending on player controllers.
+    /// </summary>
+    public class PlayerHillOccupancyChangedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly ulong HillNetworkObjectId;
+        public readonly int TeamId;
+        public readonly bool IsInsideHill;
+
+        public PlayerHillOccupancyChangedEvent(ulong playerClientId, ulong hillNetworkObjectId, int teamId,
+            bool isInsideHill) {
+            PlayerClientId = playerClientId;
+            HillNetworkObjectId = hillNetworkObjectId;
+            TeamId = teamId;
+            IsInsideHill = isInsideHill;
+        }
+    }
+
+    /// <summary>
+    /// Event published by a hill when it needs active players to republish their current occupancy state.
+    /// </summary>
+    public class HillOccupancySnapshotRequestedEvent : GameEvent {
+        public readonly ulong HillNetworkObjectId;
+
+        public HillOccupancySnapshotRequestedEvent(ulong hillNetworkObjectId) {
+            HillNetworkObjectId = hillNetworkObjectId;
+        }
+    }
+
+    /// <summary>
+    /// Event published when match systems need all active Gun Tag players to report their current tagged state.
+    /// </summary>
+    public class PlayerTagBootstrapSnapshotRequestedEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published by player tag systems to report that a player is active for Gun Tag bootstrap
+    /// and whether they are currently tagged.
+    /// </summary>
+    public class PlayerTagBootstrapStateReportedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly bool IsTagged;
+
+        public PlayerTagBootstrapStateReportedEvent(ulong playerClientId, bool isTagged) {
+            PlayerClientId = playerClientId;
+            IsTagged = isTagged;
+        }
+    }
+
+    /// <summary>
+    /// Event published when match systems want a specific player designated as initially tagged.
+    /// </summary>
+    public class InitialTagDesignationRequestedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+
+        public InitialTagDesignationRequestedEvent(ulong playerClientId) {
+            PlayerClientId = playerClientId;
+        }
+    }
+
     public class PlayerKillProgressionEvent : GameEvent {
         public readonly ulong KillerClientId;
         public readonly float KillerSpeed;

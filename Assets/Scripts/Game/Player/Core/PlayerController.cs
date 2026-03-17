@@ -24,6 +24,7 @@ namespace Game.Player.Core {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NetworkAudioRelay))]
+    [RequireComponent(typeof(PlayerHillTracker))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext, IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext, IPlayerCombatContext, IPlayerMaterialCustomizationContext {
         public static PlayerController LocalPlayer { get; private set; }
@@ -160,6 +161,7 @@ namespace Game.Player.Core {
         private PlayerWeaponPresentation _weaponPresentation;
         private PlayerSpawnPresentation _spawnPresentation;
         private PlayerPresentationState _presentationState;
+        private SpawnPoint _reservedRespawnPoint;
 
         #endregion
 
@@ -1116,12 +1118,61 @@ namespace Game.Player.Core {
         public int TimeTagged => tagController != null ? tagController.TimeTagged.Value : 0;
         public bool IsTagged => tagController != null && tagController.IsTagged.Value;
 
-        public void ApplyInitialTagDesignationFromHop() {
-            if(tagController == null) return;
-            tagController.IsTagged.Value = true;
-            tagController.Tagged.Value++;
-            tagController.PlayTaggedSoundClientRpc();
-            tagController.BroadcastTagTransferFromHopClientRpc(OwnerClientId);
+        private void ReserveRespawnPoint() {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
+
+            SpawnPoint reservedPoint = null;
+            if(IsTeamBasedMode) {
+                if(SpawnManager.Instance != null) {
+                    reservedPoint = SpawnManager.Instance.ReserveSpawnPoint(OwnerClientId, CurrentTeam);
+                }
+            } else if(SpawnManager.Instance != null) {
+                reservedPoint = SpawnManager.Instance.ReserveSpawnPoint(OwnerClientId);
+            }
+
+            _reservedRespawnPoint = reservedPoint;
+        }
+
+        private bool TryGetReservedRespawnPose(out Vector3 position, out Quaternion rotation) {
+            if(_reservedRespawnPoint != null) {
+                var reservedSpawnTransform = _reservedRespawnPoint.transform;
+                position = reservedSpawnTransform.position;
+                rotation = reservedSpawnTransform.rotation;
+                return true;
+            }
+
+            position = Vector3.zero;
+            rotation = Quaternion.identity;
+            return false;
+        }
+
+        private void GetFallbackRespawnPose(out Vector3 position, out Quaternion rotation) {
+            SpawnPoint point = null;
+            if(SpawnManager.Instance != null) {
+                point = IsTeamBasedMode
+                    ? SpawnManager.Instance.GetNextSpawnForRespawn(CurrentTeam)
+                    : SpawnManager.Instance.GetNextSpawnForRespawn();
+            }
+
+            if(point == null) {
+                position = Vector3.zero;
+                rotation = Quaternion.identity;
+                return;
+            }
+
+            var pointTransform = point.transform;
+            position = pointTransform.position;
+            rotation = pointTransform.rotation;
+        }
+
+        private void ReleaseRespawnReservation() {
+            if(!NetworkAuthority.HasGlobalAuthority(this) || _reservedRespawnPoint == null) return;
+
+            if(SpawnManager.Instance != null) {
+                SpawnManager.Instance.ReleaseReservation(OwnerClientId);
+            }
+
+            _reservedRespawnPoint = null;
         }
 
         #endregion
@@ -1351,6 +1402,12 @@ namespace Game.Player.Core {
         void IPlayerCombatContext.PlayHitEffects(Vector3 hitPoint, float amount) => PlayHitEffectsClientRpc(hitPoint, amount);
         float IPlayerCombatContext.GetOutOfBoundsKillY() => GetOutOfBoundsKillY();
         bool IPlayerCombatContext.IsYLevelOutOfBoundsKillEnabled() => IsYLevelOutOfBoundsKillEnabled();
+        void IPlayerCombatContext.ReserveRespawnPoint() => ReserveRespawnPoint();
+        bool IPlayerCombatContext.TryGetReservedRespawnPose(out Vector3 position, out Quaternion rotation) =>
+            TryGetReservedRespawnPose(out position, out rotation);
+        void IPlayerCombatContext.GetFallbackRespawnPose(out Vector3 position, out Quaternion rotation) =>
+            GetFallbackRespawnPose(out position, out rotation);
+        void IPlayerCombatContext.ReleaseRespawnReservation() => ReleaseRespawnReservation();
 
         Transform IPlayerLookContext.PlayerTransform => PlayerTransform;
         CinemachineCamera IPlayerLookContext.FpCamera => fpCamera;

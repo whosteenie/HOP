@@ -52,5 +52,9 @@ namespace Game.Player.Contracts {
         void PlayHitEffects(Vector3 hitPoint, float amount);
         float GetOutOfBoundsKillY();
         bool IsYLevelOutOfBoundsKillEnabled();
+        void ReserveRespawnPoint();
+        bool TryGetReservedRespawnPose(out Vector3 position, out Quaternion rotation);
+        void GetFallbackRespawnPose(out Vector3 position, out Quaternion rotation);
+        void ReleaseRespawnReservation();
     }
 }
