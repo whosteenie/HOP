@@ -77,11 +77,16 @@ namespace Game.Match {
         private bool IsPodiumBlackoutActive { get; set; }
         public static bool IsPodiumBlackoutActiveLocal => Instance != null && Instance.IsPodiumBlackoutActive;
         private Coroutine _localReturnToMenuRoutine;
+        private Camera _mainCamera;
 
         /// <summary>
         /// True once fade-to-black is fully black. Use this for movement lock so WASD stays active during the fade.
         /// </summary>
         public static bool IsPostMatchMovementLockedLocal { get; private set; }
+
+        private void Start() {
+            _mainCamera = Camera.main;
+        }
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -806,9 +811,8 @@ namespace Game.Match {
             slot.style.translate = new Translate(0f, 0f);
         }
 
-        private static Camera ResolveWorldCamera() {
-            var mainCamera = Camera.main;
-            if(mainCamera != null) return mainCamera;
+        private Camera ResolveWorldCamera() {
+            if(_mainCamera != null) return _mainCamera;
 
             var cameras = Camera.allCameras;
             Camera best = null;

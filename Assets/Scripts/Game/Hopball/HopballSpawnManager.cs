@@ -665,12 +665,6 @@ namespace Game.Hopball {
             if(hopball == null) return;
             var dropTimer = Stopwatch.StartNew();
 
-            void LogDropStep(string stepName) {
-                if(!Debug.isDebugBuild) return;
-                Debug.Log(
-                    $"[HopballDropTiming] client={requestingClientId} reason={dropReason} step={stepName} elapsedMs={dropTimer.Elapsed.TotalMilliseconds:F1}");
-            }
-
             if(!hopball.IsEquipped) {
                 FlowLog.Emit(FlowEventIds.AnomalyHopballMismatch,
                     ("serverHolder", hopball.HolderController != null ? hopball.HolderController.OwnerClientId.ToString() : "None"),
@@ -813,6 +807,13 @@ namespace Game.Hopball {
 
             PublishHopballDropPresentationClientRpc(requestingClientId);
             LogDropStep("PublishDropPresentation");
+            return;
+
+            void LogDropStep(string stepName) {
+                if(!Debug.isDebugBuild) return;
+                Debug.Log(
+                    $"[HopballDropTiming] client={requestingClientId} reason={dropReason} step={stepName} elapsedMs={dropTimer.Elapsed.TotalMilliseconds:F1}");
+            }
         }
     }
 }
