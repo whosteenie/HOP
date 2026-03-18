@@ -39,6 +39,21 @@ namespace Game.Player.Core {
             ValidateComponents();
         }
 
+        public override void OnNetworkSpawn() {
+            base.OnNetworkSpawn();
+            SubscribeToPostMatchEvents();
+        }
+
+        public override void OnNetworkDespawn() {
+            UnsubscribeFromPostMatchEvents();
+            base.OnNetworkDespawn();
+        }
+
+        public override void OnDestroy() {
+            UnsubscribeFromPostMatchEvents();
+            base.OnDestroy();
+        }
+
         private void ValidateComponents() {
             if(playerController == null) {
                 playerController = GetComponent<PlayerController>();
@@ -72,10 +87,75 @@ namespace Game.Player.Core {
             }
         }
 
+        private void SubscribeToPostMatchEvents() {
+            EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
+            EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
+            EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
+            EventBus.Unsubscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
+            EventBus.Unsubscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
+            EventBus.Unsubscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
+            EventBus.Unsubscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
+            EventBus.Subscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
+            EventBus.Subscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
+            EventBus.Subscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
+            EventBus.Subscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
+            EventBus.Subscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
+            EventBus.Subscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
+            EventBus.Subscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
+        }
+
+        private void UnsubscribeFromPostMatchEvents() {
+            EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
+            EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
+            EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
+            EventBus.Unsubscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
+            EventBus.Unsubscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
+            EventBus.Unsubscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
+            EventBus.Unsubscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
+        }
+
+        private bool IsPostMatchTarget(ulong playerClientId) =>
+            playerController != null && playerClientId == playerController.OwnerClientId;
+
+        private void OnPostMatchPodiumPrepareRequested(PostMatchPodiumPrepareRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            ForceRespawnForPodiumServer();
+        }
+
+        private void OnPostMatchResetVelocityRequested(PostMatchResetVelocityRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            ResetVelocityRpc();
+        }
+
+        private void OnPostMatchTeleportRequested(PostMatchTeleportRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            TeleportToPodiumFromServer(evt.Position, evt.Rotation);
+        }
+
+        private void OnPostMatchSnapVisualsRequested(PostMatchSnapVisualsRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            SnapPodiumVisualsClientRpc();
+        }
+
+        private void OnPostMatchWorldModelVisibilityRequested(PostMatchWorldModelVisibilityRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            SetWorldModelVisibleRpc(evt.Visible);
+        }
+
+        private void OnPostMatchGameplayCameraStateRequested(PostMatchGameplayCameraStateRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            SetGameplayCameraActive(evt.Active);
+        }
+
+        private void OnPostMatchControlLockRequested(PostMatchControlLockRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            SetPostMatchControlLock(evt.Locked, evt.LockLook, evt.ResetVelocity);
+        }
+
         /// <summary>
         /// Resets the player state on the server to prepare for the podium display.
         /// </summary>
-        public void ForceRespawnForPodiumServer() {
+        private void ForceRespawnForPodiumServer() {
             if(!NetworkAuthority.HasGlobalAuthority(this)) return;
 
             // Reset health via PlayerController
@@ -142,7 +222,7 @@ namespace Game.Player.Core {
             }
         }
 
-        public void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {
+        private void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {
             if(playerController == null || !playerController.IsOwner) return;
 
             if(locked) {
@@ -158,10 +238,31 @@ namespace Game.Player.Core {
             playerController.LockLook = locked && lockLook;
         }
 
+        private void SetGameplayCameraActive(bool active) {
+            if(playerController == null) return;
+
+            if(playerController.FpCamera != null) {
+                playerController.FpCamera.enabled = active;
+            }
+
+            if(playerController.DeathCamera != null) {
+                playerController.DeathCamera.enabled = active;
+                if(!active && playerController.DeathCamera.gameObject.activeSelf) {
+                    playerController.DeathCamera.gameObject.SetActive(false);
+                }
+            }
+
+            if(playerController.WeaponCameraController != null) {
+                playerController.WeaponCameraController.SetWeaponCameraEnabled(active);
+            } else if(playerController.WeaponCamera != null) {
+                playerController.WeaponCamera.enabled = active;
+            }
+        }
+
         /// <summary>
         /// Teleports the player to the podium position from the server.
         /// </summary>
-        public void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
+        private void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) return;
             TeleportToPodiumOwnerClientRpc(position, rotation);
         }
@@ -169,6 +270,20 @@ namespace Game.Player.Core {
         [Rpc(SendTo.Owner)]
         private void TeleportToPodiumOwnerClientRpc(Vector3 position, Quaternion rotation) {
             StartCoroutine(TeleportAndSnapToPodium(position, rotation));
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void ResetVelocityRpc() {
+            if(playerController != null && playerController.MovementController != null) {
+                playerController.MovementController.ResetVelocity();
+            }
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void SetWorldModelVisibleRpc(bool visible) {
+            if(_visualController != null) {
+                _visualController.SetWorldModelVisible(visible);
+            }
         }
 
         private IEnumerator TeleportAndSnapToPodium(Vector3 pos, Quaternion rot) {
@@ -227,7 +342,7 @@ namespace Game.Player.Core {
         /// Snaps the podium visuals on all clients.
         /// </summary>
         [Rpc(SendTo.Everyone)]
-        public void SnapPodiumVisualsClientRpc() {
+        private void SnapPodiumVisualsClientRpc() {
             if(!_awaitingPodiumSnap) return;
             SnapBonesToRoot();
             _awaitingPodiumSnap = false;

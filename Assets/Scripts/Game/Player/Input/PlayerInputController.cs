@@ -169,11 +169,13 @@ namespace Game.Player.Input {
             EventBus.Unsubscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
             EventBus.Unsubscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
             EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
+            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
             EventBus.Subscribe<BindingsAppliedEvent>(OnBindingsApplied);
             EventBus.Subscribe<PauseMenuStateChangedEvent>(OnPauseMenuStateChanged);
             EventBus.Subscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
             EventBus.Subscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
             EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
+            EventBus.Subscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
             RefreshCachedScrollBindings();
         }
 
@@ -222,6 +224,7 @@ namespace Game.Player.Input {
 
         private void OnDisable() {
             this.UnsubscribeFromEventBus();
+            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
             _queuedWeaponCycleOffset = 0;
             _jumpBtnDown = false;
             if(_deferredAmmoHudRefreshRoutine != null) {
@@ -239,6 +242,11 @@ namespace Game.Player.Input {
             ApplySniperOverlayEffects(false, playZoomSound: false);
 
             ApplyHopballInteractPrompt(false, "PRESS INTERACT");
+        }
+
+        private void OnPostMatchSniperOverlayDisableRequested(PostMatchSniperOverlayDisableRequestedEvent evt) {
+            if(evt == null || !IsOwner || evt.PlayerClientId != OwnerClientId) return;
+            ForceDisableSniperOverlay(evt.PlayZoomSound);
         }
 
         private void OnPlayerDied(PlayerDiedEvent evt) {
@@ -665,6 +673,7 @@ namespace Game.Player.Input {
             SwitchWeapon(1);
         }
 
+        [UsedImplicitly]
         private void OnTertiary(InputValue _) {
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = IsMantling;

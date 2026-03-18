@@ -457,7 +457,6 @@ namespace Game.Player.Core {
             SubscribeToNetworkVariables();
             SubscribeToLocalVoiceEvents();
             SubscribeToHopballStateEvents();
-            SubscribeToPostMatchEvents();
             TryBindStateSubscriptions();
             UpdatePlayerMaterialFromNetwork();
             _spawnPresentation.HandleNetworkSpawnPresentation();
@@ -523,7 +522,6 @@ namespace Game.Player.Core {
 
             UnsubscribeFromLocalVoiceEvents();
             UnsubscribeFromNetworkVariables();
-            UnsubscribeFromPostMatchEvents();
         }
 
         private void RegisterLocalAudioRelay() {
@@ -576,78 +574,6 @@ namespace Game.Player.Core {
         private void UnsubscribeFromLocalVoiceEvents() {
             if(!IsOwner) return;
             EventBus.Unsubscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChanged);
-        }
-
-        private void SubscribeToPostMatchEvents() {
-            EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
-            EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
-            EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
-            EventBus.Unsubscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
-            EventBus.Unsubscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
-            EventBus.Unsubscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
-            EventBus.Unsubscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
-            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
-            EventBus.Subscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
-            EventBus.Subscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
-            EventBus.Subscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
-            EventBus.Subscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
-            EventBus.Subscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
-            EventBus.Subscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
-            EventBus.Subscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
-            EventBus.Subscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
-        }
-
-        private void UnsubscribeFromPostMatchEvents() {
-            EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
-            EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
-            EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
-            EventBus.Unsubscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
-            EventBus.Unsubscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
-            EventBus.Unsubscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
-            EventBus.Unsubscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
-            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
-        }
-
-        private bool IsPostMatchTarget(ulong playerClientId) => playerClientId == OwnerClientId;
-
-        private void OnPostMatchPodiumPrepareRequested(PostMatchPodiumPrepareRequestedEvent evt) {
-            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
-            ForceRespawnForPodiumServer();
-        }
-
-        private void OnPostMatchResetVelocityRequested(PostMatchResetVelocityRequestedEvent evt) {
-            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
-            ResetVelocityRpc();
-        }
-
-        private void OnPostMatchTeleportRequested(PostMatchTeleportRequestedEvent evt) {
-            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
-            TeleportToPodiumFromServer(evt.Position, evt.Rotation);
-        }
-
-        private void OnPostMatchSnapVisualsRequested(PostMatchSnapVisualsRequestedEvent evt) {
-            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
-            SnapPodiumVisualsClientRpc();
-        }
-
-        private void OnPostMatchWorldModelVisibilityRequested(PostMatchWorldModelVisibilityRequestedEvent evt) {
-            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
-            SetWorldModelVisibleRpc(evt.Visible);
-        }
-
-        private void OnPostMatchGameplayCameraStateRequested(PostMatchGameplayCameraStateRequestedEvent evt) {
-            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
-            SetGameplayCameraActive(evt.Active);
-        }
-
-        private void OnPostMatchControlLockRequested(PostMatchControlLockRequestedEvent evt) {
-            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
-            SetPostMatchControlLock(evt.Locked, evt.LockLook, evt.ResetVelocity);
-        }
-
-        private void OnPostMatchSniperOverlayDisableRequested(PostMatchSniperOverlayDisableRequestedEvent evt) {
-            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
-            ForceDisableSniperOverlay(evt.PlayZoomSound);
         }
 
         private void OnVoiceLocalPttStateChanged(VoiceLocalPttStateChangedEvent evt) {
@@ -922,39 +848,6 @@ namespace Game.Player.Core {
             if(weaponManager != null) weaponManager.HideFpVisualsForDisconnectTransition();
             if(NetworkObject != null) {
                 EventBus.Publish(new PlayerDisconnectFpVisualHideRequestedEvent(NetworkObjectId));
-            }
-        }
-
-        private void SetGameplayCameraActive(bool active) {
-            if(fpCamera != null) {
-                fpCamera.enabled = active;
-            }
-
-            if(deathCamera != null) {
-                deathCamera.enabled = active;
-                if(!active && deathCamera.gameObject.activeSelf) {
-                    deathCamera.gameObject.SetActive(false);
-                }
-            }
-
-            if(weaponCameraController != null) {
-                weaponCameraController.SetWeaponCameraEnabled(active);
-            } else if(weaponCamera != null) {
-                weaponCamera.enabled = active;
-            }
-        }
-
-        private void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {
-            if(podiumController != null) {
-                podiumController.SetPostMatchControlLock(locked, lockLook, resetVelocity);
-            } else if(IsOwner) {
-                LockLook = locked && lockLook;
-            }
-        }
-
-        private void ForceDisableSniperOverlay(bool playZoomSound = false) {
-            if(playerInputController != null) {
-                playerInputController.ForceDisableSniperOverlay(playZoomSound);
             }
         }
 
@@ -1252,37 +1145,7 @@ namespace Game.Player.Core {
 
         #endregion
 
-        #region Podium Methods
-
-        private void ForceRespawnForPodiumServer() {
-            if(podiumController != null) {
-                podiumController.ForceRespawnForPodiumServer();
-            }
-        }
-
-        private void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
-            if(podiumController != null) {
-                podiumController.TeleportToPodiumFromServer(position, rotation);
-            }
-        }
-
-        #endregion
-
         #region Network RPCs
-
-        [Rpc(SendTo.Everyone)]
-        private void SetWorldModelVisibleRpc(bool visible) {
-            if(visualController != null) {
-                visualController.SetWorldModelVisible(visible);
-            }
-        }
-
-        [Rpc(SendTo.Everyone)]
-        private void ResetVelocityRpc() {
-            if(movementController != null) {
-                movementController.ResetVelocity();
-            }
-        }
 
         [Rpc(SendTo.Everyone)]
         private void PlayHitEffectsClientRpc(Vector3 hitPoint, float amount) {
@@ -1303,13 +1166,6 @@ namespace Game.Player.Core {
 
             if(animationController != null) {
                 animationController.PlayDamageAnimation();
-            }
-        }
-
-        [Rpc(SendTo.Everyone)]
-        private void SnapPodiumVisualsClientRpc() {
-            if(podiumController != null) {
-                podiumController.SnapPodiumVisualsClientRpc();
             }
         }
 
