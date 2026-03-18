@@ -354,7 +354,7 @@ namespace Game.Weapon.Manager {
 
                     UpdateServerAmmo(weaponIndex, clampedLocalAmmo);
                     ClearServerReloadState();
-                    ResetServerDamageMultiplierForCurrentWeapon();
+                    ResetDamageMultiplier();
                     return;
                 default:
                     AntiCheatLogger.LogInvalidDamage(_root.OwnerClientId, $"invalid ammo sync reason {reason}");
@@ -366,7 +366,7 @@ namespace Game.Weapon.Manager {
             _root.AmmoAuthorityRef.ResetAllWeaponAmmo(_root.WeaponDataListRef, _root.ResolveWeaponCapacity);
             if(!HasWeaponAuthority) return;
             ClearServerReloadState();
-            ResetServerDamageMultiplierForCurrentWeapon();
+            ResetDamageMultiplier();
         }
 
         public void ApplyServerWeaponSwitch(int weaponIndex) {
@@ -404,10 +404,10 @@ namespace Game.Weapon.Manager {
             _root.ServerReloadWeaponIndex = -1;
         }
 
-        private void ResetServerDamageMultiplierForCurrentWeapon() {
+        private void ResetDamageMultiplier() {
             if(!HasWeaponAuthority) return;
             if(_root.CurrentWeaponInternal == null) return;
-            _root.CurrentWeaponInternal.ResetDamageMultiplierImmediate();
+            _root.CurrentWeaponInternal.ResetDamageMultiplier();
         }
 
         private bool TryValidateServerWeaponStateRequest(int weaponIndex, out WeaponData data, out int magCapacity,

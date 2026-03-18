@@ -99,7 +99,7 @@ namespace Game.Weapon.Presentation {
         private float _lastLandingBobTime = float.NegativeInfinity;
 
         private void Awake() {
-            ResolveReferencesFromHierarchy();
+            ResolveContextFromHierarchy();
             TryInitialize();
             var bobTransform = transform;
             _baseLocalPos = bobTransform.localPosition;
@@ -108,7 +108,7 @@ namespace Game.Weapon.Presentation {
 
         private void OnEnable() {
             _hierarchyReferencesResolved = false;
-            ResolveReferencesFromHierarchy();
+            ResolveContextFromHierarchy();
             var bobTransform = transform;
             _baseLocalPos = bobTransform.localPosition;
             _baseLocalRot = bobTransform.localRotation;
@@ -130,11 +130,11 @@ namespace Game.Weapon.Presentation {
             _initialized = false;
             _context = null;
             _hierarchyReferencesResolved = false;
-            ResolveReferencesFromHierarchy();
+            ResolveContextFromHierarchy();
             TryInitialize();
         }
 
-        private void ResolveReferencesFromHierarchy() {
+        private void ResolveContextFromHierarchy() {
             if(_hierarchyReferencesResolved) return;
             _hierarchyReferencesResolved = true;
 

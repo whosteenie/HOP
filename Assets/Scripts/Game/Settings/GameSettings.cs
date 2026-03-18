@@ -153,12 +153,12 @@ namespace Game.Settings {
             if(d == null) return;
 
             MigrateAudioFromPlayerPrefs(d);
-            MigrateControlsFromPlayerPrefs(d);
+            MigrateControls(d);
             MigrateVideoFromPlayerPrefs(d);
             MigratePlayerLoadoutFromPlayerPrefs(d);
             MigrateCustomizationFromPlayerPrefs(d);
             MigrateSocialFromPlayerPrefs(d);
-            MigrateKeybindsFromPlayerPrefs(d);
+            MigrateKeybinds(d);
         }
 
         private static void MigrateAudioFromPlayerPrefs(SettingsData d) {
@@ -167,7 +167,7 @@ namespace Game.Settings {
             if(PlayerPrefs.HasKey("SFXVolume")) d.audio.sfxVolumeDb = PlayerPrefs.GetFloat("SFXVolume", d.audio.sfxVolumeDb);
         }
 
-        private static void MigrateControlsFromPlayerPrefs(SettingsData d) {
+        private static void MigrateControls(SettingsData d) {
             if(PlayerPrefs.HasKey("Sensitivity")) {
                 d.controls.sensitivity = PlayerPrefs.GetFloat("Sensitivity", d.controls.sensitivity);
             } else if(PlayerPrefs.HasKey("SensitivityX")) {
@@ -241,7 +241,7 @@ namespace Game.Settings {
             MigrateLegacyCsvList("Social_BlockedPlayers", d.social.blockedPlayers);
         }
 
-        private static void MigrateKeybindsFromPlayerPrefs(SettingsData d) {
+        private static void MigrateKeybinds(SettingsData d) {
             if(d.keybinds.entries == null) d.keybinds.entries = new List<SettingsData.KeybindEntry>();
 
             var keybindNames = new[] {

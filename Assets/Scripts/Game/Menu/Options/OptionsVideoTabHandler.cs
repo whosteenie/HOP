@@ -138,14 +138,14 @@ namespace Game.Menu.Options {
             _aspectRatioDropdown.choices = supportedAspectRatios;
             var defaultAspectRatio = supportedAspectRatios.Contains("16:9") ? "16:9" : supportedAspectRatios[0];
             _aspectRatioDropdown.value = defaultAspectRatio;
-            FilterResolutionsByAspectRatio(defaultAspectRatio);
+            FilterResolutions(defaultAspectRatio);
 
-            EventCallback<ChangeEvent<string>> aspectRatioHandler = _ => FilterResolutionsByAspectRatio(_aspectRatioDropdown.value);
+            EventCallback<ChangeEvent<string>> aspectRatioHandler = _ => FilterResolutions(_aspectRatioDropdown.value);
             _aspectRatioDropdown.RegisterValueChangedCallback(aspectRatioHandler);
             ctx.RegisterCleanup(() => _aspectRatioDropdown.UnregisterCallback(aspectRatioHandler));
         }
 
-        private void FilterResolutionsByAspectRatio(string aspectRatio) {
+        private void FilterResolutions(string aspectRatio) {
             if(_resolutionDropdown == null) return;
             _filteredResolutions.Clear();
             foreach(var res in _allResolutions) {
@@ -199,10 +199,10 @@ namespace Game.Menu.Options {
                 var aspectRatioIndex = _aspectRatioDropdown.choices.IndexOf(savedAspectRatio);
                 if(aspectRatioIndex >= 0) {
                     _aspectRatioDropdown.index = aspectRatioIndex;
-                    FilterResolutionsByAspectRatio(savedAspectRatio);
+                    FilterResolutions(savedAspectRatio);
                 } else {
                     _aspectRatioDropdown.index = 0;
-                    FilterResolutionsByAspectRatio(_aspectRatioDropdown.choices[0]);
+                    FilterResolutions(_aspectRatioDropdown.choices[0]);
                 }
             }
             if(_resolutionDropdown != null && _filteredResolutions.Count > 0) {

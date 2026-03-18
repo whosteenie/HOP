@@ -46,12 +46,12 @@ namespace Game.Player.Core {
         }
 
         public override void OnNetworkDespawn() {
-            UnsubscribeFromPostMatchEvents();
+            UnsubscribePostMatchEvents();
             base.OnNetworkDespawn();
         }
 
         public override void OnDestroy() {
-            UnsubscribeFromPostMatchEvents();
+            UnsubscribePostMatchEvents();
             base.OnDestroy();
         }
 
@@ -105,7 +105,7 @@ namespace Game.Player.Core {
             EventBus.Subscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
         }
 
-        private void UnsubscribeFromPostMatchEvents() {
+        private void UnsubscribePostMatchEvents() {
             EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
             EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
             EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
@@ -164,11 +164,11 @@ namespace Game.Player.Core {
                 playerController.ResetHealthAndRegenerationState();
             }
 
-            ForceRespawnForPodiumClientRpc();
+            ForcePodiumRespawnClientRpc();
         }
 
         [Rpc(SendTo.Everyone)]
-        private void ForceRespawnForPodiumClientRpc() {
+        private void ForcePodiumRespawnClientRpc() {
             if(_playerRagdoll != null) {
                 _playerRagdoll.DisableRagdoll();
             }
@@ -266,11 +266,11 @@ namespace Game.Player.Core {
         /// </summary>
         private void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) return;
-            TeleportToPodiumOwnerClientRpc(position, rotation);
+            TeleportToPodiumClientRpc(position, rotation);
         }
 
         [Rpc(SendTo.Owner)]
-        private void TeleportToPodiumOwnerClientRpc(Vector3 position, Quaternion rotation) {
+        private void TeleportToPodiumClientRpc(Vector3 position, Quaternion rotation) {
             StartCoroutine(TeleportAndSnapToPodium(position, rotation));
         }
 

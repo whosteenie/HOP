@@ -48,7 +48,7 @@ namespace Game.Weapon.Core {
             if(weaponIndex < 0) return;
 
             if(_weapon.Reloading && !_weapon.CurrentWeaponData.useMagReload) {
-                _weapon.InterruptReloadForShotInternal();
+                _weapon.InterruptReloadForShot();
             }
 
             _weapon.LastFireTime = Time.time;

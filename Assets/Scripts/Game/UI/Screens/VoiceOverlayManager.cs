@@ -34,8 +34,8 @@ namespace Game.UI.Screens {
             // Listen for voice and mute changes through EventBus.
             EventBus.Unsubscribe<VoiceParticipantSpeechChangedEvent>(OnVoiceParticipantSpeechChangedEvent);
             EventBus.Subscribe<VoiceParticipantSpeechChangedEvent>(OnVoiceParticipantSpeechChangedEvent);
-            EventBus.Unsubscribe<VoiceParticipantRemovedEvent>(OnVoiceParticipantRemovedEvent);
-            EventBus.Subscribe<VoiceParticipantRemovedEvent>(OnVoiceParticipantRemovedEvent);
+            EventBus.Unsubscribe<VoiceParticipantRemovedEvent>(OnParticipantRemoved);
+            EventBus.Subscribe<VoiceParticipantRemovedEvent>(OnParticipantRemoved);
             EventBus.Unsubscribe<VoiceLocalPttStateChangedEvent>(OnLocalPttChanged);
             EventBus.Subscribe<VoiceLocalPttStateChangedEvent>(OnLocalPttChanged);
             EventBus.Unsubscribe<VoiceOverlayResetEvent>(OnVoiceOverlayResetEvent);
@@ -319,7 +319,7 @@ namespace Game.UI.Screens {
             RemoveSpeakerEntry(ResolveCanonicalIdentity(participantId, out _));
         }
 
-        private void OnVoiceParticipantRemovedEvent(VoiceParticipantRemovedEvent evt) {
+        private void OnParticipantRemoved(VoiceParticipantRemovedEvent evt) {
             if(evt == null) return;
             OnParticipantRemoved(evt.PlayerId);
         }

@@ -31,7 +31,7 @@ namespace Game.Weapon.Core {
                         if(fxGo != null) {
                             _weapon.LocalMuzzleFlashSpawnPositionForShot = fxGo.transform.position;
                             _weapon.HasLocalMuzzleFlashSpawnPositionForShot = true;
-                            TriggerKinemationLocalMuzzleFx();
+                            TriggerLocalMuzzleFx();
                         }
                     }
                 }
@@ -117,7 +117,7 @@ namespace Game.Weapon.Core {
 
             var start = fallbackStart;
             if(_weapon.OwnerContext is { IsOwner: true }) {
-                if(!_weapon.TryGetOwnerTracerStartPositionInternal(out start)) {
+                if(!_weapon.TryGetTracerStartPositionInternal(out start)) {
                     start = fallbackStart;
                 }
             }
@@ -126,7 +126,7 @@ namespace Game.Weapon.Core {
         }
 
         public void PlayFireSound() {
-            if(UseKinemationEventSoundRouting() && _weapon.KinDriver != null &&
+            if(UseEventSoundRouting() && _weapon.KinDriver != null &&
                _weapon.KinDriver.HasKinemationFireSound()) {
                 if(_weapon.OwnerContext is not { IsOwner: true }) return;
                 if(_weapon.AudioRelay == null || _weapon.OwnerContext.NetworkObject == null) return;
@@ -188,7 +188,7 @@ namespace Game.Weapon.Core {
             _weapon.KinDriver.ConsumeWeaponEventSoundIndices(_weapon.KinemationWeaponSoundEventBuffer);
 
             if(_weapon.KinemationWeaponSoundEventBuffer.Count == 0) return;
-            if(!UseKinemationEventSoundRouting()) return;
+            if(!UseEventSoundRouting()) return;
             if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(_weapon.AudioRelay == null || _weapon.OwnerContext.NetworkObject == null) return;
 
@@ -202,7 +202,7 @@ namespace Game.Weapon.Core {
 
         public void StopKinemationEventSounds() {
             if(_weapon.KinDriver == null) return;
-            if(!UseKinemationEventSoundRouting()) return;
+            if(!UseEventSoundRouting()) return;
             if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(_weapon.AudioRelay == null) return;
 
@@ -219,12 +219,12 @@ namespace Game.Weapon.Core {
             return _weapon.KinDriver != null && _weapon.KinDriver.AreKinemationSoundsEnabled();
         }
 
-        private bool UseKinemationEventSoundRouting() {
+        private bool UseEventSoundRouting() {
             return _weapon.KinDriver != null && _weapon.KinDriver.IsKinemationSoundRoutingEnabled();
         }
 
         public bool ShouldSuppressReloadSound() {
-            return UseKinemationEventSoundRouting() &&
+            return UseEventSoundRouting() &&
                    _weapon.KinDriver != null &&
                    _weapon.KinDriver.HasAnyKinemationEventSound();
         }
@@ -334,7 +334,7 @@ namespace Game.Weapon.Core {
             return _weapon.KinemationLocalMuzzleFxInstance;
         }
 
-        private void TriggerKinemationLocalMuzzleFx() {
+        private void TriggerLocalMuzzleFx() {
             if(_weapon.KinemationLocalMuzzleFxInstance == null) return;
             ReactivateMuzzleFxInstance(_weapon.KinemationLocalMuzzleFxInstance, _weapon.KinemationLocalMuzzleVfx);
 

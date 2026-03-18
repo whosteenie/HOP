@@ -103,7 +103,7 @@ namespace Game.Social {
                 VivoxService.Instance.ParticipantRemovedFromChannel += OnParticipantRemoved;
 
                 // Login automatically if we have a user
-                await EnsureLoggedInForIdentityAsync();
+                await EnsureLoginAsync();
 
             } catch (Exception e) {
                 DevLog.LogError($"[VoiceManager] Initialization Failed: {e.Message}");
@@ -135,7 +135,7 @@ namespace Game.Social {
             return StreamerMode.GetLocalDisplayName();
         }
 
-        private async Task<bool> EnsureLoggedInForIdentityAsync(bool forceRelogin = false) {
+        private async Task<bool> EnsureLoginAsync(bool forceRelogin = false) {
             if(!IsInitialized || VivoxService.Instance == null) return false;
 
             var identity = ResolvePreferredIdentity();
@@ -228,14 +228,14 @@ namespace Game.Social {
             return VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(channelName);
         }
 
-        private async Task<bool> RecoverFromClaimsMismatchAsync(string channelName, int attempt) {
+        private async Task<bool> RecoverClaimsMismatchAsync(string channelName, int attempt) {
             if(ShouldEmitThrottledLog(ref _nextClaimsMismatchLogTime, 10f)) {
                 DevLog.LogWarning(
                     $"[VoiceManager] Vivox claims mismatch while joining '{channelName}' (attempt {attempt}/{MaxJoinAttempts}). Re-authenticating and retrying.");
             }
 
             try {
-                var reloggedIn = await EnsureLoggedInForIdentityAsync(forceRelogin: true);
+                var reloggedIn = await EnsureLoginAsync(forceRelogin: true);
                 if(reloggedIn == false && ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
                     DevLog.LogWarning("[VoiceManager] Vivox re-authentication failed after claims mismatch.");
                 }
@@ -272,7 +272,7 @@ namespace Game.Social {
 
                 Exception lastException = null;
                 for(var attempt = 1; attempt <= MaxJoinAttempts; attempt++) {
-                    if(await EnsureLoggedInForIdentityAsync() == false) {
+                    if(await EnsureLoginAsync() == false) {
                         if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
                             DevLog.LogWarning("[VoiceManager] JoinChannelAsync aborted because Vivox login is unavailable.");
                         }
@@ -312,7 +312,7 @@ namespace Game.Social {
                     } catch(Exception ex) {
                         lastException = ex;
                         if(IsVivoxClaimsMismatch(ex)) {
-                            var recovered = await RecoverFromClaimsMismatchAsync(channelName, attempt);
+                            var recovered = await RecoverClaimsMismatchAsync(channelName, attempt);
                             if(recovered == false) {
                                 break;
                             }

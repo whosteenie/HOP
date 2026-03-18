@@ -184,7 +184,7 @@ namespace Game.Weapon.Core {
             return true;
         }
 
-        private bool TryGetMuzzlePositionFromCamera(out Vector3 muzzlePosition) {
+        private bool TryGetCameraMuzzlePosition(out Vector3 muzzlePosition) {
             muzzlePosition = default;
             var ownerContext = _weapon.OwnerContext;
             if(ownerContext is not { IsOwner: true } || _weapon.CurrentWeaponData == null) {
@@ -192,7 +192,7 @@ namespace Game.Weapon.Core {
             }
 
             if(!ownerContext.IsSniperOverlayActive) {
-                if(!TryGetOwnerMuzzleTransform(out var muzzleTransform, "TryGetMuzzlePositionFromCamera")) {
+                if(!TryGetOwnerMuzzleTransform(out var muzzleTransform, "TryGetCameraMuzzlePosition")) {
                     return false;
                 }
 
@@ -209,9 +209,9 @@ namespace Game.Weapon.Core {
             return true;
         }
 
-        public bool TryGetOwnerTracerStartPosition(out Vector3 tracerStartPosition) {
+        public bool TryGetTracerStartPosition(out Vector3 tracerStartPosition) {
             tracerStartPosition = default;
-            if(!TryGetMuzzlePositionFromCamera(out var muzzlePosition)) {
+            if(!TryGetCameraMuzzlePosition(out var muzzlePosition)) {
                 return false;
             }
 

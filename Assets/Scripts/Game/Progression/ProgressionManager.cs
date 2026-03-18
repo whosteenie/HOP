@@ -66,13 +66,13 @@ namespace Game.Progression {
             EventBus.Subscribe<HopballDissolvedEvent>(OnHopballDissolved);
             EventBus.Subscribe<PlayerKillProgressionEvent>(OnPlayerKillProgression);
             EventBus.Subscribe<PlayerDeathProgressionEvent>(OnPlayerDeathProgression);
-            EventBus.Subscribe<PlayerGrappleUsedProgressionEvent>(OnPlayerGrappleUsedProgression);
+            EventBus.Subscribe<PlayerGrappleUsedProgressionEvent>(OnGrappleProgress);
             EventBus.Subscribe<PlayerWallRunChainProgressionEvent>(OnPlayerWallRunChainProgression);
             EventBus.Subscribe<PlayerDistanceTraveledProgressionEvent>(OnPlayerDistanceTraveledProgression);
             EventBus.Subscribe<PlayerAirtimeProgressionEvent>(OnPlayerAirtimeProgression);
-            EventBus.Subscribe<PlayerJumpPadUsedProgressionEvent>(OnPlayerJumpPadUsedProgression);
+            EventBus.Subscribe<PlayerJumpPadUsedProgressionEvent>(OnJumpPadProgress);
             EventBus.Subscribe<PlayerTimeTaggedProgressionEvent>(OnPlayerTimeTaggedProgression);
-            EventBus.Subscribe<PlayerTagRecordedProgressionEvent>(OnPlayerTagRecordedProgression);
+            EventBus.Subscribe<PlayerTagRecordedProgressionEvent>(OnTagProgress);
             _eventsBound = true;
         }
 
@@ -88,13 +88,13 @@ namespace Game.Progression {
             EventBus.Unsubscribe<HopballDissolvedEvent>(OnHopballDissolved);
             EventBus.Unsubscribe<PlayerKillProgressionEvent>(OnPlayerKillProgression);
             EventBus.Unsubscribe<PlayerDeathProgressionEvent>(OnPlayerDeathProgression);
-            EventBus.Unsubscribe<PlayerGrappleUsedProgressionEvent>(OnPlayerGrappleUsedProgression);
+            EventBus.Unsubscribe<PlayerGrappleUsedProgressionEvent>(OnGrappleProgress);
             EventBus.Unsubscribe<PlayerWallRunChainProgressionEvent>(OnPlayerWallRunChainProgression);
             EventBus.Unsubscribe<PlayerDistanceTraveledProgressionEvent>(OnPlayerDistanceTraveledProgression);
             EventBus.Unsubscribe<PlayerAirtimeProgressionEvent>(OnPlayerAirtimeProgression);
-            EventBus.Unsubscribe<PlayerJumpPadUsedProgressionEvent>(OnPlayerJumpPadUsedProgression);
+            EventBus.Unsubscribe<PlayerJumpPadUsedProgressionEvent>(OnJumpPadProgress);
             EventBus.Unsubscribe<PlayerTimeTaggedProgressionEvent>(OnPlayerTimeTaggedProgression);
-            EventBus.Unsubscribe<PlayerTagRecordedProgressionEvent>(OnPlayerTagRecordedProgression);
+            EventBus.Unsubscribe<PlayerTagRecordedProgressionEvent>(OnTagProgress);
             _eventsBound = false;
         }
 
@@ -174,7 +174,7 @@ namespace Game.Progression {
             RecordDeath(evt.IsOutOfBounds);
         }
 
-        private void OnPlayerGrappleUsedProgression(PlayerGrappleUsedProgressionEvent evt) {
+        private void OnGrappleProgress(PlayerGrappleUsedProgressionEvent evt) {
             if(evt == null || !IsLocalProgressionEvent(evt.PlayerClientId)) return;
             RecordGrappleUsed();
         }
@@ -194,7 +194,7 @@ namespace Game.Progression {
             RecordAirtime(evt.Seconds);
         }
 
-        private void OnPlayerJumpPadUsedProgression(PlayerJumpPadUsedProgressionEvent evt) {
+        private void OnJumpPadProgress(PlayerJumpPadUsedProgressionEvent evt) {
             if(evt == null || !IsLocalProgressionEvent(evt.PlayerClientId)) return;
             RecordJumpPadUsed();
         }
@@ -204,7 +204,7 @@ namespace Game.Progression {
             AddTimeTagged(evt.Seconds);
         }
 
-        private void OnPlayerTagRecordedProgression(PlayerTagRecordedProgressionEvent evt) {
+        private void OnTagProgress(PlayerTagRecordedProgressionEvent evt) {
             if(evt == null || !IsLocalProgressionEvent(evt.PlayerClientId)) return;
             RecordTag();
         }

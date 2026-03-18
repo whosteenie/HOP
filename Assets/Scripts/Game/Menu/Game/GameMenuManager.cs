@@ -302,7 +302,7 @@ namespace Game.Menu.Game {
         }
 
         private void Update() {
-            TryApplyPendingLoadoutWhenDead();
+            TryApplyPendingLoadout();
 
             if(!IsPaused) return;
             UpdatePauseChallengesIfDirty();
@@ -580,11 +580,11 @@ namespace Game.Menu.Game {
 
         private void OnPauseLoadoutRootPointerDown(PointerDownEvent evt) {
             if(_pauseCurrentOpenDropdown == null || evt == null) return;
-            if(IsPointerInPauseDropdownOrSlot(evt.position)) return;
+            if(IsPointerInPauseUi(evt.position)) return;
             ClosePauseLoadoutDropdowns();
         }
 
-        private bool IsPointerInPauseDropdownOrSlot(Vector2 pointerPosition) {
+        private bool IsPointerInPauseUi(Vector2 pointerPosition) {
             if(_pauseCurrentOpenDropdown == null) return false;
 
             if(_pauseCurrentOpenDropdown.worldBound.Contains(pointerPosition)) {
@@ -737,7 +737,7 @@ namespace Game.Menu.Game {
         }
 
         /// <summary>Applies pending loadout if still dead (e.g. after respawn timer).</summary>
-        private void TryApplyPendingLoadoutWhenDead() {
+        private void TryApplyPendingLoadout() {
             if(!_pauseLoadoutPendingApply) return;
             if(!IsLocalPlayerDead()) return;
             ApplyPendingLoadoutNow();

@@ -142,7 +142,7 @@ namespace Game.Menu.Loadout {
             SetupEventHandlers();
             LoadSavedCustomization();
             BuildMaterialPacketGrid();
-            UpdatePacketSelectionHighlight();
+            UpdatePacketHighlight();
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {
@@ -789,7 +789,7 @@ namespace Game.Menu.Loadout {
             UpdateMetallicUI();
             UpdateHeightUI();
             UpdateEmissionUI();
-            UpdatePacketSelectionHighlight();
+            UpdatePacketHighlight();
             ApplyToLocalPlayer();
             if(loadoutManager != null) {
                 loadoutManager.NotifyCustomizationApplied();
@@ -815,7 +815,7 @@ namespace Game.Menu.Loadout {
             if(loadoutManager != null) {
                 loadoutManager.SetPreviewRotationEnabled(false);
             }
-            UpdatePacketSelectionHighlight();
+            UpdatePacketHighlight();
         }
 
         private void HideMaterialPacketPanel() {
@@ -867,7 +867,7 @@ namespace Game.Menu.Loadout {
             }
 
             ClampCurrentPacketIndex();
-            UpdatePacketSelectionHighlight();
+            UpdatePacketHighlight();
         }
 
         private Button CreatePacketButton(string label, int index, bool isPlaceholder) {
@@ -905,13 +905,13 @@ namespace Game.Menu.Loadout {
             if(packetIndex == _currentPacketIndex) return;
 
             _currentPacketIndex = packetIndex;
-            UpdatePacketSelectionHighlight();
+            UpdatePacketHighlight();
             UpdateColorPreview();
             ApplyToLocalPlayer();
             NotifyLoadoutDirty();
         }
 
-        private void UpdatePacketSelectionHighlight() {
+        private void UpdatePacketHighlight() {
             foreach(var kvp in _packetButtons) {
                 if(kvp.Value == null) continue;
 
@@ -1013,7 +1013,7 @@ namespace Game.Menu.Loadout {
         private void ReloadSavedCustomization() {
             LoadSavedCustomization();
             BuildMaterialPacketGrid();
-            UpdatePacketSelectionHighlight();
+            UpdatePacketHighlight();
             ApplyToLocalPlayer();
             if(loadoutManager != null) {
                 loadoutManager.NotifyCustomizationApplied();

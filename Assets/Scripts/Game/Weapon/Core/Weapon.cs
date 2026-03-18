@@ -355,7 +355,7 @@ namespace Game.Weapon.Core {
             _reload.ResetWeapon();
         }
 
-        public void ResetDamageMultiplierImmediate() {
+        public void ResetDamageMultiplier() {
             if(NetworkAuthority.HasGlobalAuthority(this)) {
                 AuthoritativeDamageMultiplier = 1f;
                 AuthoritativePeakDamageMultiplier = 1f;
@@ -479,8 +479,8 @@ namespace Game.Weapon.Core {
             return _mount.TryGetOwnerMuzzleTransform(out muzzleTransform, context, logErrors);
         }
 
-        internal bool TryGetOwnerTracerStartPositionInternal(out Vector3 tracerStartPosition) {
-            return _mount.TryGetOwnerTracerStartPosition(out tracerStartPosition);
+        internal bool TryGetTracerStartPositionInternal(out Vector3 tracerStartPosition) {
+            return _mount.TryGetTracerStartPosition(out tracerStartPosition);
         }
 
         internal void InitializeTrailPoolInternal() {
@@ -491,7 +491,7 @@ namespace Game.Weapon.Core {
             _reload.CancelReload();
         }
 
-        internal void InterruptReloadForShotInternal() {
+        internal void InterruptReloadForShot() {
             _reload.InterruptReloadForShot();
         }
 
