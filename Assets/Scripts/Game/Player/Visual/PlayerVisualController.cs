@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using Diagnostics;
 using Events;
 using Game.Player.Contracts;
@@ -30,6 +31,7 @@ namespace Game.Player.Visual {
         private MaterialPropertyBlock _tagPropertyBlock;
 
         private Material[] _cachedMaterialsArray;
+        private readonly HashSet<int> _loggedMissingFpArmRoots = new();
 
         private void Awake() {
             ValidateComponents();
@@ -79,15 +81,7 @@ namespace Game.Player.Visual {
             if(_worldWeaponPrefabs == null || _worldWeaponPrefabs.Length == 0) {
                 _worldWeaponPrefabs = _playerContext.WorldWeaponPrefabs;
             }
-            
-
-            
-            // Apply to active FP Weapon Arms
-            if(_weaponManager == null) return;
-            var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
-            if(currentFpWeapon != null) {
-                ApplyMaterialToFpArms(currentFpWeapon);
-            }
+            ApplyMaterialToAllFpArms();
         }
 
         private void OnPlayerFpWeaponVisualRefreshRequested(PlayerFpWeaponVisualRefreshRequestedEvent evt) {
@@ -103,17 +97,38 @@ namespace Game.Player.Visual {
             UpdateFpArmTagGlow(_playerContext.IsTagged, evt.FpWeaponInstance);
         }
 
+        private void ApplyMaterialToAllFpArms() {
+            if(_weaponManager == null) return;
+
+            foreach(var fpWeapon in _weaponManager.FpWeaponInstancesRef) {
+                if(fpWeapon == null) continue;
+                ApplyMaterialToFpArms(fpWeapon);
+            }
+        }
+
         /// <summary>
         /// Applies the current generated player material (Index 1) to the FP weapon arms.
         /// Index 0 is reserved for Outline.
         /// </summary>
         private void ApplyMaterialToFpArms(GameObject fpWeaponInstance) {
-            if(fpWeaponInstance == null || _cachedMaterialsArray == null || _cachedMaterialsArray.Length < 2) return;
+            if(fpWeaponInstance == null || _cachedMaterialsArray == null || _cachedMaterialsArray.Length < 2) {
+                return;
+            }
             
             var generatedMaterial = _cachedMaterialsArray[1];
             if(generatedMaterial == null) return;
 
             var armRenderers = ResolveFpArmRenderers(fpWeaponInstance);
+            if(armRenderers.Length == 0) {
+                var weaponId = fpWeaponInstance.GetInstanceID();
+                if(_loggedMissingFpArmRoots.Add(weaponId)) {
+                    DevLog.LogWarning(
+                        $"[PlayerVisualController] No FP arm renderers resolved for '{fpWeaponInstance.name}' during material apply.",
+                        fpWeaponInstance);
+                }
+                return;
+            }
+
             ApplyMaterialToRenderers(armRenderers, generatedMaterial, 1);
         }
 
@@ -189,11 +204,8 @@ namespace Game.Player.Visual {
             _cachedMaterialsArray[1] = generatedMaterial;
             _playerMesh.materials = _cachedMaterialsArray;
 
-            if(!IsOwner || _weaponManager == null) return;
-            var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
-            if(currentFpWeapon != null) {
-                ApplyMaterialToFpArms(currentFpWeapon);
-            }
+            if(!IsOwner) return;
+            ApplyMaterialToAllFpArms();
         }
 
         /// <summary>

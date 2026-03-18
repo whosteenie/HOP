@@ -174,6 +174,10 @@ namespace Game.Player.Input {
                 WeaponManager.InitializeWeapons();
 
             if(IsOwner && WeaponManager != null) {
+                StartCoroutine(RefreshOwnerFpWeaponVisualsDeferred());
+            }
+
+            if(IsOwner && WeaponManager != null) {
                 WeaponManager.RefreshAmmoHud();
                 if(_deferredAmmoHudRefreshRoutine != null) {
                     StopCoroutine(_deferredAmmoHudRefreshRoutine);
@@ -252,6 +256,14 @@ namespace Game.Player.Input {
             }
 
             _deferredAmmoHudRefreshRoutine = null;
+        }
+
+        private IEnumerator RefreshOwnerFpWeaponVisualsDeferred() {
+            yield return null;
+
+            if(IsOwner && WeaponManager != null) {
+                WeaponManager.RefreshOwnerFpWeaponVisuals();
+            }
         }
 
         private void Start() {

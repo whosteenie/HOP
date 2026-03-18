@@ -249,6 +249,14 @@ namespace Game.Weapon.Manager {
         public GameObject GetCurrentFpWeapon() => _fpPresentation != null ? _fpPresentation.GetCurrentFpWeapon() : null;
         public GameObject GetFpWeaponHolderRootForDisconnect() =>
             _fpPresentation.GetFpWeaponHolderRootForDisconnect();
+        public void RefreshOwnerFpWeaponVisuals() {
+            if(!IsOwner || OwnerContext == null) return;
+
+            foreach(var fpWeaponInstance in FpWeaponInstancesRef) {
+                if(fpWeaponInstance == null) continue;
+                RequestOwnerFpWeaponVisualRefreshInternal(fpWeaponInstance);
+            }
+        }
 
         public static bool IsFriendlyFireServer(ulong shooterClientId, ulong victimClientId) {
             var matchSettings = MatchSettingsManager.Instance;

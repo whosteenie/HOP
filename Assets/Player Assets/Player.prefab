@@ -1467,7 +1467,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkFXRelay
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  ownerContextSource: {fileID: 0}
 --- !u!114 &5088684734431513618
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1763,7 +1763,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WeaponManager
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  ownerContextSource: {fileID: 0}
   weaponDataList:
   - {fileID: 11400000, guid: 4eec3005a01e4f03aaf9cfac2a48a1e8, type: 2}
   - {fileID: 11400000, guid: 2efa7e3911cb2d348b6d8f37e19ddf8e, type: 2}
@@ -1838,7 +1838,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.Weapon
   ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
+  ownerContextSource: {fileID: 0}
   currentAmmo: 0
 --- !u!114 &8382341124825033876
 MonoBehaviour:
@@ -2199,7 +2199,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 030c9feb3028b2d4a965ffcf4eeb0c91, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponCameraController
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   syncWeaponFovWithFpCamera: 0
   fixedWeaponCameraFov: 70
   enableDynamicNearClip: 1
@@ -2289,7 +2289,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e0c98f06ba63f4c488515d1a26eca85a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponShadowManager
-  playerController: {fileID: 5088684734431513618}
+  playerContextSource: {fileID: 0}
   shadowRaycastDistance: 1000
   weaponShadowLayer: -1
   blockedRootName: WorldRoot
@@ -5674,7 +5674,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7129668303251482571}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.024829209, y: 0.16649558, z: 0.013368213, w: 0.9856389}
+  m_LocalRotation: {x: 0.024829209, y: 0.16649558, z: 0.0133682145, w: 0.9856389}
   m_LocalPosition: {x: 0, y: 0.08378157, z: -0.0000003860332}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
