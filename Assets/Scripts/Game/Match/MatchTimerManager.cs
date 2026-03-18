@@ -68,7 +68,7 @@ namespace Game.Match {
             // Subscribe for UI updates on all clients
             _timeRemainingSeconds.OnValueChanged += OnTimeRemainingChanged;
             _preMatchCountdownSeconds.OnValueChanged += OnPreMatchCountdownChanged;
-            _isWaitingForPlayers.OnValueChanged += OnPreMatchWaitingForPlayersChanged;
+            _isWaitingForPlayers.OnValueChanged += PublishPreMatchWaitingChanged;
             _isPreMatch.OnValueChanged += OnPreMatchStateChanged;
 
             if(HasMatchAuthority) {
@@ -78,7 +78,7 @@ namespace Game.Match {
             // Push a sensible initial value to UI immediately when a client joins.
             // Clients can briefly see default NetworkVariable values before sync arrives.
             OnPreMatchCountdownChanged(0, GetInitialPreMatchCountdownForUi());
-            OnPreMatchWaitingForPlayersChanged(false, GetInitialWaitingForPlayersForUi());
+            PublishPreMatchWaitingChanged(false, GetInitialWaitingForPlayersForUi());
             _lastPublishedMatchSeconds = int.MinValue;
             _lastPublishedPreMatchSeconds = int.MinValue;
         }
@@ -115,7 +115,7 @@ namespace Game.Match {
             base.OnNetworkDespawn();
             UnsubscribeGameplayEvents();
             if(NetworkManager != null) {
-                NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
+                NetworkManager.OnClientDisconnectCallback -= OnPreMatchClientDisconnected;
             }
             UnregisterSessionOwnerCallbacks();
             ClearInstanceIfCurrent();
@@ -126,10 +126,10 @@ namespace Game.Match {
             UnsubscribeGameplayEvents();
             _timeRemainingSeconds.OnValueChanged -= OnTimeRemainingChanged;
             _preMatchCountdownSeconds.OnValueChanged -= OnPreMatchCountdownChanged;
-            _isWaitingForPlayers.OnValueChanged -= OnPreMatchWaitingForPlayersChanged;
+            _isWaitingForPlayers.OnValueChanged -= PublishPreMatchWaitingChanged;
             _isPreMatch.OnValueChanged -= OnPreMatchStateChanged;
             if(NetworkManager != null) {
-                NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
+                NetworkManager.OnClientDisconnectCallback -= OnPreMatchClientDisconnected;
             }
             UnregisterSessionOwnerCallbacks();
 
@@ -182,8 +182,8 @@ namespace Game.Match {
             _taggedPlayerClientIds.Clear();
 
             if(NetworkManager != null) {
-                NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
-                NetworkManager.OnClientDisconnectCallback += OnClientDisconnectedDuringPreMatch;
+                NetworkManager.OnClientDisconnectCallback -= OnPreMatchClientDisconnected;
+                NetworkManager.OnClientDisconnectCallback += OnPreMatchClientDisconnected;
 
                 if(!resetState) {
                     foreach(var clientId in NetworkManager.ConnectedClientsIds) {
@@ -238,7 +238,7 @@ namespace Game.Match {
             }
 
             if(NetworkManager != null) {
-                NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
+                NetworkManager.OnClientDisconnectCallback -= OnPreMatchClientDisconnected;
             }
         }
 
@@ -261,7 +261,7 @@ namespace Game.Match {
             }
         }
 
-        private void OnClientDisconnectedDuringPreMatch(ulong clientId) {
+        private void OnPreMatchClientDisconnected(ulong clientId) {
             if(!HasMatchAuthority) return;
             _clientsScenePresented.Remove(clientId);
             _spawnedPlayerClientIds.Remove(clientId);
@@ -399,7 +399,7 @@ namespace Game.Match {
             EventBus.Publish(new SetMatchTimeEvent(computed));
         }
 
-        private static void OnPreMatchWaitingForPlayersChanged(bool previous, bool current) {
+        private static void PublishPreMatchWaitingChanged(bool previous, bool current) {
             EventBus.Publish(new PreMatchWaitingForPlayersEvent(current));
         }
 

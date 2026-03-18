@@ -684,7 +684,7 @@ namespace Game.Menu.Loadout {
             }
         }
 
-        private bool EnsureWeaponOptionTemplateAssigned() {
+        private bool EnsureWeaponTemplate() {
             if(weaponOptionTemplate != null) {
                 return true;
             }
@@ -704,7 +704,7 @@ namespace Game.Menu.Loadout {
         private void PopulateWeaponDropdown(ScrollView scroll, WeaponData[] weapons, int selectedIndex,
             Action<int> onSelect) {
             if(scroll == null) return;
-            if(!EnsureWeaponOptionTemplateAssigned()) return;
+            if(!EnsureWeaponTemplate()) return;
 
             var container = scroll.contentContainer;
             container.Clear();

@@ -137,7 +137,7 @@ namespace Game.Weapon.Core {
 
             var reloadSingleEvents = _weapon.KinDriver.ConsumeReloadSingleEventCount();
             for(var i = 0; i < reloadSingleEvents; i++) {
-                HandleKinemationReloadSingleRound();
+                HandleSingleRoundReload();
             }
 
             if(_weapon.KinDriver.ConsumeReloadCompleteEvent()) {
@@ -187,7 +187,7 @@ namespace Game.Weapon.Core {
             _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.ReloadCompleted);
         }
 
-        private void HandleKinemationReloadSingleRound() {
+        private void HandleSingleRoundReload() {
             if(!_weapon.Reloading || _weapon.CurrentWeaponData == null) return;
             if(_weapon.CurrentWeaponData.useMagReload) return;
             var magCapacity = _weapon.GetMagCapacityInternal();
@@ -220,7 +220,7 @@ namespace Game.Weapon.Core {
 
             var reloadSingleEvents = _weapon.KinDriver.ConsumeReloadSingleEventCount();
             for(var i = 0; i < reloadSingleEvents; i++) {
-                HandleKinemationReloadSingleRound();
+                HandleSingleRoundReload();
             }
         }
     }

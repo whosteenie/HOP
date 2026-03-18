@@ -205,7 +205,7 @@ namespace Network.Session {
                 }
 
                 try {
-                    var delayMs = MatchmakerPollingPolicy.ResolveMatchLobbyDiscoveryDelayMs(i);
+                    var delayMs = MatchmakerPollingPolicy.ResolveDiscoveryDelayMs(i);
                     await UniTask.Delay(delayMs, cancellationToken: _ctx.SessionLifetimeToken);
                 } catch(OperationCanceledException) {
                     return;

@@ -82,7 +82,7 @@ namespace Game.Weapon.Manager {
             reason = null;
             if(!HasWeaponAuthority) return true;
 
-            if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
+            if(weaponIndex != GetAuthoritativeWeaponIndex()) {
                 reason = "weapon index mismatch";
                 return false;
             }
@@ -114,7 +114,7 @@ namespace Game.Weapon.Manager {
             reason = null;
             if(!HasWeaponAuthority) return true;
 
-            if(weaponIndex == GetServerAuthoritativeWeaponIndex()) {
+            if(weaponIndex == GetAuthoritativeWeaponIndex()) {
                 return _root.AmmoAuthorityRef.ValidateServerHitClaim(
                     weaponIndex,
                     shotId,
@@ -138,7 +138,7 @@ namespace Game.Weapon.Manager {
                 return false;
             }
 
-            if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
+            if(weaponIndex != GetAuthoritativeWeaponIndex()) {
                 reason = "weapon index mismatch";
                 return false;
             }
@@ -267,7 +267,7 @@ namespace Game.Weapon.Manager {
                     return;
                 }
                 case WeaponManager.AmmoSyncReason.ReloadSingleRound: {
-                    if(!IsServerReloadInProgressForWeapon(weaponIndex)) {
+                     if(!IsReloadInProgress(weaponIndex)) {
                         AntiCheatLogger.LogInvalidDamage(_root.OwnerClientId, "reload single without reload");
                         return;
                     }
@@ -310,7 +310,7 @@ namespace Game.Weapon.Manager {
                     return;
                 }
                 case WeaponManager.AmmoSyncReason.ReloadCompleted:
-                    if(!IsServerReloadInProgressForWeapon(weaponIndex)) {
+                    if(!IsReloadInProgress(weaponIndex)) {
                         AntiCheatLogger.LogInvalidDamage(_root.OwnerClientId, "reload complete without reload");
                         return;
                     }
@@ -325,7 +325,7 @@ namespace Game.Weapon.Manager {
                     ClearServerReloadState();
                     return;
                 case WeaponManager.AmmoSyncReason.ReloadCanceled: {
-                    if(_root.ServerReloadWeaponIndex >= 0 && !IsServerReloadInProgressForWeapon(weaponIndex)) {
+                    if(_root.ServerReloadWeaponIndex >= 0 && !IsReloadInProgress(weaponIndex)) {
                         AntiCheatLogger.LogInvalidDamage(_root.OwnerClientId, "reload cancel weapon mismatch");
                         return;
                     }
@@ -386,7 +386,7 @@ namespace Game.Weapon.Manager {
             );
         }
 
-        private int GetServerAuthoritativeWeaponIndex() {
+        private int GetAuthoritativeWeaponIndex() {
             return _root.ServerAuthoritativeWeaponIndex >= 0
                 ? _root.ServerAuthoritativeWeaponIndex
                 : _root.CurrentWeaponIndexInternal;
@@ -396,7 +396,7 @@ namespace Game.Weapon.Manager {
             return Mathf.Max(0f, _root.KinemationPullOutCompleteDelay);
         }
 
-        private bool IsServerReloadInProgressForWeapon(int weaponIndex) {
+        private bool IsReloadInProgress(int weaponIndex) {
             return _root.ServerReloadWeaponIndex == weaponIndex;
         }
 
@@ -430,7 +430,7 @@ namespace Game.Weapon.Manager {
                 return false;
             }
 
-            if(weaponIndex == GetServerAuthoritativeWeaponIndex()) return true;
+            if(weaponIndex == GetAuthoritativeWeaponIndex()) return true;
             reason = "weapon index mismatch";
             return false;
         }

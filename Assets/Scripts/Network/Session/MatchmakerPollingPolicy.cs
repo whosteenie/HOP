@@ -16,7 +16,7 @@ namespace Network.Session {
             return Mathf.Clamp(delayMs, TicketPollBaseIntervalMs, TicketPollMaxIntervalMs);
         }
 
-        public static int ResolveMatchLobbyDiscoveryDelayMs(int attemptIndex) {
+        public static int ResolveDiscoveryDelayMs(int attemptIndex) {
             _ = attemptIndex;
             return MatchLobbyDiscoveryIntervalMs;
         }

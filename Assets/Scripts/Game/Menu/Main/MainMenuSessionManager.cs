@@ -918,7 +918,7 @@ namespace Game.Menu.Main {
 
             if(_partyMembersList != null) _partyMembersList.Clear();
             if(_localProfileContainer != null) _localProfileContainer.Clear();
-            ResetLocalProgressionReferences();
+            ResetProgressionRefs();
 
             // Draw just us in the local profile section
             var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
@@ -944,7 +944,7 @@ namespace Game.Menu.Main {
 
             if(_partyMembersList != null) _partyMembersList.Clear();
             if(_localProfileContainer != null) _localProfileContainer.Clear();
-            ResetLocalProgressionReferences();
+            ResetProgressionRefs();
 
             var hostId = lobby.Owner.Id;
             var myPartyId = "";
@@ -1187,7 +1187,7 @@ namespace Game.Menu.Main {
             _lastProgressionRowVisible = visible;
         }
 
-        private void ResetLocalProgressionReferences() {
+        private void ResetProgressionRefs() {
             _localXpRow = null;
             _localXpBar = null;
             _localLevelLabel = null;

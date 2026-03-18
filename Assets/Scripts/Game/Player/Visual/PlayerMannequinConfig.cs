@@ -243,7 +243,7 @@ namespace Game.Player.Visual {
             // Re-apply after animator evaluation so look offsets match final frame pose.
             ApplyLookPitchProxyIfAvailable();
             ApplyLookPitch(forceRefreshBaseFromCurrentPose: _pendingLookBaseRefresh);
-            ApplyLookPitchProxyToOriginalSpine();
+            ApplyLookPitchProxy();
             ApplyShotSimulation();
             QueueRuntimeLookProbe();
             _pendingLookBaseRefresh = false;
@@ -286,7 +286,7 @@ namespace Game.Player.Visual {
             _pendingLookBaseRefresh = true;
             ApplyLookPitchProxyIfAvailable();
             ApplyLookPitch(forceRefreshBaseFromCurrentPose: true);
-            ApplyLookPitchProxyToOriginalSpine();
+            ApplyLookPitchProxy();
             _pendingLookBaseRefresh = false;
         }
 
@@ -333,7 +333,7 @@ namespace Game.Player.Visual {
             ApplyWeaponVisuals();
             ApplyLookPitchProxyIfAvailable();
             ApplyLookPitch(forceRefreshBaseFromCurrentPose: _pendingLookBaseRefresh);
-            ApplyLookPitchProxyToOriginalSpine();
+            ApplyLookPitchProxy();
             _animationPoseUpdatedThisApply = false;
             _forceAnimationPoseRefreshThisApply = false;
 
@@ -1490,14 +1490,14 @@ namespace Game.Player.Visual {
                 if(option.shotTrailRenderers == null) continue;
                 foreach(var trail in option.shotTrailRenderers) {
                     if(trail == null) continue;
-                    if(!CanModifyAssignedShotTrailRenderer(trail)) continue;
+                    if(!CanEditShotTrail(trail)) continue;
                     trail.Clear();
                     trail.emitting = false;
                 }
             }
         }
 
-        private static bool CanModifyAssignedShotTrailRenderer(TrailRenderer trail) {
+        private static bool CanEditShotTrail(TrailRenderer trail) {
             if(trail == null || trail.gameObject == null) return false;
 #if UNITY_EDITOR
             return !EditorUtility.IsPersistent(trail) && !EditorUtility.IsPersistent(trail.gameObject);
@@ -1750,7 +1750,7 @@ namespace Game.Player.Visual {
 
         private int ResolveLayerIndex(string layerName) {
             if(string.IsNullOrWhiteSpace(layerName)) return -1;
-            if(!IsAnimatorInitializedForLayerQuery()) return -1;
+            if(!CanQueryAnimatorLayers()) return -1;
             return animator.GetLayerIndex(layerName);
         }
 
@@ -1871,7 +1871,7 @@ namespace Game.Player.Visual {
             if(_cachedLookPitchSpineProxy != null) _cachedLookPitchSpineProxy.SetRotationOffset(capturedLookPitchSpineProxyOffset);
         }
 
-        private void ApplyLookPitchProxyToOriginalSpine() {
+        private void ApplyLookPitchProxy() {
             CacheLookPitchSpineProxy();
             if(_cachedLookPitchSpineProxy != null) _cachedLookPitchSpineProxy.ApplyProxyToOriginalSpine();
         }
@@ -1946,7 +1946,7 @@ namespace Game.Player.Visual {
             return animator.isInitialized;
         }
 
-        private bool IsAnimatorInitializedForLayerQuery() {
+        private bool CanQueryAnimatorLayers() {
             return animator != null
                    && animator.runtimeAnimatorController != null
                    && animator.enabled

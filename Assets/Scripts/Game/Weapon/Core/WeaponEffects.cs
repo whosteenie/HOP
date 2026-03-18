@@ -14,7 +14,7 @@ namespace Game.Weapon.Core {
         }
 
         public void PlayLocalMuzzleFlash(int authoritativeAmmoBeforeShot) {
-            PlayFireAnimationForCurrentWeapon(authoritativeAmmoBeforeShot);
+            PlayFireAnimation(authoritativeAmmoBeforeShot);
             _weapon.PlayShootAnimationServerRpc();
 
             if(_weapon.CurrentWeaponData != null && _weapon.CurrentWeaponData.muzzleFlashPrefab != null) {
@@ -264,7 +264,7 @@ namespace Game.Weapon.Core {
             _weapon.HasPrewarmedKinemationMuzzleForCurrentWeapon = true;
         }
 
-        private void PlayFireAnimationForCurrentWeapon(int authoritativeAmmoBeforeShot) {
+        private void PlayFireAnimation(int authoritativeAmmoBeforeShot) {
             if(_weapon.KinDriver == null) return;
             _weapon.KinDriver.PlayFireAnimation(authoritativeAmmoBeforeShot);
         }

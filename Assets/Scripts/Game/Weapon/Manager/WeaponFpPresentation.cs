@@ -136,7 +136,7 @@ namespace Game.Weapon.Manager {
                 var fpLayer = GetFpWeaponLayer();
                 KinemationViewmodelUtility.SetLayerRecursive(kinemationHolder, fpLayer);
                 kinemationDriver.InitializeIfNeeded(fpLayer);
-                SetupFpWeaponSkinnedMeshRenderers(kinemationHolder);
+                SetupFpRenderers(kinemationHolder);
 
                 kinemationHolder.SetActive(false);
                 _root.FpWeaponInstancesRef.Add(kinemationHolder);
@@ -150,7 +150,7 @@ namespace Game.Weapon.Manager {
             }
         }
 
-        public void SetupFpWeaponSkinnedMeshRenderers(GameObject fpWeaponInstance) {
+        public void SetupFpRenderers(GameObject fpWeaponInstance) {
             if(fpWeaponInstance == null) return;
 
             var skinnedRenderers = fpWeaponInstance.GetComponentsInChildren<SkinnedMeshRenderer>(true);

@@ -33,7 +33,7 @@ namespace Game.Weapon.Manager {
 
         #region Update Gates
 
-        public void UpdateKinemationEquipCompletionGate() {
+        public void UpdateEquipCompletionGate() {
             if(!_root.IsPullingOutInternal || !_root.RequiresKinemationEquipCompleteForCurrentPullOut) return;
             if(_root.CurrentWeaponIndexInternal < 0 || _root.CurrentWeaponIndexInternal >= _root.FpWeaponInstancesRef.Count) return;
 
@@ -106,27 +106,27 @@ namespace Game.Weapon.Manager {
 
         public void ProcessWeaponSwitchRequest(int newIndex) {
             if(!HasWeaponAuthority) return;
-            var approvedWeaponIndex = GetServerAuthoritativeWeaponIndex();
+            var approvedWeaponIndex = GetAuthoritativeWeaponIndex();
             if(!TryConsumeWeaponSwitchQuota()) {
-                _root.RejectPredictedWeaponSwitchOwnerRpc(approvedWeaponIndex);
+                _root.RejectPredictedSwitchOwnerRpc(approvedWeaponIndex);
                 return;
             }
 
             if(!_root.TryValidateSwitchTargetStrict(newIndex, out _, out _)) {
-                _root.RejectPredictedWeaponSwitchOwnerRpc(approvedWeaponIndex);
+                _root.RejectPredictedSwitchOwnerRpc(approvedWeaponIndex);
                 return;
             }
 
             _root.ApplyServerWeaponSwitch(newIndex);
             if(_root.ResolvePlayerState() == null) {
-                _root.RejectPredictedWeaponSwitchOwnerRpc(approvedWeaponIndex);
+                _root.RejectPredictedSwitchOwnerRpc(approvedWeaponIndex);
                 return;
             }
 
             if(_root.ReplicatedEquippedWeaponIndex.Value != newIndex) {
                 _root.ReplicatedEquippedWeaponIndex.Value = newIndex;
             } else {
-                _root.ConfirmPredictedWeaponSwitchOwnerRpc(newIndex);
+                _root.ConfirmPredictedSwitchOwnerRpc(newIndex);
             }
         }
 
@@ -544,7 +544,7 @@ namespace Game.Weapon.Manager {
             _root.PendingHolsterHideSlot = -1;
 
             if(repairedPresentationState) {
-                SyncWeaponPresentationToWorldWeapon(_root.CurrentWorldWeaponInstanceInternal);
+                SyncWorldWeaponPresentation(_root.CurrentWorldWeaponInstanceInternal);
             }
 
             _root.EnsureWeaponHierarchyActiveInternal();
@@ -602,7 +602,7 @@ namespace Game.Weapon.Manager {
             return false;
         }
 
-        private int GetServerAuthoritativeWeaponIndex() {
+        private int GetAuthoritativeWeaponIndex() {
             return _root.ServerAuthoritativeWeaponIndex >= 0 ? _root.ServerAuthoritativeWeaponIndex : _root.CurrentWeaponIndexInternal;
         }
 
@@ -650,7 +650,7 @@ namespace Game.Weapon.Manager {
 
         #region Private Presentation Repair
 
-        private void SyncWeaponPresentationToWorldWeapon(GameObject worldWeaponInstance) {
+        private void SyncWorldWeaponPresentation(GameObject worldWeaponInstance) {
             if(_root.CurrentWeaponInternal == null) return;
             if(_root.CurrentWeaponIndexInternal < 0 || _root.CurrentWeaponIndexInternal >= _root.WeaponDataListRef.Count) return;
 

@@ -152,7 +152,7 @@ namespace Game.Menu.Options {
 
         public void ApplyToRuntime() { }
 
-        public void RefreshBackgroundChoicesForPanel(bool preserveCurrentSelection = true) {
+        public void RefreshBackgroundChoices(bool preserveCurrentSelection = true) {
             RefreshBackgroundDropdownChoices(preserveCurrentSelection);
         }
 

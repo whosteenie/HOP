@@ -497,7 +497,7 @@ namespace Game.Menu.Options {
 
         public void OnOptionsPanelShown() {
             _audioHandler.RefreshVoiceDevices(Root);
-            _gameHandler.RefreshBackgroundChoicesForPanel(preserveCurrentSelection: true);
+            _gameHandler.RefreshBackgroundChoices(preserveCurrentSelection: true);
             var optionsPanel = Root?.Q<VisualElement>("options-panel");
             optionsPanel?.schedule.Execute(() => {
                 _tabVideo?.SetEnabled(true);

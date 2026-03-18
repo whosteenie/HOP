@@ -202,7 +202,7 @@ namespace Game.Weapon.Manager {
         }
 
         private void Update() {
-            _switch?.UpdateKinemationEquipCompletionGate();
+            _switch?.UpdateEquipCompletionGate();
             if(IsOwner) {
                 _fpLighting?.EnsureFpWeaponLightingRig();
             }
@@ -283,8 +283,8 @@ namespace Game.Weapon.Manager {
         internal void ApplyKinemationViewmodelPoseInternal(GameObject fpWeaponRoot, KinemationWeaponBinding binding) =>
             _fpPresentation.ApplyKinemationViewmodelPose(fpWeaponRoot, binding);
         internal int GetFpWeaponLayerInternal() => _fpPresentation.GetFpWeaponLayer();
-        internal void SetupFpWeaponSkinnedMeshRenderersInternal(GameObject fpWeaponInstance) =>
-            _fpPresentation.SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
+        internal void SetupFpRenderersInternal(GameObject fpWeaponInstance) =>
+            _fpPresentation.SetupFpRenderers(fpWeaponInstance);
         internal static void EnsureHierarchyActiveInternal(GameObject instanceRoot) => KinemationViewmodelUtility.EnsureHierarchyActive(instanceRoot);
         internal void EnsureFpWeaponLightingRigInternal() => _fpLighting.EnsureFpWeaponLightingRig();
         internal int GetSlotForIndexInternal(int index) => _loadout.GetSlotForIndexInternal(index);
@@ -345,12 +345,12 @@ namespace Game.Weapon.Manager {
         }
 
         [Rpc(SendTo.Owner)]
-        internal void RejectPredictedWeaponSwitchOwnerRpc(int approvedWeaponIndex) {
+        internal void RejectPredictedSwitchOwnerRpc(int approvedWeaponIndex) {
             _switch.RejectPredictedWeaponSwitchOwner(approvedWeaponIndex);
         }
 
         [Rpc(SendTo.Owner)]
-        internal void ConfirmPredictedWeaponSwitchOwnerRpc(int approvedWeaponIndex) {
+        internal void ConfirmPredictedSwitchOwnerRpc(int approvedWeaponIndex) {
             _switch.ConfirmPredictedWeaponSwitchOwner(approvedWeaponIndex);
         }
 

@@ -92,7 +92,7 @@ namespace Game.Weapon.Manager {
             }
 
             if(_root.FpWeaponInstancesRef.Count > 0) {
-                _root.EquipInitialWeaponInternal(ResolveInitialEquippedWeaponIndex());
+                _root.EquipInitialWeaponInternal(ResolveInitialWeaponIndex());
             } else {
                 DevLog.LogError("[WeaponManager] No weapons instantiated!");
             }
@@ -151,7 +151,7 @@ namespace Game.Weapon.Manager {
                     WeaponManager.EnsureHierarchyActiveInternal(currentFpWeapon);
                     currentFpWeapon.SetActive(true);
 
-                    _root.SetupFpWeaponSkinnedMeshRenderersInternal(currentFpWeapon);
+                    _root.SetupFpRenderersInternal(currentFpWeapon);
                 }
             }
 
@@ -212,7 +212,7 @@ namespace Game.Weapon.Manager {
             }
         }
 
-        private int ResolveInitialEquippedWeaponIndex() {
+        private int ResolveInitialWeaponIndex() {
             var replicatedIndex = _root.ReplicatedEquippedWeaponIndex.Value;
             if(replicatedIndex >= 0 && replicatedIndex < _root.WeaponDataListRef.Count) {
                 return replicatedIndex;

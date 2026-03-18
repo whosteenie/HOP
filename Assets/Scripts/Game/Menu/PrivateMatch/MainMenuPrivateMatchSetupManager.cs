@@ -125,7 +125,7 @@ namespace Game.Menu.PrivateMatch {
             RefreshKothHillSpeedVisibility();
             RefreshTaggedRowVisibility();
             RefreshStatusLabel();
-            RefreshValidationAndStartButton();
+            RefreshStartButton();
             RefreshTeamPreview();
         }
 
@@ -195,7 +195,7 @@ namespace Game.Menu.PrivateMatch {
             RefreshKothHillSpeedVisibility();
             RefreshTaggedRowVisibility();
             RefreshStatusLabel();
-            RefreshValidationAndStartButton();
+            RefreshStartButton();
         }
 
         private void SetupDefaults() {
@@ -437,7 +437,7 @@ namespace Game.Menu.PrivateMatch {
                 _suppressEvents = true;
                 _mapDropdown.value = choices[0];
                 _suppressEvents = false;
-                RefreshValidationAndStartButton();
+                RefreshStartButton();
                 return;
             }
 
@@ -455,7 +455,7 @@ namespace Game.Menu.PrivateMatch {
             _suppressEvents = true;
             _mapDropdown.value = choices[selectedIndex];
             _suppressEvents = false;
-            RefreshValidationAndStartButton();
+            RefreshStartButton();
         }
 
         private static bool IsGunTag(string gamemodeId) {
@@ -513,7 +513,7 @@ namespace Game.Menu.PrivateMatch {
             return SessionManager.Instance != null ? SessionManager.Instance.CurrentPartySize : 1;
         }
 
-        private void RefreshValidationAndStartButton() {
+        private void RefreshStartButton() {
             var validationMessage = "";
             var canStart = true;
 
@@ -773,7 +773,7 @@ namespace Game.Menu.PrivateMatch {
             RefreshTaggedRowVisibility();
             RefreshMapPreview();
             RefreshStatusLabel();
-            RefreshValidationAndStartButton();
+            RefreshStartButton();
             RefreshTeamPreview();
         }
 
@@ -787,7 +787,7 @@ namespace Game.Menu.PrivateMatch {
             }
             RefreshMapPreview();
             RefreshStatusLabel();
-            RefreshValidationAndStartButton();
+            RefreshStartButton();
         }
 
         private void RefreshMapPreview() {
@@ -886,7 +886,7 @@ namespace Game.Menu.PrivateMatch {
                 setDraft(clamped);
                 ApplyInfiniteFieldDisplay(field, clamped == 0);
                 RefreshStatusLabel();
-                RefreshValidationAndStartButton();
+                RefreshStartButton();
             }
         }
 
