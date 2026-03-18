@@ -1,5 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Game.Match;
 using Unity.Netcode;
 using UnityEngine;
@@ -32,7 +33,7 @@ namespace Game.Menu.Shared {
             try {
                 // Prevent multiple initializations if scene is reloaded somehow
                 if(hasInitialized) {
-                    Debug.LogWarning("[InitSceneManager] Already initialized, skipping");
+                    DevLog.LogWarning("[InitSceneManager] Already initialized, skipping");
                     return;
                 }
 
@@ -44,7 +45,7 @@ namespace Game.Menu.Shared {
 
                 // Validate critical singletons are present
                 if(!ValidateSingletons()) {
-                    Debug.LogError("[InitSceneManager] Critical singletons missing! Cannot proceed.");
+                    DevLog.LogError("[InitSceneManager] Critical singletons missing! Cannot proceed.");
                     return;
                 }
 
@@ -62,23 +63,23 @@ namespace Game.Menu.Shared {
 
             // Critical singletons (required)
             if(Network.Session.SessionManager.Instance == null) {
-                Debug.LogError("[InitSceneManager] SessionManager.Instance == null!");
+                DevLog.LogError("[InitSceneManager] SessionManager.Instance == null!");
                 allValid = false;
             }
 
             // Recommended singletons
             if(SceneTransitionManager.Instance == null) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[InitSceneManager] SceneTransitionManager.Instance == null (optional but recommended)");
             }
 
             // Additional DDOL managers
             if(MatchSettingsManager.Instance == null) {
-                Debug.LogWarning("[InitSceneManager] MatchSettings.Instance == null (optional)");
+                DevLog.LogWarning("[InitSceneManager] MatchSettings.Instance == null (optional)");
             }
 
             if(NetworkManager.Singleton == null) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[InitSceneManager] NetworkManager.Singleton == null (optional, but required for networking)");
             }
 
@@ -96,7 +97,7 @@ namespace Game.Menu.Shared {
             var loadOp = SceneManager.LoadSceneAsync(mainMenuSceneName, LoadSceneMode.Additive);
 
             if(loadOp == null) {
-                Debug.LogError($"[InitSceneManager] Failed to load scene: {mainMenuSceneName}");
+                DevLog.LogError($"[InitSceneManager] Failed to load scene: {mainMenuSceneName}");
                 return;
             }
 
@@ -110,7 +111,7 @@ namespace Game.Menu.Shared {
             if(mainMenuScene.IsValid()) {
                 SceneManager.SetActiveScene(mainMenuScene);
             } else {
-                Debug.LogError("[InitSceneManager] MainMenu scene is not valid after loading");
+                DevLog.LogError("[InitSceneManager] MainMenu scene is not valid after loading");
             }
 
             // Fade transition removed for now - splash screen will handle its own fade into main menu

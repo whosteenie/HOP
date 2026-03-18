@@ -30,7 +30,7 @@ namespace Diagnostics {
 
             var meshHints = ExtractMeshHints(condition);
             var report = BuildReport(condition, meshHints);
-            Debug.LogWarning(report);
+            DevLog.LogWarning(report);
         }
 
         private static bool IsTargetWarning(string message) {

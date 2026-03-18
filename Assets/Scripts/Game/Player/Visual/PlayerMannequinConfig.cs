@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Diagnostics;
 using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -295,7 +296,7 @@ namespace Game.Player.Visual {
             CaptureLookPitchSpineProxyOffsetFromScene();
             if(!hasCapturedLookPitchSpineProxyOffset) return;
 
-            Debug.Log(
+            DevLog.Log(
                 $"[PlayerMannequinConfig] Captured spine proxy offset for play-mode consistency: {capturedLookPitchSpineProxyOffset.eulerAngles}",
                 this);
         }
@@ -864,7 +865,7 @@ namespace Game.Player.Visual {
             float trailIntensity01,
             float emissionScale) {
             if(validTrailSystems == null || validTrailSystems.Count == 0) {
-                Debug.Log("[PlayerMannequinConfig][TrailDebug] No valid trail systems found after filtering.", this);
+                DevLog.Log("[PlayerMannequinConfig][TrailDebug] No valid trail systems found after filtering.", this);
                 return;
             }
 
@@ -888,7 +889,7 @@ namespace Game.Player.Visual {
                     $"velOL={velocity.enabled}");
             }
 
-            Debug.Log(
+            DevLog.Log(
                 $"[PlayerMannequinConfig][TrailDebug] resample={needsResample}, " +
                 $"fakeVelocity={fakeVelocity}, trailPreviewVelocity={trailPreviewVelocity}, " +
                 $"trailDirection={trailDirection}, " +
@@ -980,13 +981,13 @@ namespace Game.Player.Visual {
 #if UNITY_EDITOR
             var persistent = go != null && EditorUtility.IsPersistent(go);
             var prefabAsset = go != null && PrefabUtility.IsPartOfPrefabAsset(go);
-            Debug.LogWarning(
+            DevLog.LogWarning(
                 $"[PlayerMannequinConfig] Skipping trail system '{ps.name}' because {reason}. " +
                 $"scene='{sceneName}', persistent={persistent}, prefabAsset={prefabAsset}. " +
                 "Assign scene instance ParticleSystems under the mannequin.",
                 this);
 #else
-            Debug.LogWarning($"[PlayerMannequinConfig] Skipping trail system '{ps.name}' because {reason}. scene='{sceneName}'.", this);
+            DevLog.LogWarning($"[PlayerMannequinConfig] Skipping trail system '{ps.name}' because {reason}. scene='{sceneName}'.", this);
 #endif
         }
 
@@ -1057,7 +1058,7 @@ namespace Game.Player.Visual {
                 _lastShotOriginPos = Vector3.positiveInfinity;
                 _lastShotDirection = Vector3.positiveInfinity;
                 if(logShotDebug && logShotDebugEveryApply) {
-                    Debug.Log("[PlayerMannequinConfig][ShotDebug] simulateShot=false; shot preview outputs reset.", this);
+                    DevLog.Log("[PlayerMannequinConfig][ShotDebug] simulateShot=false; shot preview outputs reset.", this);
                 }
                 return;
             }
@@ -1070,7 +1071,7 @@ namespace Game.Player.Visual {
                 _lastShotOriginPos = Vector3.positiveInfinity;
                 _lastShotDirection = Vector3.positiveInfinity;
                 if(logShotDebug) {
-                    Debug.Log(
+                    DevLog.Log(
                         $"[PlayerMannequinConfig][ShotDebug] No active weapon option for hand slot '{handWeaponSlot}'.",
                         this);
                 }
@@ -1091,7 +1092,7 @@ namespace Game.Player.Visual {
                                    || _lastShotDirection != direction;
             if(!shouldResimulate) {
                 if(logShotDebug && logShotDebugEveryApply) {
-                    Debug.Log(
+                    DevLog.Log(
                         $"[PlayerMannequinConfig][ShotDebug] Skipped resimulate for '{activeOption.displayName}' (no input change).",
                         this);
                 }
@@ -1637,7 +1638,7 @@ namespace Game.Player.Visual {
                 ? Vector3.Dot(direction.normalized, handForward.normalized)
                 : 0f;
 
-            Debug.Log(
+            DevLog.Log(
                 $"[PlayerMannequinConfig][ShotDebug] option='{option.displayName}', " +
                 $"origin='{originName}', originPos={originPos}, direction={direction}, " +
                 $"directionSource={directionSource}, " +
@@ -1667,7 +1668,7 @@ namespace Game.Player.Visual {
             if(option == null) return;
             var id = option.GetHashCode();
             if(!_invalidShotWarningIds.Add(id)) return;
-            Debug.LogWarning($"[PlayerMannequinConfig] Shot simulation for '{option.displayName}' has {reason}.", this);
+            DevLog.LogWarning($"[PlayerMannequinConfig] Shot simulation for '{option.displayName}' has {reason}.", this);
         }
 
         public string[] GetPrimaryOptionNames() {
@@ -1817,7 +1818,7 @@ namespace Game.Player.Visual {
                     $"actualSpineWorldEuler={actualSpineWorld.eulerAngles}, spineErrDeg={spineErrDeg:0.###}, " +
                     $"offsetEuler={offset.eulerAngles}, originalLocalEuler={originalSpine.localRotation.eulerAngles}";
             }
-            Debug.Log(
+            DevLog.Log(
                 $"[PlayerMannequinConfig][LookDebug][{mode}] target='{effectiveTarget.name}', " +
                 $"baseEuler={_cachedLookPitchBaseLocalRotation.eulerAngles}, " +
                 $"offsetEuler={newOffset.eulerAngles}, finalEuler={effectiveTarget.localRotation.eulerAngles}, " +
@@ -1913,7 +1914,7 @@ namespace Game.Player.Visual {
                 transition = animator.IsInTransition(0);
             }
 
-            Debug.Log(
+            DevLog.Log(
                 $"[PlayerMannequinConfig][LookProbe][{stage}] " +
                 $"errDeg={errorDeg:0.###}, " +
                 $"proxyWorldEuler={proxyWorld.eulerAngles}, expectedSpineWorldEuler={expectedSpineWorld.eulerAngles}, actualSpineWorldEuler={actualSpineWorld.eulerAngles}, " +

@@ -1,4 +1,5 @@
 using System.Reflection;
+using Diagnostics;
 using KINEMATION.FPSAnimationPack.Scripts.Camera;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using UnityEngine;
@@ -32,7 +33,7 @@ namespace Game.Weapon.Kinemation {
             }
 
             if(fpsPlayerPrefab == null || weaponPrefab == null) {
-                Debug.LogError("[KinFpWeaponDriver] Missing prefabs. Cannot initialize KINEMATION viewmodel.", _driver);
+                DevLog.LogError("[KinFpWeaponDriver] Missing prefabs. Cannot initialize KINEMATION viewmodel.", _driver);
                 return;
             }
 
@@ -42,7 +43,7 @@ namespace Game.Weapon.Kinemation {
 
             var fpsPlayer = playerInstance.GetComponentInChildren<FPSPlayer>(true);
             if(fpsPlayer == null) {
-                Debug.LogError("[KinFpWeaponDriver] FPSPlayer component missing on KINEMATION player prefab hierarchy.", _driver);
+                DevLog.LogError("[KinFpWeaponDriver] FPSPlayer component missing on KINEMATION player prefab hierarchy.", _driver);
                 Object.Destroy(playerInstance);
                 return;
             }

@@ -2,6 +2,7 @@ using UnityEngine;
 using Steamworks;
 using Steamworks.Data;
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using SessionManager = Network.Session.SessionManager;
 
@@ -84,7 +85,7 @@ namespace Game.Match {
 
             if(string.IsNullOrEmpty(newGamemode) || selectedGameModeId == newGamemode) return;
             selectedGameModeId = newGamemode;
-            Debug.Log($"[MatchSettingsManager] Synced gamemode from Steam Lobby: {selectedGameModeId}");
+            DevLog.Log($"[MatchSettingsManager] Synced gamemode from Steam Lobby: {selectedGameModeId}");
 
             EventBus.Publish(new ScoreboardGamemodeChangedEvent());
         }

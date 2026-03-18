@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Events;
 using Game.Progression;
 using Game.Settings;
@@ -108,7 +109,7 @@ namespace Game.Menu.Main {
             } catch(OperationCanceledException) {
                 // UI scope canceled (menu disabled/destroyed).
             } catch(Exception ex) {
-                Debug.LogWarning($"[MainMenuSessionManager] Silent auto-host failed: {ex.Message}");
+                DevLog.LogWarning($"[MainMenuSessionManager] Silent auto-host failed: {ex.Message}");
             } finally {
                 _silentHostInFlight = false;
             }
@@ -176,10 +177,10 @@ namespace Game.Menu.Main {
                 await task;
             } catch(OperationCanceledException) {
                 if(logCancellation && Debug.isDebugBuild) {
-                    Debug.Log($"[MainMenuSessionManager] UI task canceled: {context}");
+                    DevLog.Log($"[MainMenuSessionManager] UI task canceled: {context}");
                 }
             } catch(Exception ex) {
-                Debug.LogError($"[MainMenuSessionManager] UI task failed ({context}): {ex}");
+                DevLog.LogError($"[MainMenuSessionManager] UI task failed ({context}): {ex}");
             }
         }
 
@@ -553,11 +554,11 @@ namespace Game.Menu.Main {
             if(uiManager.CtxSwitchTeam != null) {
                 uiManager.CtxSwitchTeam.style.display = showSwitchTeam ? DisplayStyle.Flex : DisplayStyle.None;
                 if(Debug.isDebugBuild) {
-                    Debug.Log(
+                    DevLog.Log(
                         $"[PrivateMatchSetup] ShowContextMenu: showSwitchTeam={showSwitchTeam} CtxSwitchTeam.display={uiManager.CtxSwitchTeam.style.display}");
                 }
             } else if(Debug.isDebugBuild && showSwitchTeam) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[PrivateMatchSetup] ShowContextMenu: showSwitchTeam=true but CtxSwitchTeam (ctx-switch-team) is null. Check UXML.");
             }
 
@@ -602,7 +603,7 @@ namespace Game.Menu.Main {
             HideContextMenu();
             if(_contextMenuTargetId.Value == 0) return;
 
-            Debug.Log($"[MainMenuSessionManager] Context Action: {action}");
+            DevLog.Log($"[MainMenuSessionManager] Context Action: {action}");
 
             switch(action) {
                 case "Leave":
@@ -659,7 +660,7 @@ namespace Game.Menu.Main {
                     // Block = SocialSettings.SetBlocked
                     // MuteChat? Maybe not supported yet or just mute voice?
                     // Let's assume MuteVoice is the primary mute.
-                    Debug.LogWarning("Mute Chat standalone not fully implemented, separate lists needed.");
+                    DevLog.LogWarning("Mute Chat standalone not fully implemented, separate lists needed.");
                     break;
                 case "MuteVoice":
                     var isMuted = SocialSettings.IsMuted(_contextMenuTargetId.ToString());
@@ -687,7 +688,7 @@ namespace Game.Menu.Main {
             var isMe = targetId == SteamClient.SteamId;
             var amIHost = IsHost;
             if(Debug.isDebugBuild) {
-                Debug.Log($"[PrivateMatchSetup] ShowContextMenuForPartyMember: position=({position.x},{position.y}) " +
+                DevLog.Log($"[PrivateMatchSetup] ShowContextMenuForPartyMember: position=({position.x},{position.y}) " +
                           $"targetId={targetId.Value} showSwitchTeam={showSwitchTeam} isMe={isMe} amIHost={amIHost} " +
                           $"CtxSwitchTeamElement={uiManager != null && uiManager.CtxSwitchTeam != null}");
             }
@@ -797,7 +798,7 @@ namespace Game.Menu.Main {
                     }
 
                     if(_silentHostInFlight) {
-                        Debug.LogWarning(
+                        DevLog.LogWarning(
                             "[MainMenuSessionManager] Silent host setup timed out while starting private match.");
                         if(uiManager != null) {
                             uiManager.ShowToast("Preparing private match. Please try again.");
@@ -822,7 +823,7 @@ namespace Game.Menu.Main {
             } catch(OperationCanceledException) {
                 // Menu view no longer active.
             } catch(Exception ex) {
-                Debug.LogError($"[MainMenuSessionManager] Failed to start private match for mode '{mode}': {ex}");
+                DevLog.LogError($"[MainMenuSessionManager] Failed to start private match for mode '{mode}': {ex}");
                 if(uiManager != null) {
                     uiManager.ShowToast("Failed to start private match. Please try again.");
                 }
@@ -1000,7 +1001,7 @@ namespace Game.Menu.Main {
             if(uiManager == null || uiManager.PartyMemberTemplate == null) {
                 if(_partyMemberTemplateMissingLogged) return;
                 _partyMemberTemplateMissingLogged = true;
-                Debug.LogError(
+                DevLog.LogError(
                     "[MainMenuSessionManager] PartyMemberTemplate is required on MainMenuUIManager.",
                     this);
                 return;
@@ -1017,7 +1018,7 @@ namespace Game.Menu.Main {
             if(row == null || avatarBox == null || nameLabel == null) {
                 if(_partyMemberTemplateInvalidLogged) return;
                 _partyMemberTemplateInvalidLogged = true;
-                Debug.LogError(
+                DevLog.LogError(
                     "[MainMenuSessionManager] PartyMemberTemplate is missing required elements: " +
                     "`party-member-row`, `avatar-box`, `player-name-label`.",
                     this);
@@ -1079,7 +1080,7 @@ namespace Game.Menu.Main {
             if(isLocal) {
                 if(localXpRow == null || localXpBar == null || localLevelLabel == null) {
                     if(!_localXpElementsErrorLogged) {
-                        Debug.LogError(
+                        DevLog.LogError(
                             "[MainMenuSessionManager] PartyMemberRow template is missing required local XP elements: local-xp-row, local-xp-bar, local-level-label.",
                             this);
                         _localXpElementsErrorLogged = true;

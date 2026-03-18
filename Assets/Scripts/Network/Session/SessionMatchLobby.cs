@@ -91,9 +91,9 @@ namespace Network.Session {
                 var updated = await LobbyService.Instance.UpdatePlayerAsync(ctx.UgsMatchLobby.Id, localUgsId, opts);
                 ctx.SetUgsMatchLobby(updated);
                 snapshotActions.UgsLocalReadySubmitted = true;
-                if(Debug.isDebugBuild) Debug.Log("[SessionManager] Host marked as ready");
+                if(Debug.isDebugBuild) DevLog.Log("[SessionManager] Host marked as ready");
             } catch(Exception ex) {
-                Debug.LogWarning($"[SessionManager] Failed to mark host ready: {ex.Message}");
+                DevLog.LogWarning($"[SessionManager] Failed to mark host ready: {ex.Message}");
             }
         }
 
@@ -191,7 +191,7 @@ namespace Network.Session {
             partyActions.TryJoinVoiceForActiveMatch("CreatePublicMatchLobbyAsync");
             ctx.UpdateSteamRichPresence();
             if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Created UGS lobby in SynchronizingLoad state. lobbyId='{lobby.Id}'");
+                DevLog.Log($"[SessionManager] Created UGS lobby in SynchronizingLoad state. lobbyId='{lobby.Id}'");
             }
             FlowLog.Emit(FlowEventIds.PartyLifecycle,
                 ("action", "CreateUgsMatchHost"),
@@ -206,27 +206,27 @@ namespace Network.Session {
             ILobbyEventActions lobbyEventActions, IMatchSnapshotActions snapshotActions, string lobbyId) {
             await ctx.EnsureSignedInAsync();
             if(string.IsNullOrEmpty(lobbyId)) {
-                if(Debug.isDebugBuild) Debug.LogWarning("[SessionManager] JoinMatchLobbyByIdAsync called with an empty lobby id.");
+                if(Debug.isDebugBuild) DevLog.LogWarning("[SessionManager] JoinMatchLobbyByIdAsync called with an empty lobby id.");
                 return false;
             }
-            if(Debug.isDebugBuild) Debug.Log($"[SessionManager] JoinMatchLobbyByIdAsync called with lobbyId='{lobbyId}'");
+            if(Debug.isDebugBuild) DevLog.Log($"[SessionManager] JoinMatchLobbyByIdAsync called with lobbyId='{lobbyId}'");
 
             var options = new JoinLobbyByIdOptions { Player = BuildLobbyPlayer() };
             Lobby matchLobby;
             try {
                 matchLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, options);
             } catch(LobbyServiceException ex) when(ex.Reason is LobbyExceptionReason.LobbyNotFound or LobbyExceptionReason.EntityNotFound) {
-                if(Debug.isDebugBuild) Debug.LogWarning($"[SessionManager] Match lobby '{lobbyId}' no longer exists.");
+                if(Debug.isDebugBuild) DevLog.LogWarning($"[SessionManager] Match lobby '{lobbyId}' no longer exists.");
                 return false;
             } catch(LobbyServiceException ex) {
-                if(Debug.isDebugBuild) Debug.LogWarning($"[SessionManager] Failed to join match lobby '{lobbyId}' (reason: {ex.Reason}): {ex.Message}");
+                if(Debug.isDebugBuild) DevLog.LogWarning($"[SessionManager] Failed to join match lobby '{lobbyId}' (reason: {ex.Reason}): {ex.Message}");
                 return false;
             } catch(Exception ex) {
-                if(Debug.isDebugBuild) Debug.LogWarning($"[SessionManager] Failed to join match lobby '{lobbyId}': {ex.Message}");
+                if(Debug.isDebugBuild) DevLog.LogWarning($"[SessionManager] Failed to join match lobby '{lobbyId}': {ex.Message}");
                 return false;
             }
             if(matchLobby == null) {
-                Debug.LogError("[SessionManager] Failed to join lobby - matchLobby is null");
+                DevLog.LogError("[SessionManager] Failed to join lobby - matchLobby is null");
                 return false;
             }
 
@@ -235,7 +235,7 @@ namespace Network.Session {
             partyActions.TryJoinVoiceForActiveMatch("JoinMatchLobbyByIdAsync");
             ctx.UpdateSteamRichPresence();
             if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Successfully joined UGS lobby. hostId='{matchLobby.HostId}', playerCount={matchLobby.Players?.Count ?? 0}");
+                DevLog.Log($"[SessionManager] Successfully joined UGS lobby. hostId='{matchLobby.HostId}', playerCount={matchLobby.Players?.Count ?? 0}");
             }
             FlowLog.Emit(FlowEventIds.PartyLifecycle,
                 ("action", "JoinUgsMatchLobby"),
@@ -260,12 +260,12 @@ namespace Network.Session {
                 return resp.Results[0];
             } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
                 if(ShouldEmitThrottledLog(ref _nextMatchLobbyQueryFailureLogTime, 10f)) {
-                    Debug.LogWarning($"[SessionManager] Rate limited querying match lobby for matchId '{matchId}'.");
+                    DevLog.LogWarning($"[SessionManager] Rate limited querying match lobby for matchId '{matchId}'.");
                 }
                 return null;
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextMatchLobbyQueryFailureLogTime, 10f)) {
-                    Debug.LogWarning($"[SessionManager] Match lobby query failed for matchId '{matchId}': {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Match lobby query failed for matchId '{matchId}': {ex.Message}");
                 }
                 return null;
             }
@@ -314,7 +314,7 @@ namespace Network.Session {
 
             if(ctx.Phase == SessionPhase.SynchronizingLoad &&
                Time.time - ctx.PhaseStartTime > SynchronizingLoadWatchdogSeconds) {
-                Debug.LogError("[SessionManager] Stuck in SynchronizingLoad for >30s. Aborting to menu...");
+                DevLog.LogError("[SessionManager] Stuck in SynchronizingLoad for >30s. Aborting to menu...");
                 FlowLog.Emit(FlowEventIds.AnomalySessionStuck,
                     ("phase", ctx.Phase),
                     ("elapsed", Time.time - ctx.PhaseStartTime));
@@ -381,7 +381,7 @@ namespace Network.Session {
                 return BackfillEligibilityProvider(ctx);
             } catch(Exception ex) {
                 if(Debug.isDebugBuild) {
-                    Debug.LogWarning($"[SessionMatchLobby] BackfillEligibilityProvider threw: {ex.Message}");
+                    DevLog.LogWarning($"[SessionMatchLobby] BackfillEligibilityProvider threw: {ex.Message}");
                 }
                 // Fail-open: allow backfill but surface the reason.
                 return (true, "ProviderException");
@@ -401,10 +401,10 @@ namespace Network.Session {
                 var updated = await LobbyService.Instance.UpdateLobbyAsync(matchLobby.Id, update);
                 ctx.SetUgsMatchLobby(updated);
                 if(Debug.isDebugBuild)
-                    Debug.Log($"[SessionManager] Updated public match backfill gate ({context}) allowed={allowed} reason='{reason}'.");
+                    DevLog.Log($"[SessionManager] Updated public match backfill gate ({context}) allowed={allowed} reason='{reason}'.");
                 return true;
             } catch(Exception ex) {
-                Debug.LogWarning($"[SessionManager] Failed to update public match backfill gate during {context}: {ex.Message}");
+                DevLog.LogWarning($"[SessionManager] Failed to update public match backfill gate during {context}: {ex.Message}");
                 return false;
             }
         }
@@ -414,7 +414,7 @@ namespace Network.Session {
             DataObject.VisibilityOptions visibility, string context) {
             var matchLobby = ctx.UgsMatchLobby;
             if(matchLobby == null || string.IsNullOrEmpty(matchLobby.Id)) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[SessionManager] Cannot set match lobby state to '{lobbyState}' during {context}: no active match lobby.");
                 return false;
             }
@@ -445,7 +445,7 @@ namespace Network.Session {
                     LogPublicLobbySnapshot(updated, $"StateUpdate/{context}");
                 return true;
             } catch(Exception ex) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[SessionManager] Failed to set UGS match lobby state to '{lobbyState}' during {context}: {ex.Message}");
                 return false;
             }
@@ -454,7 +454,7 @@ namespace Network.Session {
         /// <summary>Logs a one-line snapshot of public match lobby state (debug).</summary>
         private static void LogPublicLobbySnapshot(Lobby lobby, string context) {
             if(lobby == null) {
-                Debug.LogWarning($"[SessionManager] PublicLobbySnapshot({context}): lobby is null.");
+                DevLog.LogWarning($"[SessionManager] PublicLobbySnapshot({context}): lobby is null.");
                 return;
             }
             var data = lobby.Data;
@@ -484,7 +484,7 @@ namespace Network.Session {
                 ? matchIdObj.Value
                 : "";
             var playerCount = lobby.Players != null ? lobby.Players.Count : 0;
-            Debug.Log(
+            DevLog.Log(
                 $"[SessionManager] PublicLobbySnapshot({context}): lobbyId='{lobby.Id}' hostId='{lobby.HostId}' players={playerCount}/{lobby.MaxPlayers} mode='{mode}' state='{state}' matchId='{matchId}' backfillAllowed='{backfillAllowed}' backfillReason='{backfillReason}'");
         }
 
@@ -548,12 +548,12 @@ namespace Network.Session {
                 if(Debug.isDebugBuild &&
                    _partyHeartbeatRateLimitStreak >= HeartbeatRateLimitWarnStreak &&
                    ShouldEmitThrottledLog(ref _nextPartyHeartbeatRateLimitWarnTime, HeartbeatRateLimitWarnIntervalSeconds)) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[SessionManager] UGS party heartbeat is repeatedly rate-limited ({_partyHeartbeatRateLimitStreak}x). Backing off for {backoff:0.0}s.");
                 }
             } catch(Exception ex) {
                 if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextUgsHeartbeatFailureLogTime, 15f)) {
-                    Debug.LogWarning($"[SessionManager] UGS party heartbeat ping failed: {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] UGS party heartbeat ping failed: {ex.Message}");
                 }
             } finally {
                 _nextPartyHeartbeatTime = Time.unscaledTime + PartyHeartbeatIntervalSeconds;
@@ -572,12 +572,12 @@ namespace Network.Session {
                 if(Debug.isDebugBuild &&
                    _matchHeartbeatRateLimitStreak >= HeartbeatRateLimitWarnStreak &&
                    ShouldEmitThrottledLog(ref _nextMatchHeartbeatRateLimitWarnTime, HeartbeatRateLimitWarnIntervalSeconds)) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[SessionManager] UGS match heartbeat is repeatedly rate-limited ({_matchHeartbeatRateLimitStreak}x). Backing off for {backoff:0.0}s.");
                 }
             } catch(Exception ex) {
                 if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextUgsHeartbeatFailureLogTime, 15f)) {
-                    Debug.LogWarning($"[SessionManager] UGS match heartbeat ping failed: {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] UGS match heartbeat ping failed: {ex.Message}");
                 }
             } finally {
                 _nextMatchHeartbeatTime = Time.unscaledTime + MatchHeartbeatIntervalSeconds;
@@ -712,7 +712,7 @@ namespace Network.Session {
                     UniTask.Delay(TimeSpan.FromSeconds(timeoutSeconds), cancellationToken: ctx.SessionLifetimeToken));
                 if(winner == 0 && ready) return true;
                 if(Debug.isDebugBuild)
-                    Debug.LogWarning($"[SessionManager] Timed out waiting for players ready ({contextLabel}).");
+                    DevLog.LogWarning($"[SessionManager] Timed out waiting for players ready ({contextLabel}).");
                 return false;
             } catch(OperationCanceledException) {
                 return false;
@@ -728,16 +728,16 @@ namespace Network.Session {
                 var localId = AuthenticationService.Instance.PlayerId;
                 if(!string.IsNullOrEmpty(localId)) {
                     await LobbyService.Instance.RemovePlayerAsync(lobbyId, localId);
-                    if(Debug.isDebugBuild) Debug.Log($"[SessionManager] Left UGS match lobby '{lobbyId}'");
+                    if(Debug.isDebugBuild) DevLog.Log($"[SessionManager] Left UGS match lobby '{lobbyId}'");
                 }
             } catch(Exception ex) {
-                Debug.LogWarning($"[SessionManager] Failed to leave UGS match lobby '{lobbyId}': {ex.Message}");
+                DevLog.LogWarning($"[SessionManager] Failed to leave UGS match lobby '{lobbyId}': {ex.Message}");
             }
         }
 
         /// <summary>Clears UGS match lobby state: leave lobby, unsubscribe events, reset snapshot and DA retry state.</summary>
         public async UniTask ClearMatchStateAsync(ISessionContext ctx, ILobbyEventActions lobbyEventActions, IMatchSnapshotActions snapshotActions) {
-            if(Debug.isDebugBuild) Debug.Log("[SessionManager] ClearMatchState called");
+            if(Debug.isDebugBuild) DevLog.Log("[SessionManager] ClearMatchState called");
 
             var matchLobbyId = ctx.UgsMatchLobby?.Id;
             if(!string.IsNullOrEmpty(matchLobbyId)) await LeaveMatchLobbyAsync(matchLobbyId);
@@ -855,11 +855,11 @@ namespace Network.Session {
                 var joined = await actions.JoinMatchLobbyByIdAsync(followLobbyId);
                 _lastFailedFollowMatchLobbyId = joined ? null : followLobbyId;
                 if(!joined && Debug.isDebugBuild) {
-                    Debug.LogWarning($"[SessionManager] Failed to follow match lobby '{followLobbyId}' ({source}).");
+                    DevLog.LogWarning($"[SessionManager] Failed to follow match lobby '{followLobbyId}' ({source}).");
                 }
             } catch(Exception ex) {
                 _lastFailedFollowMatchLobbyId = followLobbyId;
-                Debug.LogWarning($"[SessionManager] Failed to follow match lobby '{followLobbyId}' ({source}): {ex.Message}");
+                DevLog.LogWarning($"[SessionManager] Failed to follow match lobby '{followLobbyId}' ({source}): {ex.Message}");
             } finally {
                 _isFollowingMatchLobby = false;
             }
@@ -887,7 +887,7 @@ namespace Network.Session {
             _nextDistributedAuthorityJoinRetryTime = Time.unscaledTime + delaySeconds;
 
             if(ShouldEmitThrottledLog(ref _nextDistributedAuthorityJoinRateLimitLogTime, 3f)) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[SessionManager] Backing off DA join for {delaySeconds:0.0}s before retrying session '{sessionCode}'.");
             }
 
@@ -937,7 +937,7 @@ namespace Network.Session {
 
             var localUgsId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localUgsId)) {
-                Debug.LogError("[SessionManager] Cannot submit ready state: local UGS player id is missing.");
+                DevLog.LogError("[SessionManager] Cannot submit ready state: local UGS player id is missing.");
                 actions.UgsSyncInProgress = false;
                 return;
             }
@@ -950,11 +950,11 @@ namespace Network.Session {
                 TryCompletePlayersReadyWaiterFromLobby(updatedLobby);
             } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
                 if(ShouldEmitThrottledLog(ref _nextUgsSyncRateLimitLogTime, 5f)) {
-                    Debug.LogWarning("[SessionManager] Rate limited updating ready state. Retrying shortly...");
+                    DevLog.LogWarning("[SessionManager] Rate limited updating ready state. Retrying shortly...");
                 }
                 ctx.LaunchSessionTask(RetrySubmitReadyStateAsync(ctx, actions, lobbyActions), "StartMatchSynchronization/RetryReady");
             } catch(Exception ex) {
-                Debug.LogError($"[SessionManager] Failed to update ready state: {ex.Message}. Aborting to menu...");
+                DevLog.LogError($"[SessionManager] Failed to update ready state: {ex.Message}. Aborting to menu...");
                 await actions.LeaveToMainMenuAsync();
             } finally {
                 actions.UgsSyncInProgress = false;
@@ -990,14 +990,14 @@ namespace Network.Session {
 
             if(ctx.UgsMatchLobby.Data == null) {
                 if(ShouldEmitThrottledLog(ref _nextUgsClientStartFailureLogTime, 10f)) {
-                    Debug.LogWarning("[SessionManager] Cannot start match client: match lobby data is unavailable.");
+                    DevLog.LogWarning("[SessionManager] Cannot start match client: match lobby data is unavailable.");
                 }
                 return;
             }
 
             if(!TryGetDistributedAuthoritySessionCode(ctx.UgsMatchLobby, out var sessionCode)) {
                 if(ShouldEmitThrottledLog(ref _nextUgsClientStartFailureLogTime, 10f)) {
-                    Debug.LogWarning("[SessionManager] Cannot start match client: DA session code has not been published.");
+                    DevLog.LogWarning("[SessionManager] Cannot start match client: DA session code has not been published.");
                 }
                 return;
             }
@@ -1030,7 +1030,7 @@ namespace Network.Session {
                         ScheduleDistributedAuthorityJoinRetry(ctx, actions, sessionCode, isPrivateMatch);
                         return;
                     default:
-                        Debug.LogError("[SessionManager] Failed to start DA match client after cleanup.");
+                        DevLog.LogError("[SessionManager] Failed to start DA match client after cleanup.");
                         ResetDistributedAuthorityJoinRetryState();
                         await actions.LeaveToMainMenuAsync();
                         return;
@@ -1095,7 +1095,7 @@ namespace Network.Session {
                     await HandlePartyLobbyFollowStateAsync(ctx, snapshotActions, context + "/Initial");
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
-                    Debug.LogWarning($"[SessionManager] Failed to subscribe to party lobby events ({context}): {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed to subscribe to party lobby events ({context}): {ex.Message}");
                 SchedulePartyLobbyEventsSubscriptionRetry(ctx, actions, context);
             } finally {
                 _isSubscribingPartyLobbyEvents = false;
@@ -1134,10 +1134,10 @@ namespace Network.Session {
                 _matchLobbyEventsSubscriptionRetryAttempt = 0;
 
                 if(Debug.isDebugBuild)
-                    Debug.Log($"[SessionManager] Subscribed to match lobby events ({context}) lobbyId='{targetLobbyId}'.");
+                    DevLog.Log($"[SessionManager] Subscribed to match lobby events ({context}) lobbyId='{targetLobbyId}'.");
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
-                    Debug.LogWarning($"[SessionManager] Failed to subscribe to match lobby events ({context}): {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed to subscribe to match lobby events ({context}): {ex.Message}");
                 ScheduleMatchLobbyEventsSubscriptionRetry(ctx, actions, context);
             } finally {
                 _isSubscribingMatchLobbyEvents = false;
@@ -1157,7 +1157,7 @@ namespace Network.Session {
                 await eventsHandle.UnsubscribeAsync();
             } catch(Exception ex) {
                 if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
-                    Debug.LogWarning($"[SessionManager] Failed to unsubscribe from party lobby events ({context}): {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed to unsubscribe from party lobby events ({context}): {ex.Message}");
             }
         }
 
@@ -1176,7 +1176,7 @@ namespace Network.Session {
                 await eventsHandle.UnsubscribeAsync();
             } catch(Exception ex) {
                 if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
-                    Debug.LogWarning($"[SessionManager] Failed to unsubscribe from match lobby events ({context}): {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed to unsubscribe from match lobby events ({context}): {ex.Message}");
             }
         }
 
@@ -1188,10 +1188,10 @@ namespace Network.Session {
             try {
                 await _partyLobbyEvents.SubscribeAsync();
                 if(Debug.isDebugBuild)
-                    Debug.Log($"[SessionManager] Re-subscribed party lobby events ({context}) lobbyId='{PartyLobbyEventsLobbyId}'.");
+                    DevLog.Log($"[SessionManager] Re-subscribed party lobby events ({context}) lobbyId='{PartyLobbyEventsLobbyId}'.");
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
-                    Debug.LogWarning($"[SessionManager] Failed to re-subscribe party lobby events ({context}): {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed to re-subscribe party lobby events ({context}): {ex.Message}");
             } finally {
                 _isResubscribingPartyLobbyEvents = false;
             }
@@ -1205,10 +1205,10 @@ namespace Network.Session {
             try {
                 await _matchLobbyEvents.SubscribeAsync();
                 if(Debug.isDebugBuild)
-                    Debug.Log($"[SessionManager] Re-subscribed match lobby events ({context}) lobbyId='{MatchLobbyEventsLobbyId}'.");
+                    DevLog.Log($"[SessionManager] Re-subscribed match lobby events ({context}) lobbyId='{MatchLobbyEventsLobbyId}'.");
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
-                    Debug.LogWarning($"[SessionManager] Failed to re-subscribe match lobby events ({context}): {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed to re-subscribe match lobby events ({context}): {ex.Message}");
             } finally {
                 _isResubscribingMatchLobbyEvents = false;
             }
@@ -1302,7 +1302,7 @@ namespace Network.Session {
                 changes.ApplyToLobby(ctx.UgsPartyLobby);
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
-                    Debug.LogWarning($"[SessionManager] Failed applying party lobby changes: {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed applying party lobby changes: {ex.Message}");
                 return;
             }
             ctx.NotifyPartyStateChanged();
@@ -1314,7 +1314,7 @@ namespace Network.Session {
         private async UniTask HandlePartyLobbyDeletedOrKickedAsync(ISessionContext ctx, string reason) {
             await UniTask.SwitchToMainThread();
             if(Debug.isDebugBuild)
-                Debug.LogWarning($"[SessionManager] Party lobby event: {reason}. Clearing local party lobby cache.");
+                DevLog.LogWarning($"[SessionManager] Party lobby event: {reason}. Clearing local party lobby cache.");
             ctx.SetUgsPartyLobby(null);
             ctx.SetIsPartyLeader(false);
             ResetFollowState();
@@ -1326,7 +1326,7 @@ namespace Network.Session {
         private async UniTask HandlePartyLobbyEventConnectionStateChangedAsync(ISessionContext ctx, LobbyEventConnectionState state) {
             await UniTask.SwitchToMainThread();
             if(Debug.isDebugBuild && ShouldEmitThrottledLogForConnectionState()) {
-                Debug.Log(
+                DevLog.Log(
                     $"[SessionManager] Party lobby events connection state: {state} (lobbyId='{PartyLobbyEventsLobbyId}').");
             }
             if(state is LobbyEventConnectionState.Error or LobbyEventConnectionState.Unsynced)
@@ -1345,7 +1345,7 @@ namespace Network.Session {
                 changes.ApplyToLobby(ctx.UgsMatchLobby);
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
-                    Debug.LogWarning($"[SessionManager] Failed applying match lobby changes: {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed applying match lobby changes: {ex.Message}");
                 return;
             }
             TryCompletePlayersReadyWaiterFromLobby(ctx.UgsMatchLobby);
@@ -1357,7 +1357,7 @@ namespace Network.Session {
             ILobbyEventActions lobbyActions, string reason) {
             await UniTask.SwitchToMainThread();
             if(Debug.isDebugBuild)
-                Debug.LogWarning($"[SessionManager] Match lobby event: {reason}. Clearing local match lobby cache.");
+                DevLog.LogWarning($"[SessionManager] Match lobby event: {reason}. Clearing local match lobby cache.");
             lobbyActions.CompletePlayersReadyWaiter(false);
             snapshotActions.UgsSyncInProgress = false;
             snapshotActions.UgsClientStartedForMatch = false;
@@ -1374,7 +1374,7 @@ namespace Network.Session {
         private async UniTask HandleMatchLobbyEventConnectionStateChangedAsync(ISessionContext ctx, LobbyEventConnectionState state) {
             await UniTask.SwitchToMainThread();
             if(Debug.isDebugBuild && ShouldEmitThrottledLogForConnectionState()) {
-                Debug.Log(
+                DevLog.Log(
                     $"[SessionManager] Match lobby events connection state: {state} (lobbyId='{MatchLobbyEventsLobbyId}').");
             }
             if(state is LobbyEventConnectionState.Error or LobbyEventConnectionState.Unsynced)

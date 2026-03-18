@@ -1,4 +1,5 @@
 using System.Collections;
+using Diagnostics;
 using Game.Player.Core;
 using Game.Weapon.Kinemation;
 using Unity.Netcode;
@@ -72,7 +73,7 @@ namespace Game.Weapon.Core {
 
                 Object.Destroy(fxGo, 1f);
             } else {
-                Debug.LogError(
+                DevLog.LogError(
                     "[Weapon][RemoteMuzzleStrict][PlayNetworkedMuzzleFlash] Missing muzzle flash prefab. " +
                     $"weapon={(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")} " +
                     $"worldWeapon={(_weapon.CurrentWorldWeaponInstance != null ? _weapon.CurrentWorldWeaponInstance.name : "(none)")}",

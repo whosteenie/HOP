@@ -206,7 +206,7 @@ namespace Game.Hopball {
             }
 
             if(hopballSpawnPoints == null || hopballSpawnPoints.Count == 0) {
-                Debug.LogError("[HopballSpawnManager] No hopball spawn points assigned!");
+                DevLog.LogError("[HopballSpawnManager] No hopball spawn points assigned!");
                 return;
             }
 
@@ -215,7 +215,7 @@ namespace Game.Hopball {
             // Choose random spawn point
             var validPoints = hopballSpawnPoints.Where(p => p != null).ToList();
             if(validPoints.Count == 0) {
-                Debug.LogError("[HopballSpawnManager] No valid spawn points!");
+                DevLog.LogError("[HopballSpawnManager] No valid spawn points!");
                 _isSpawning = false;
                 return;
             }
@@ -234,7 +234,7 @@ namespace Game.Hopball {
             if(networkObject != null) {
                 networkObject.Spawn(true);
             } else {
-                Debug.LogError("[HopballSpawnManager] Hopball prefab missing NetworkObject component!");
+                DevLog.LogError("[HopballSpawnManager] Hopball prefab missing NetworkObject component!");
                 _isSpawning = false;
                 return;
             }
@@ -242,7 +242,7 @@ namespace Game.Hopball {
             // Get the Hopball component and assign to _currentHopball
             CurrentHopballController = instance.GetComponent<HopballController>();
             if(CurrentHopballController == null) {
-                Debug.LogError("[HopballSpawnManager] Hopball prefab missing Hopball component!");
+                DevLog.LogError("[HopballSpawnManager] Hopball prefab missing Hopball component!");
                 _isSpawning = false;
                 return;
             }
@@ -266,7 +266,7 @@ namespace Game.Hopball {
         /// <summary>Respawns the hopball at a new spawn point (authority only).</summary>
         private void RespawnAtNewLocation() {
             if(!HasHopballAuthority || CurrentHopballController == null) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[HopballSpawnManager] RespawnAtNewLocation: Cannot respawn (not server or no hopball)");
                 return;
             }
@@ -299,14 +299,14 @@ namespace Game.Hopball {
             }
 
             if(hopballSpawnPoints == null || hopballSpawnPoints.Count == 0) {
-                Debug.LogError("[HopballSpawnManager] No hopball spawn points assigned!");
+                DevLog.LogError("[HopballSpawnManager] No hopball spawn points assigned!");
                 _respawnCoroutine = null;
                 yield break;
             }
 
             var validPoints = hopballSpawnPoints.Where(p => p != null).ToList();
             if(validPoints.Count == 0) {
-                Debug.LogError("[HopballSpawnManager] No valid spawn points!");
+                DevLog.LogError("[HopballSpawnManager] No valid spawn points!");
                 _respawnCoroutine = null;
                 yield break;
             }
@@ -838,7 +838,7 @@ namespace Game.Hopball {
 
             void LogDropStep(string stepName) {
                 if(!Debug.isDebugBuild) return;
-                Debug.Log(
+                DevLog.Log(
                     $"[HopballDropTiming] client={requestingClientId} reason={dropReason} step={stepName} elapsedMs={dropTimer.Elapsed.TotalMilliseconds:F1}");
             }
         }

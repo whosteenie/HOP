@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using Game.Menu.Loadout;
 using Game.Progression;
@@ -307,7 +308,7 @@ namespace Game.Menu.Main {
         /// </summary>
         private void RegisterUIEvents() {
             if(_buttons == null || _backButtons == null) {
-                Debug.LogError("[MainMenuUIManager] Button collections were not initialized before event registration.", this);
+                DevLog.LogError("[MainMenuUIManager] Button collections were not initialized before event registration.", this);
                 return;
             }
 
@@ -320,7 +321,7 @@ namespace Game.Menu.Main {
                     b.clicked += clickHandler;
                     RegisterCleanup(() => b.clicked -= clickHandler);
                 } catch(System.Exception ex) {
-                    Debug.LogError($"[MainMenuUIManager] Failed to bind click/hover for button `{b.name}`: {ex}", this);
+                    DevLog.LogError($"[MainMenuUIManager] Failed to bind click/hover for button `{b.name}`: {ex}", this);
                 }
             }
 
@@ -330,7 +331,7 @@ namespace Game.Menu.Main {
                     UISound.RegisterButtonHover(b);
                     // No generic click here, handled in specialized ones below
                 } catch(System.Exception ex) {
-                    Debug.LogError($"[MainMenuUIManager] Failed to bind hover for back button `{b.name}`: {ex}", this);
+                    DevLog.LogError($"[MainMenuUIManager] Failed to bind hover for back button `{b.name}`: {ex}", this);
                 }
             }
 
@@ -589,7 +590,7 @@ namespace Game.Menu.Main {
 
             if(_toastLabel == null) {
                 if(_toastLabelErrorLogged) return;
-                Debug.LogError(
+                DevLog.LogError(
                     "[MainMenuUIManager] Missing required `toast` label inside `toast-container` in MainMenu.uxml.",
                     this);
                 _toastLabelErrorLogged = true;
@@ -689,7 +690,7 @@ namespace Game.Menu.Main {
         private void SetupMainMenuChallenges() {
             if(_mainMenuChallengesContainer == null) {
                 if(_mainMenuChallengesContainerErrorLogged) return;
-                Debug.LogError(
+                DevLog.LogError(
                     "[MainMenuUIManager] Missing required `main-menu-challenges-container` in MainMenu.uxml.",
                     this);
                 _mainMenuChallengesContainerErrorLogged = true;
@@ -761,7 +762,7 @@ namespace Game.Menu.Main {
 
             var pm = ProgressionManager.Instance;
             if(pm == null || pm.Data == null) {
-                Debug.LogWarning("[MainMenuUIManager] ProgressionManager or Data is null, cannot update challenges");
+                DevLog.LogWarning("[MainMenuUIManager] ProgressionManager or Data is null, cannot update challenges");
                 return;
             }
 
@@ -777,18 +778,18 @@ namespace Game.Menu.Main {
 
         private void RenderChallengeList(VisualElement card, List<ActiveChallengeData> challenges) {
             if(card == null) {
-                Debug.LogWarning("[MainMenuUIManager] Challenge card is null");
+                DevLog.LogWarning("[MainMenuUIManager] Challenge card is null");
                 return;
             }
             var list = card.Q<VisualElement>("challenge-list");
             if(list == null) {
-                Debug.LogWarning("[MainMenuUIManager] Challenge list container not found in card");
+                DevLog.LogWarning("[MainMenuUIManager] Challenge list container not found in card");
                 return;
             }
 
             var pm = ProgressionManager.Instance;
             if(pm == null) {
-                Debug.LogWarning("[MainMenuUIManager] ProgressionManager is null");
+                DevLog.LogWarning("[MainMenuUIManager] ProgressionManager is null");
                 return;
             }
 

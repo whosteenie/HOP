@@ -1,4 +1,5 @@
 using System.Collections;
+using Diagnostics;
 using Events;
 using Game.Audio.System;
 using Game.Player.Contracts;
@@ -146,7 +147,7 @@ namespace Game.Player.Movement {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[GrappleController] IPlayerMovementContext not found!");
+                DevLog.LogError("[GrappleController] IPlayerMovementContext not found!");
                 enabled = false;
                 return;
             }
@@ -522,7 +523,7 @@ namespace Game.Player.Movement {
                     ShowGrappleMeshNow();
                 }
             } else {
-                Debug.LogError("[GrappleController] Grapple started but grapple mesh is null!");
+                DevLog.LogError("[GrappleController] Grapple started but grapple mesh is null!");
             }
 
             if(_audioRelay != null && IsOwner) {
@@ -861,7 +862,7 @@ namespace Game.Player.Movement {
             if(_grappleMeshRenderer == null || !_grappleMeshRenderer.enabled) return;
 
             if(_fpCamera == null) {
-                Debug.LogError("[GrappleController] UpdateGrappleLine: _fpCamera == null!");
+                DevLog.LogError("[GrappleController] UpdateGrappleLine: _fpCamera == null!");
                 return;
             }
 

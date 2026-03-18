@@ -1,10 +1,10 @@
 using System;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Network.Contracts;
 using Steamworks;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
-using UnityEngine;
 
 namespace Network.Session {
     /// <summary>Kick and promote party members in the UGS party lobby.</summary>
@@ -12,24 +12,24 @@ namespace Network.Session {
         public static void KickMember(ISessionContext ctx, SteamId targetId) {
             if(targetId.Value == 0) return;
             if(ctx.UgsPartyLobby == null) {
-                Debug.LogWarning("[SessionManager] KickMember ignored: no active UGS party lobby.");
+                DevLog.LogWarning("[SessionManager] KickMember ignored: no active UGS party lobby.");
                 return;
             }
 
             var localId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localId) || ctx.UgsPartyLobby.HostId != localId) {
-                Debug.LogWarning("[SessionManager] KickMember ignored: local player is not the UGS party host.");
+                DevLog.LogWarning("[SessionManager] KickMember ignored: local player is not the UGS party host.");
                 return;
             }
 
             if(!TryResolvePartyPlayerIdFromSteamId(ctx.UgsPartyLobby, targetId, out var targetUgsId)) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[SessionManager] KickMember failed: could not resolve UGS player for SteamId '{targetId.Value}'.");
                 return;
             }
 
             if(targetUgsId == localId) {
-                Debug.LogWarning("[SessionManager] KickMember ignored: host cannot kick self.");
+                DevLog.LogWarning("[SessionManager] KickMember ignored: host cannot kick self.");
                 return;
             }
 
@@ -39,18 +39,18 @@ namespace Network.Session {
         public static void PromoteMember(ISessionContext ctx, SteamId targetId) {
             if(targetId.Value == 0) return;
             if(ctx.UgsPartyLobby == null) {
-                Debug.LogWarning("[SessionManager] PromoteMember ignored: no active UGS party lobby.");
+                DevLog.LogWarning("[SessionManager] PromoteMember ignored: no active UGS party lobby.");
                 return;
             }
 
             var localId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localId) || ctx.UgsPartyLobby.HostId != localId) {
-                Debug.LogWarning("[SessionManager] PromoteMember ignored: local player is not the UGS party host.");
+                DevLog.LogWarning("[SessionManager] PromoteMember ignored: local player is not the UGS party host.");
                 return;
             }
 
             if(!TryResolvePartyPlayerIdFromSteamId(ctx.UgsPartyLobby, targetId, out var targetUgsId)) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[SessionManager] PromoteMember failed: could not resolve UGS player for SteamId '{targetId.Value}'.");
                 return;
             }
@@ -87,10 +87,10 @@ namespace Network.Session {
                 await LobbyService.Instance.RemovePlayerAsync(lobby.Id, targetUgsId);
                 var updated = await LobbyService.Instance.GetLobbyAsync(lobby.Id);
                 ctx.SetUgsPartyLobby(updated);
-                Debug.Log($"[SessionManager] Kicked party member SteamId '{targetSteamId.Value}' from UGS party.");
+                DevLog.Log($"[SessionManager] Kicked party member SteamId '{targetSteamId.Value}' from UGS party.");
                 ctx.NotifyPartyStateChanged();
             } catch(Exception ex) {
-                Debug.LogWarning($"[SessionManager] Failed to kick party member '{targetSteamId.Value}': {ex.Message}");
+                DevLog.LogWarning($"[SessionManager] Failed to kick party member '{targetSteamId.Value}': {ex.Message}");
             }
         }
 
@@ -109,10 +109,10 @@ namespace Network.Session {
                     ctx.SetCurrentLobby(socialLobby);
                 }
 
-                Debug.Log($"[SessionManager] Promoted party member SteamId '{targetSteamId.Value}' to UGS party host.");
+                DevLog.Log($"[SessionManager] Promoted party member SteamId '{targetSteamId.Value}' to UGS party host.");
                 ctx.NotifyPartyStateChanged();
             } catch(Exception ex) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[SessionManager] Failed to promote party host to '{targetSteamId.Value}': {ex.Message}");
             }
         }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Diagnostics;
 using UnityEngine;
 
 namespace Game.Hopball {
@@ -34,7 +35,7 @@ namespace Game.Hopball {
                     _isTracking = true;
                 }
             } else {
-                UnityEngine.Debug.LogWarning($"[RendererStateTracker] No renderer found on {gameObject.name}");
+                DevLog.LogWarning($"[RendererStateTracker] No renderer found on {gameObject.name}");
             }
         }
 
@@ -49,7 +50,7 @@ namespace Game.Hopball {
             // Check if enabled state changed
             if(currentEnabled != _lastEnabledState) {
                 var stackTrace = new StackTrace(true);
-                UnityEngine.Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[RendererStateTracker] Renderer.enabled changed on {gameObject.name} from {_lastEnabledState} to {currentEnabled}\n" +
                     $"GameObject active: {currentActive}, activeInHierarchy: {currentActiveInHierarchy}\n" +
                     $"Stack trace:\n{stackTrace}");
@@ -58,7 +59,7 @@ namespace Game.Hopball {
 
             // Also track GameObject active state changes
             if(currentActive == _lastActiveState && currentActiveInHierarchy == _lastActiveInHierarchyState) return;
-            UnityEngine.Debug.LogWarning(
+            DevLog.LogWarning(
                 $"[RendererStateTracker] GameObject active state changed on {gameObject.name}\n" +
                 $"active: {_lastActiveState} -> {currentActive}\n" +
                 $"activeInHierarchy: {_lastActiveInHierarchyState} -> {currentActiveInHierarchy}");
@@ -73,7 +74,7 @@ namespace Game.Hopball {
             _lastActiveState = o.activeSelf;
             _lastActiveInHierarchyState = o.activeInHierarchy;
             _isTracking = true;
-            UnityEngine.Debug.LogWarning($"[RendererStateTracker] Started tracking renderer on {gameObject.name}");
+            DevLog.LogWarning($"[RendererStateTracker] Started tracking renderer on {gameObject.name}");
         }
 
     }

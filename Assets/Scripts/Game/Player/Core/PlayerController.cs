@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using Game.Audio.System;
 using Game.Match;
@@ -378,7 +379,7 @@ namespace Game.Player.Core {
             if(audioRelay == null) missingRefs.Add(nameof(audioRelay));
 
             if(missingRefs.Count > 0) {
-                Debug.LogError(
+                DevLog.LogError(
                     $"[PlayerController] Missing critical serialized references on '{name}': {string.Join(", ", missingRefs)}",
                     this);
             }

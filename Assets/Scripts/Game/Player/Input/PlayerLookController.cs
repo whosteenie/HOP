@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Player.Contracts;
 using Game.Settings;
 using Unity.Cinemachine;
@@ -46,7 +47,7 @@ namespace Game.Player.Input {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[PlayerLookController] IPlayerLookContext not found!");
+                DevLog.LogError("[PlayerLookController] IPlayerLookContext not found!");
                 enabled = false;
                 return;
             }

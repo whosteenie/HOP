@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Match;
 using Game.Weapon.Kinemation;
 using UnityEngine;
@@ -228,7 +229,7 @@ namespace Game.Weapon.Core {
             var playerController = _weapon.PlayerController;
             if(playerController == null || !playerController.IsOwner) {
                 if(logErrors) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[Weapon][MuzzleStrict][{context}] Owner-only muzzle query called on non-owner.",
                         _weapon);
                 }
@@ -249,7 +250,7 @@ namespace Game.Weapon.Core {
             var playerController = _weapon.PlayerController;
             if(playerController != null && playerController.IsOwner && !allowOwnerInstance) {
                 if(logErrors) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Called on owner instance. " +
                         $"weapon={(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}",
                         _weapon);
@@ -259,7 +260,7 @@ namespace Game.Weapon.Core {
 
             if(_weapon.CurrentWorldWeaponInstance == null) {
                 if(logErrors) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Missing current world weapon instance. " +
                         $"weapon={(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}",
                         _weapon);
@@ -275,7 +276,7 @@ namespace Game.Weapon.Core {
 
             if(_weapon.CurrentWorldWeaponBinding == null) {
                 if(logErrors) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Missing WorldWeaponBinding on world weapon. " +
                         $"weapon={(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")} " +
                         $"worldWeapon={_weapon.CurrentWorldWeaponInstance.name}",
@@ -286,7 +287,7 @@ namespace Game.Weapon.Core {
 
             if(!_weapon.CurrentWorldWeaponInstance.activeInHierarchy) {
                 if(logErrors) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] World weapon inactive. " +
                         $"weapon={(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")} " +
                         $"worldWeapon={_weapon.CurrentWorldWeaponInstance.name}",
@@ -299,7 +300,7 @@ namespace Game.Weapon.Core {
                    out var worldMuzzleTransform,
                    out var boundMuzzleLight)) {
                 if(logErrors) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Assigned muzzle reference is null. " +
                         $"weapon={(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")} " +
                         $"worldWeapon={_weapon.CurrentWorldWeaponInstance.name}",
@@ -315,7 +316,7 @@ namespace Game.Weapon.Core {
 
             if(!_weapon.WorldMuzzleTransform.gameObject.activeInHierarchy) {
                 if(logErrors) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Muzzle transform inactive. " +
                         $"weapon={(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")} " +
                         $"worldWeapon={_weapon.CurrentWorldWeaponInstance.name} " +
@@ -335,14 +336,14 @@ namespace Game.Weapon.Core {
             var playerController = _weapon.PlayerController;
             if(playerController == null || !playerController.IsOwner) {
                 if(logErrors) {
-                    Debug.LogError($"[Weapon][MuzzleStrict][{context}] FP muzzle requested by non-owner.", _weapon);
+                    DevLog.LogError($"[Weapon][MuzzleStrict][{context}] FP muzzle requested by non-owner.", _weapon);
                 }
                 return false;
             }
 
             if(_weapon.KinDriver == null) {
                 if(logErrors) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[Weapon][MuzzleStrict][{context}] Missing KinemationFpWeaponDriver for owner weapon " +
                         $"'{(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}'.",
                         _weapon);
@@ -353,7 +354,7 @@ namespace Game.Weapon.Core {
             _weapon.FpMuzzleTransform = _weapon.KinDriver.GetMuzzleTransform();
             if(_weapon.FpMuzzleTransform == null) {
                 if(logErrors) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[Weapon][MuzzleStrict][{context}] FP muzzle transform missing for weapon " +
                         $"'{(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}'.",
                         _weapon);
@@ -363,7 +364,7 @@ namespace Game.Weapon.Core {
 
             if(!_weapon.FpMuzzleTransform.gameObject.activeInHierarchy) {
                 if(logErrors) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[Weapon][MuzzleStrict][{context}] FP muzzle transform inactive. " +
                         $"weapon={(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")} " +
                         $"muzzlePath={GetTransformPath(_weapon.FpMuzzleTransform)}",

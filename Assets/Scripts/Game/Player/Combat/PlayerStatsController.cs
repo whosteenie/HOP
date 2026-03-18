@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Player.Contracts;
 using Network.Core;
 using Unity.Netcode;
@@ -53,7 +54,7 @@ namespace Game.Player.Combat {
 
         private void ValidateComponents() {
             if(PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) return;
-            Debug.LogError("[PlayerStatsController] IPlayerStatsContext not found!");
+            DevLog.LogError("[PlayerStatsController] IPlayerStatsContext not found!");
             enabled = false;
         }
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Diagnostics;
 using Game.Hopball;
 using Game.Match;
 using Game.Player.Core;
@@ -26,7 +27,7 @@ namespace Game.UI.Screens.Scoreboard {
             ScoreboardRowFactory rowFactory, ScoreboardPlayerData playerData, VisualElement root, Object logContext) {
             if(scoreboardContainer == null || tdmScoreboardContainer == null || playerRows == null) {
                 if(root != null)
-                    Debug.LogWarning("[ScoreboardManager] FFA scoreboard UI elements not initialized", logContext);
+                    DevLog.LogWarning("[ScoreboardManager] FFA scoreboard UI elements not initialized", logContext);
                 return;
             }
 
@@ -103,7 +104,7 @@ namespace Game.UI.Screens.Scoreboard {
             if(scoreboardContainer == null || tdmScoreboardContainer == null || enemyTeamRows == null ||
                yourTeamRows == null) {
                 if(root != null)
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         "[ScoreboardManager] TDM scoreboard UI elements not initialized, falling back to FFA",
                         logContext);
                 return false;

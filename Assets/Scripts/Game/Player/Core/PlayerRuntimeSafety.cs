@@ -1,4 +1,5 @@
 using System;
+using Diagnostics;
 using Game.Weapon.Kinemation;
 using UnityEngine;
 
@@ -59,7 +60,7 @@ namespace Game.Player.Core {
 
                 behaviour.enabled = false;
                 if(_player.LogKinemationFrameworkDisables) {
-                    Debug.Log($"[PlayerController] Disabled conflicting KINEMATION framework component: {fullName}",
+                    DevLog.Log($"[PlayerController] Disabled conflicting KINEMATION framework component: {fullName}",
                         behaviour);
                 }
             }
@@ -104,7 +105,7 @@ namespace Game.Player.Core {
 
                 cameraComponent.enabled = false;
                 if(_player.LogKinemationFrameworkDisables) {
-                    Debug.Log($"[PlayerController] Disabled unexpected child camera: {cameraComponent.name}",
+                    DevLog.Log($"[PlayerController] Disabled unexpected child camera: {cameraComponent.name}",
                         cameraComponent);
                 }
             }
@@ -116,7 +117,7 @@ namespace Game.Player.Core {
 
                 listener.enabled = false;
                 if(_player.LogKinemationFrameworkDisables) {
-                    Debug.Log($"[PlayerController] Disabled unexpected child audio listener: {listener.name}", listener);
+                    DevLog.Log($"[PlayerController] Disabled unexpected child audio listener: {listener.name}", listener);
                 }
             }
         }

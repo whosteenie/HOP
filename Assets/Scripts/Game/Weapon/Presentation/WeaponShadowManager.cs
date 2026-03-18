@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Diagnostics;
 using Game.Player.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -53,7 +54,7 @@ namespace Game.Weapon.Presentation {
             }
             
             if(playerController == null) {
-                Debug.LogError("[WeaponShadowManager] PlayerController not found!");
+                DevLog.LogError("[WeaponShadowManager] PlayerController not found!");
                 enabled = false;
                 return;
             }
@@ -67,13 +68,13 @@ namespace Game.Weapon.Presentation {
                 _playerRadius = _characterController.radius;
             } else {
                 _playerRadius = 0.5f; // Fallback default
-                Debug.LogWarning("[WeaponShadowManager] CharacterController not found, using default radius of 0.5f");
+                DevLog.LogWarning("[WeaponShadowManager] CharacterController not found, using default radius of 0.5f");
             }
             
             // Get weapon layer
             weaponShadowLayer = LayerMask.NameToLayer("Weapon");
             if(weaponShadowLayer == -1) {
-                Debug.LogWarning("[WeaponShadowManager] Weapon layer not found! Creating shadow geometry may not work correctly.");
+                DevLog.LogWarning("[WeaponShadowManager] Weapon layer not found! Creating shadow geometry may not work correctly.");
             }
             
             // Find main directional light
@@ -83,7 +84,7 @@ namespace Game.Weapon.Presentation {
             }
             
             if(_mainLight == null) {
-                Debug.LogWarning("[WeaponShadowManager] No directional light found! Shadow detection will not work.");
+                DevLog.LogWarning("[WeaponShadowManager] No directional light found! Shadow detection will not work.");
             }
         }
 
@@ -204,7 +205,7 @@ namespace Game.Weapon.Presentation {
 
             if(maxRenderersPerSource > 0 && assessment.RendererCount > maxRenderersPerSource) {
                 if(logRejectedSources) {
-                    Debug.LogWarning($"[WeaponShadowManager] Rejected shadow source '{source.name}' (renderer count {assessment.RendererCount} > {maxRenderersPerSource}).");
+                    DevLog.LogWarning($"[WeaponShadowManager] Rejected shadow source '{source.name}' (renderer count {assessment.RendererCount} > {maxRenderersPerSource}).");
                 }
 
                 _sourceAssessmentCache[source] = assessment;
@@ -219,7 +220,7 @@ namespace Game.Weapon.Presentation {
             assessment.BoundsDimension = Mathf.Max(combinedBounds.size.x, Mathf.Max(combinedBounds.size.y, combinedBounds.size.z));
             if(maxSourceBoundsDimension > 0f && assessment.BoundsDimension > maxSourceBoundsDimension) {
                 if(logRejectedSources) {
-                    Debug.LogWarning($"[WeaponShadowManager] Rejected shadow source '{source.name}' (bounds {assessment.BoundsDimension:F1} > {maxSourceBoundsDimension:F1}).");
+                    DevLog.LogWarning($"[WeaponShadowManager] Rejected shadow source '{source.name}' (bounds {assessment.BoundsDimension:F1} > {maxSourceBoundsDimension:F1}).");
                 }
 
                 _sourceAssessmentCache[source] = assessment;

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.RegularExpressions;
+using Diagnostics;
 using UnityEditor;
 using UnityEngine;
 
@@ -29,7 +30,7 @@ namespace Editor.Build {
 
             if(!TryReadAppIdFromInitScene(projectRoot, out var appId)) {
                 appId = DefaultTestingAppId;
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[SteamEditor] Could not read Steam AppID from Assets/Scenes/Init.unity. " +
                     $"Writing {appId} (Spacewar) to steam_appid.txt for editor testing."
                 );
@@ -46,7 +47,7 @@ namespace Editor.Build {
 
                 File.WriteAllText(appIdPath, appId.ToString());
             } catch(System.Exception e) {
-                Debug.LogError($"[SteamEditor] Failed to write steam_appid.txt: {e.Message}");
+                DevLog.LogError($"[SteamEditor] Failed to write steam_appid.txt: {e.Message}");
             }
         }
 

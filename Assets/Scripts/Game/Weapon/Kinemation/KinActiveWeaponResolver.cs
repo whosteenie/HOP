@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Diagnostics;
 using Game.Weapon.Core;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
@@ -273,21 +274,21 @@ namespace Game.Weapon.Kinemation {
             var guidance = missingComponent
                 ? "Add KinWeaponPartReferences to the weapon prefab and assign required parts."
                 : "Assign this field on KinWeaponPartReferences.";
-            Debug.LogError($"[KinFpWeaponDriver] Weapon '{label}' is missing explicit part reference '{partFieldName}'. {guidance}", ActiveWeapon);
+            DevLog.LogError($"[KinFpWeaponDriver] Weapon '{label}' is missing explicit part reference '{partFieldName}'. {guidance}", ActiveWeapon);
         }
 
         private void ReportInvalidPartReference(int partKey, string partFieldName, Transform configuredPart) {
             var key = BuildPartReferenceWarningKey(partKey);
             if(!InvalidKinemationPartReferenceWarnings.Add(key)) return;
             var label = GetActiveWeaponLabel();
-            Debug.LogError($"[KinFpWeaponDriver] Weapon '{label}' has invalid part reference '{partFieldName}' (assigned '{configuredPart.name}', outside active weapon hierarchy).", ActiveWeapon);
+            DevLog.LogError($"[KinFpWeaponDriver] Weapon '{label}' has invalid part reference '{partFieldName}' (assigned '{configuredPart.name}', outside active weapon hierarchy).", ActiveWeapon);
         }
 
         private static void ReportMissingAssignment(WeaponData data, HashSet<int> cache, string fieldName, string impact) {
             if(data == null || cache == null) return;
             if(!cache.Add(data.GetInstanceID())) return;
             var label = string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
-            Debug.LogError($"[KinFpWeaponDriver] WeaponData '{label}' has {fieldName}=NULL. {impact}", data);
+            DevLog.LogError($"[KinFpWeaponDriver] WeaponData '{label}' has {fieldName}=NULL. {impact}", data);
         }
 
         private string GetActiveWeaponLabel() {

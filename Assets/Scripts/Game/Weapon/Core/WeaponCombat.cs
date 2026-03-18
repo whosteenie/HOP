@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Diagnostics;
 using Game.Match;
 using Game.Player.Core;
 using Game.Progression;
@@ -340,7 +341,7 @@ namespace Game.Weapon.Core {
                 return true;
             }
 
-            Debug.LogError(
+            DevLog.LogError(
                 "[Weapon] MatchCombatAuthority is missing in the active gameplay scene. Damage requests cannot be processed.");
             return false;
         }

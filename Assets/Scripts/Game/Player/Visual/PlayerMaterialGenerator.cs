@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Diagnostics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -45,7 +46,7 @@ namespace Game.Player.Visual {
             float metallic = 0f, Color? specularColor = null, float? heightStrength = null,
             bool emissionEnabled = false, Color? emissionColor = null) {
             if(packet == null) {
-                Debug.LogWarning("[PlayerMaterialGenerator] Packet is null, using default material.");
+                DevLog.LogWarning("[PlayerMaterialGenerator] Packet is null, using default material.");
                 return CreateDefaultMaterial(baseColor, smoothness, metallic, emissionEnabled, emissionColor);
             }
 
@@ -68,7 +69,7 @@ namespace Game.Player.Visual {
             // Create new material
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if(shader == null) {
-                Debug.LogError("[PlayerMaterialGenerator] URP/Lit shader not found! Falling back to default material.");
+                DevLog.LogError("[PlayerMaterialGenerator] URP/Lit shader not found! Falling back to default material.");
                 return CreateDefaultMaterial(baseColor, smoothness, metallic, finalEmissionEnabled, finalEmissionColor);
             }
 
@@ -187,7 +188,7 @@ namespace Game.Player.Visual {
         private static Material CreateDefaultMaterial(Color baseColor, float smoothness, float metallic, bool emissionEnabled = false, Color? emissionColor = null) {
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if(shader == null) {
-                Debug.LogError("[PlayerMaterialGenerator] URP/Lit shader not found! Creating fallback material.");
+                DevLog.LogError("[PlayerMaterialGenerator] URP/Lit shader not found! Creating fallback material.");
                 return new Material(Shader.Find("Standard"));
             }
 

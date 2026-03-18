@@ -1,4 +1,5 @@
 using System.Collections;
+using Diagnostics;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -19,7 +20,7 @@ namespace Game.Menu.Shared {
 
         public void StartAnimation(VisualElement ball) {
             if(ball == null) {
-                Debug.LogWarning("[LoadingBallAnimation] Ball VisualElement == null!");
+                DevLog.LogWarning("[LoadingBallAnimation] Ball VisualElement == null!");
                 return;
             }
 

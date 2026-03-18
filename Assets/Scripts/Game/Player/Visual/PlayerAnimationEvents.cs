@@ -1,4 +1,5 @@
 using System;
+using Diagnostics;
 using Game.Player.Contracts;
 using Game.Weapon.Manager;
 using UnityEngine;
@@ -43,7 +44,7 @@ namespace Game.Player.Visual {
 
             _weaponManager = GetComponentInParent<WeaponManager>(true);
             if(debugAnimationEvents && Debug.isDebugBuild) {
-                Debug.Log($"[PlayerAnimationEvents] No IPlayerVisualContext found on {name}; using local fallbacks only.");
+                DevLog.Log($"[PlayerAnimationEvents] No IPlayerVisualContext found on {name}; using local fallbacks only.");
             }
         }
 
@@ -52,7 +53,7 @@ namespace Game.Player.Visual {
         /// </summary>
         public void PlayWalkSound() {
             if(debugAnimationEvents && Debug.isDebugBuild) {
-                Debug.Log($"[PlayerAnimationEvents] PlayWalkSound event on {name}");
+                DevLog.Log($"[PlayerAnimationEvents] PlayWalkSound event on {name}");
             }
             _playerContext?.PlayWalkSound();
         }
@@ -62,7 +63,7 @@ namespace Game.Player.Visual {
         /// </summary>
         public void PlayRunSound() {
             if(debugAnimationEvents && Debug.isDebugBuild) {
-                Debug.Log($"[PlayerAnimationEvents] PlayRunSound event on {name}");
+                DevLog.Log($"[PlayerAnimationEvents] PlayRunSound event on {name}");
             }
             _playerContext?.PlayRunSound();
         }
@@ -87,7 +88,7 @@ namespace Game.Player.Visual {
             if(_weaponManager != null) {
                 _weaponManager.ShowTpWeapon();
             } else {
-                Debug.LogWarning("[PlayerAnimationEvents] WeaponManager is null in ShowTpWeapon.");
+                DevLog.LogWarning("[PlayerAnimationEvents] WeaponManager is null in ShowTpWeapon.");
             }
         }
 

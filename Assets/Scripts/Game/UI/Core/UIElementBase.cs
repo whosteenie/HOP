@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Diagnostics;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -21,13 +22,13 @@ namespace Game.UI.Core {
 
         protected virtual void Awake() {
             if(uiDocument == null) {
-                Debug.LogError($"[{GetType().Name}] UIDocument is not assigned!");
+                DevLog.LogError($"[{GetType().Name}] UIDocument is not assigned!");
             }
         }
 
         protected virtual void Start() {
             if(!TryBindRoot()) {
-                Debug.LogError($"[{GetType().Name}] Failed to get root visual element from UIDocument!");
+                DevLog.LogError($"[{GetType().Name}] Failed to get root visual element from UIDocument!");
                 return;
             }
             Initialize();
@@ -57,13 +58,13 @@ namespace Game.UI.Core {
                 TryBindRoot();
             }
             if(Root == null) {
-                Debug.LogError($"[{GetType().Name}] Cannot initialize: Root is null");
+                DevLog.LogError($"[{GetType().Name}] Cannot initialize: Root is null");
                 return;
             }
 
             var missingElements = ValidateRequiredElements();
             if(missingElements.Count > 0) {
-                Debug.LogError($"[{GetType().Name}] Missing required UI elements: {string.Join(", ", missingElements)}");
+                DevLog.LogError($"[{GetType().Name}] Missing required UI elements: {string.Join(", ", missingElements)}");
                 return;
             }
 
@@ -134,7 +135,7 @@ namespace Game.UI.Core {
             try {
                 OnCleanup();
             } catch(System.Exception ex) {
-                Debug.LogError($"[{GetType().Name}] Error during OnCleanup: {ex}");
+                DevLog.LogError($"[{GetType().Name}] Error during OnCleanup: {ex}");
             }
 
             if(_cleanupActions == null || _cleanupActions.Count == 0) return;
@@ -144,7 +145,7 @@ namespace Game.UI.Core {
                 try {
                     action?.Invoke();
                 } catch(System.Exception ex) {
-                    Debug.LogError($"[{GetType().Name}] Error during cleanup action: {ex}");
+                    DevLog.LogError($"[{GetType().Name}] Error during cleanup action: {ex}");
                 }
             }
 

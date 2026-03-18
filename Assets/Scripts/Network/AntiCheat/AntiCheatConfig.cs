@@ -1,3 +1,4 @@
+using Diagnostics;
 using UnityEngine;
 
 namespace Network.AntiCheat {
@@ -11,7 +12,7 @@ namespace Network.AntiCheat {
                 if(instance != null) return instance;
                 instance = Resources.Load<AntiCheatConfig>(ResourcesPath);
                 if(instance == null) {
-                    Debug.LogWarning($"[AntiCheat] Could not load AntiCheatConfig at Resources/{ResourcesPath}. " +
+                    DevLog.LogWarning($"[AntiCheat] Could not load AntiCheatConfig at Resources/{ResourcesPath}. " +
                                      "Create one via Assets > Create > Config > Anti-Cheat Config.");
                 }
 

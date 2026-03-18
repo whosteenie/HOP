@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Diagnostics;
 using UnityEngine;
 
 namespace Game.Settings {
@@ -31,7 +32,7 @@ namespace Game.Settings {
 
                 var decodeResult = SecureJsonFile.TryDecode(path, raw, out var json);
                 if(decodeResult == SecureJsonFile.DecodeResult.InvalidOrTampered) {
-                    Debug.LogWarning("[Settings] settings.json failed integrity checks or is unreadable.");
+                    DevLog.LogWarning("[Settings] settings.json failed integrity checks or is unreadable.");
                     return false;
                 }
 
@@ -46,7 +47,7 @@ namespace Game.Settings {
                 }
                 return true;
             } catch(Exception e) {
-                Debug.LogWarning($"[Settings] Failed to read/parse settings.json: {e.Message}");
+                DevLog.LogWarning($"[Settings] Failed to read/parse settings.json: {e.Message}");
                 return false;
             }
         }
@@ -79,12 +80,12 @@ namespace Game.Settings {
 
                 File.Move(tmpPath, path);
             } catch(Exception e) {
-                Debug.LogError($"[Settings] Failed to save settings.json: {e.Message}");
+                DevLog.LogError($"[Settings] Failed to save settings.json: {e.Message}");
                 // Best effort cleanup.
                 try {
                     if(File.Exists(tmpPath)) File.Delete(tmpPath);
                 } catch(Exception cleanupError) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[Settings] Failed to cleanup temp settings file '{tmpPath}': {cleanupError.Message}");
                 }
             }
@@ -103,7 +104,7 @@ namespace Game.Settings {
                     : name;
                 File.Move(path, dst);
             } catch(Exception e) {
-                Debug.LogWarning($"[Settings] Failed to quarantine corrupt settings file '{path}': {e.Message}");
+                DevLog.LogWarning($"[Settings] Failed to quarantine corrupt settings file '{path}': {e.Message}");
             }
         }
     }

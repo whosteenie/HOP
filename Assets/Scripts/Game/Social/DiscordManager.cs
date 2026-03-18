@@ -1,5 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Discord.Sdk;
 using Steamworks;
 using UnityEngine;
@@ -45,7 +46,7 @@ namespace Game.Social {
                 var initialStatus = _discord.GetStatus();
                 _isReady = false;
 
-                Debug.Log(
+                DevLog.Log(
                     "[DiscordManager] Discord SDK initialized. " +
                     $"Status={Client.StatusToString(initialStatus)} " +
                     $"LaunchRegistered={registeredLaunchCommand} " +
@@ -53,7 +54,7 @@ namespace Game.Social {
 
                 BeginAuthAndConnect().Forget();
             } catch (Exception e) {
-                Debug.LogWarning($"[DiscordManager] Failed to initialize Discord SDK: {e.Message}");
+                DevLog.LogWarning($"[DiscordManager] Failed to initialize Discord SDK: {e.Message}");
                 _discord = null;
                 _isReady = false;
             }
@@ -69,7 +70,7 @@ namespace Game.Social {
                 _hasPendingPresence = true;
                 FlushPendingPresence();
             } catch (Exception e) {
-                Debug.LogError($"[DiscordManager] Error updating status: {e.Message}");
+                DevLog.LogError($"[DiscordManager] Error updating status: {e.Message}");
             }
         }
 
@@ -99,7 +100,7 @@ namespace Game.Social {
 
         private static void OnDiscordLog(string message, LoggingSeverity severity) {
             if (severity >= LoggingSeverity.Error) {
-                Debug.LogWarning($"[DiscordManager] SDK {severity}: {message}");
+                DevLog.LogWarning($"[DiscordManager] SDK {severity}: {message}");
             }
         }
 
@@ -112,13 +113,13 @@ namespace Game.Social {
 
             try {
                 if (!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
-                    Debug.LogWarning("[DiscordManager] Steam is not available; Discord Social SDK auth requires a token before Connect().");
+                    DevLog.LogWarning("[DiscordManager] Steam is not available; Discord Social SDK auth requires a token before Connect().");
                     return;
                 }
 
                 var steamTicket = await SteamUser.GetAuthTicketForWebApiAsync(DiscordSteamWebIdentity);
                 if (steamTicket?.Data == null || steamTicket.Data.Length == 0) {
-                    Debug.LogWarning("[DiscordManager] Failed to get Steam web auth ticket for Discord auth.");
+                    DevLog.LogWarning("[DiscordManager] Failed to get Steam web auth ticket for Discord auth.");
                     return;
                 }
 
@@ -126,7 +127,7 @@ namespace Game.Social {
                 steamTicket.Cancel();
 
                 if (string.IsNullOrEmpty(externalAuthToken)) {
-                    Debug.LogWarning("[DiscordManager] Steam web auth ticket for Discord auth was empty.");
+                    DevLog.LogWarning("[DiscordManager] Steam web auth ticket for Discord auth was empty.");
                     return;
                 }
 
@@ -136,7 +137,7 @@ namespace Game.Social {
                     externalAuthToken,
                     OnProvisionalToken);
             } catch (Exception e) {
-                Debug.LogWarning($"[DiscordManager] Failed to begin Discord authentication: {e.Message}");
+                DevLog.LogWarning($"[DiscordManager] Failed to begin Discord authentication: {e.Message}");
                 _isConnecting = false;
             }
         }
@@ -150,7 +151,7 @@ namespace Game.Social {
             string scopes) {
             if (!result.Successful()) {
                 _isConnecting = false;
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[DiscordManager] Failed to acquire Discord token: " +
                     $"Type={result.Type()} Error={result.Error()} Retryable={result.Retryable()} " +
                     $"RetryAfter={result.RetryAfter()} Response={result.ResponseBody()}");
@@ -163,7 +164,7 @@ namespace Game.Social {
         private void OnDiscordTokenUpdated(ClientResult result) {
             if (!result.Successful()) {
                 _isConnecting = false;
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[DiscordManager] Failed to update Discord token: " +
                     $"Type={result.Type()} Error={result.Error()} Retryable={result.Retryable()} " +
                     $"RetryAfter={result.RetryAfter()} Response={result.ResponseBody()}");
@@ -174,7 +175,7 @@ namespace Game.Social {
                 _discord.Connect();
             } catch (Exception e) {
                 _isConnecting = false;
-                Debug.LogWarning($"[DiscordManager] Failed to connect Discord SDK after token update: {e.Message}");
+                DevLog.LogWarning($"[DiscordManager] Failed to connect Discord SDK after token update: {e.Message}");
             }
         }
 
@@ -184,7 +185,7 @@ namespace Game.Social {
             switch(status) {
                 case Client.Status.Ready: {
                     _isConnecting = false;
-                    Debug.Log("[DiscordManager] Discord client is ready.");
+                    DevLog.Log("[DiscordManager] Discord client is ready.");
                     if (SteamClient.IsValid && SteamClient.IsLoggedOn && !string.IsNullOrWhiteSpace(SteamClient.Name)) {
                         _discord.UpdateProvisionalAccountDisplayName(SteamClient.Name, OnDisplayNameUpdated);
                     }
@@ -204,7 +205,7 @@ namespace Game.Social {
             }
 
             if (error != Client.Error.None) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[DiscordManager] Discord status changed: " +
                     $"Status={Client.StatusToString(status)} " +
                     $"Error={Client.ErrorToString(error)} " +
@@ -217,7 +218,7 @@ namespace Game.Social {
                 return;
             }
 
-            Debug.LogWarning(
+            DevLog.LogWarning(
                 "[DiscordManager] Failed to update activity: " +
                 $"Type={res.Type()} Error={res.Error()} Retryable={res.Retryable()} " +
                 $"RetryAfter={res.RetryAfter()} Response={res.ResponseBody()}");
@@ -228,7 +229,7 @@ namespace Game.Social {
                 return;
             }
 
-            Debug.LogWarning(
+            DevLog.LogWarning(
                 "[DiscordManager] Failed to update provisional display name: " +
                 $"Type={result.Type()} Error={result.Error()} Retryable={result.Retryable()} " +
                 $"RetryAfter={result.RetryAfter()} Response={result.ResponseBody()}");

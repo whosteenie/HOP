@@ -1,4 +1,5 @@
 using System.Collections;
+using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Combat;
@@ -44,7 +45,7 @@ namespace Game.Player.Core {
             }
 
             if(playerController == null) {
-                Debug.LogError("[PlayerPodiumController] PlayerController not found!");
+                DevLog.LogError("[PlayerPodiumController] PlayerController not found!");
                 enabled = false;
                 return;
             }

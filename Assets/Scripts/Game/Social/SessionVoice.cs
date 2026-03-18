@@ -1,5 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Network.Contracts;
 using UnityEngine;
 
@@ -15,7 +16,7 @@ namespace Game.Social {
             try {
                 await VoiceManager.Instance.LeaveChannelAsync();
             } catch(Exception ex) {
-                Debug.LogWarning($"[SessionManager] Voice leave failed during session transition: {ex.Message}");
+                DevLog.LogWarning($"[SessionManager] Voice leave failed during session transition: {ex.Message}");
             }
         }
 
@@ -33,7 +34,7 @@ namespace Game.Social {
                 VoiceManager.Instance.EnsureChannelJoinedAsync(channelName, context: context).AsUniTask(),
                 $"VoiceJoinSteamSocialLobby/{context}");
             if(Debug.isDebugBuild)
-                Debug.Log($"[SessionManager] Requested voice join for Steam social lobby '{lobbyId}' ({context}).");
+                DevLog.Log($"[SessionManager] Requested voice join for Steam social lobby '{lobbyId}' ({context}).");
         }
 
         /// <summary>Starts joining the voice channel for the active UGS match or Steam lobby. Launches the task via the provided callback.</summary>
@@ -47,14 +48,14 @@ namespace Game.Social {
             var channelName = GetMatchVoiceChannelName(ctx);
             if(string.IsNullOrEmpty(channelName)) {
                 if(Debug.isDebugBuild)
-                    Debug.Log($"[SessionManager] No active match channel available for voice join ({context}).");
+                    DevLog.Log($"[SessionManager] No active match channel available for voice join ({context}).");
                 return;
             }
             launchTask?.Invoke(
                 VoiceManager.Instance.EnsureChannelJoinedAsync(channelName, context: context).AsUniTask(),
                 $"VoiceJoinMatch/{context}");
             if(Debug.isDebugBuild)
-                Debug.Log($"[SessionManager] Requested voice join for active match channel '{channelName}' ({context}).");
+                DevLog.Log($"[SessionManager] Requested voice join for active match channel '{channelName}' ({context}).");
         }
 
         /// <summary>Returns the voice channel name for the current match (UGS match lobby id or Steam lobby id), or null.</summary>

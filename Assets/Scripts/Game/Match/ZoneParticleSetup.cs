@@ -1,3 +1,4 @@
+using Diagnostics;
 using UnityEngine;
 
 namespace Game.Match {
@@ -79,7 +80,7 @@ namespace Game.Match {
             if (particleMaterial != null) {
                 particleSystemRenderer.material = particleMaterial;
             } else {
-                 Debug.Log("Assign a Material to avoid pink squares.");
+                 DevLog.Log("Assign a Material to avoid pink squares.");
             }
         }
     }

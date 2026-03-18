@@ -1,6 +1,6 @@
 using System.Collections.Generic;
+using Diagnostics;
 using Game.Weapon.Core;
-using UnityEngine;
 
 namespace Game.Weapon.Kinemation {
     /// <summary>Pending weapon fire/event sound queues and reload-event clip detection for KIN viewmodel sound routing.</summary>
@@ -82,7 +82,7 @@ namespace Game.Weapon.Kinemation {
             if(data == null) return;
             if(!MissingKinemationReloadSoundIndexWarnings.Add(data.GetInstanceID())) return;
             var label = string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
-            Debug.LogError(
+            DevLog.LogError(
                 $"[KinFpWeaponDriver] WeaponData '{label}' has no kinemationReloadEventSoundIndices configured. " +
                 "Reload event SFX stopping is strict and requires explicit index assignment.",
                 data);

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Diagnostics;
 using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
@@ -161,7 +162,7 @@ namespace Game.Match {
             allFfaPoints = SpawnPoint.Instances.Where(p => p != null).ToList();
             CachePoints();
 
-            Debug.Log(
+            DevLog.Log(
                 $"[SpawnManager] Rebuilt spawn caches from scene. TeamA={_teamAPoints.Count}, TeamB={_teamBPoints.Count}, FFA={_ffaPoints.Count}");
         }
 
@@ -307,7 +308,7 @@ namespace Game.Match {
             }
 
             // Fallback: return first point even if occupied (better than no spawn)
-            Debug.LogWarning(
+            DevLog.LogWarning(
                 $"[SpawnManager] No clear spawn point found for {context} after checking all {list.Count} points. Using fallback.");
             return list[0];
         }
@@ -346,7 +347,7 @@ namespace Game.Match {
             }
 
             // Final fallback: return first point even if occupied
-            Debug.LogWarning(
+            DevLog.LogWarning(
                 $"[SpawnManager] No safe spawn point found for {context} after checking all {list.Count} points. Using fallback.");
             return list[0];
         }

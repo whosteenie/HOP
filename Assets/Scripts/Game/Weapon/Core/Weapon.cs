@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using Game.Audio.System;
 using Game.Player.Core;
@@ -212,7 +213,7 @@ namespace Game.Weapon.Core {
             }
 
             if(playerController == null) {
-                Debug.LogError("[Weapon] PlayerController not found!");
+                DevLog.LogError("[Weapon] PlayerController not found!");
                 enabled = false;
                 return;
             }

@@ -2,8 +2,8 @@
   "name": "Game.Audio.Editor",
   "rootNamespace": "",
   "references": [
-    "Game",
-    "FPSAnimationPack.Runtime"
+    "GUID:b022f316b85dc974d81433beea08684c",
+    "GUID:c6c580b8ceca35540b1a5f288ec9df0c"
   ],
   "includePlatforms": [
     "Editor"

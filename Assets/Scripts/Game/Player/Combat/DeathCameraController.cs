@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Player.Contracts;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -20,7 +21,7 @@ namespace Game.Player.Combat {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[DeathCameraController] IPlayerDeathCameraContext not found!");
+                DevLog.LogError("[DeathCameraController] IPlayerDeathCameraContext not found!");
                 enabled = false;
                 return;
             }

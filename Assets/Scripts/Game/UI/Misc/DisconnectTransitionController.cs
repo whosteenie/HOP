@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using Game.Player.Core;
 using UnityEngine;
@@ -55,24 +56,24 @@ namespace Game.UI.Misc {
         /// Returns true if duplicate was shown; false if fallback (hide) should be used instead.
         /// </summary>
         public bool CaptureDuplicateFpVisuals(PlayerController player) {
-            if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] CaptureDuplicateFpVisuals called");
-            if(player == null || !player.IsOwner) { if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] FAIL: player null or not owner"); return false; }
+            if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] CaptureDuplicateFpVisuals called");
+            if(player == null || !player.IsOwner) { if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] FAIL: player null or not owner"); return false; }
             CleanupDuplicate();
 
             var weaponManager = player.WeaponManager;
-            if(weaponManager == null) { if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] FAIL: weaponManager null"); return false; }
+            if(weaponManager == null) { if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] FAIL: weaponManager null"); return false; }
 
             var holderRoot = weaponManager.GetFpWeaponHolderRootForDisconnect();
-            if(holderRoot == null) { if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] FAIL: holderRoot null (no FP weapon?)"); return false; }
+            if(holderRoot == null) { if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] FAIL: holderRoot null (no FP weapon?)"); return false; }
 
             var mainCamera = Camera.main;
-            if(mainCamera == null) { if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] FAIL: mainCamera null"); return false; }
+            if(mainCamera == null) { if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] FAIL: mainCamera null"); return false; }
 
             EnsureStandbyOverlayCamera(mainCamera);
-            if(_standbyOverlayCamera == null) { if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] FAIL: overlay null after Ensure"); return false; }
+            if(_standbyOverlayCamera == null) { if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] FAIL: overlay null after Ensure"); return false; }
 
             var weaponCam = player.WeaponCamera;
-            if(weaponCam == null) { if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] FAIL: weaponCam null"); return false; }
+            if(weaponCam == null) { if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] FAIL: weaponCam null"); return false; }
 
             ApplyWeaponCameraToOverlay(weaponCam);
 
@@ -90,7 +91,7 @@ namespace Game.UI.Misc {
                 AddOverlayToStack(mainCamera, weaponCam);
                 _isActive = true;
             }
-            if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] OK: duplicate shown, overlay active");
+            if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] OK: duplicate shown, overlay active");
             return true;
         }
 
@@ -115,7 +116,7 @@ namespace Game.UI.Misc {
 
             // Explicitly destroy overlay and clear reference so a fresh one is created on the next disconnect.
             if(_standbyOverlayCamera == null) return;
-            if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] Cleanup: destroying overlay, clearing ref");
+            if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] Cleanup: destroying overlay, clearing ref");
             Destroy(_standbyOverlayCamera.gameObject);
             _standbyOverlayCamera = null;
         }
@@ -124,11 +125,11 @@ namespace Game.UI.Misc {
             // Recreate if null or destroyed (e.g. scene unload from previous match)
             var hadValid = _standbyOverlayCamera != null && _standbyOverlayCamera;
             if(hadValid) {
-                if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] EnsureOverlay: reusing existing");
+                if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] EnsureOverlay: reusing existing");
                 return;
             }
             _standbyOverlayCamera = null;
-            if(Debug.isDebugBuild) Debug.Log($"[DisconnectTransition] EnsureOverlay: creating new (mainCam={(mainCamera != null ? mainCamera.name : null)})");
+            if(Debug.isDebugBuild) DevLog.Log($"[DisconnectTransition] EnsureOverlay: creating new (mainCam={(mainCamera != null ? mainCamera.name : null)})");
 
             var go = new GameObject("DisconnectStandbyOverlay");
             go.transform.SetParent(mainCamera.transform, false);

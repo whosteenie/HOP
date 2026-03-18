@@ -40,7 +40,7 @@ namespace Network.Session {
                 var previous = _phase;
                 _phase = value;
                 _phaseStartTime = Time.time;
-                if(Debug.isDebugBuild) Debug.Log($"[SessionManager] Phase -> {value}");
+                if(Debug.isDebugBuild) DevLog.Log($"[SessionManager] Phase -> {value}");
                 FlowLog.Emit(FlowEventIds.SyncStateTransition,
                     ("from", previous),
                     ("to", value));
@@ -186,7 +186,7 @@ namespace Network.Session {
                 return true;
             }
 
-            Debug.LogError($"[SessionManager] NetworkManager.Singleton is null during {operationName}.");
+            DevLog.LogError($"[SessionManager] NetworkManager.Singleton is null during {operationName}.");
             return false;
         }
 
@@ -207,7 +207,7 @@ namespace Network.Session {
                 return true;
             }
 
-            Debug.LogError(
+            DevLog.LogError(
                 $"[SessionManager] No UnityTransport-compatible transport is configured on NetworkManager during {operationName}.");
             return false;
         }
@@ -320,16 +320,16 @@ namespace Network.Session {
                 await task;
             } catch(OperationCanceledException) {
                 if(logCancellation && Debug.isDebugBuild) {
-                    Debug.Log($"[SessionManager] Task canceled: {context}");
+                    DevLog.Log($"[SessionManager] Task canceled: {context}");
                 }
             } catch(Exception ex) {
-                Debug.LogError($"[SessionManager] Task failed ({context}): {ex}");
+                DevLog.LogError($"[SessionManager] Task failed ({context}): {ex}");
             }
         }
 
         private bool TryBeginSessionOperation(string operationName) {
             if(IsSessionBusy) {
-                Debug.LogWarning($"[SessionManager] Ignoring '{operationName}' while session is busy.");
+                DevLog.LogWarning($"[SessionManager] Ignoring '{operationName}' while session is busy.");
                 return false;
             }
 
@@ -370,7 +370,7 @@ namespace Network.Session {
         private void SetExpectedGamePlayerCount(int count, string source) {
             _expectedGamePlayerCount = Mathf.Max(1, count);
             if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Expected gameplay players set to {_expectedGamePlayerCount} ({source}).");
+                DevLog.Log($"[SessionManager] Expected gameplay players set to {_expectedGamePlayerCount} ({source}).");
             }
         }
 
@@ -379,7 +379,7 @@ namespace Network.Session {
         /// </summary>
         private async UniTask ClearMatchmakingStateAsync() {
             if(Debug.isDebugBuild) {
-                Debug.Log("[SessionManager] ClearMatchmakingState called");
+                DevLog.Log("[SessionManager] ClearMatchmakingState called");
             }
 
             _matchmaker.CancelMatchmaking();
@@ -434,7 +434,7 @@ namespace Network.Session {
             }
 
             if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Applied mode '{mode}' from {source}.");
+                DevLog.Log($"[SessionManager] Applied mode '{mode}' from {source}.");
             }
 
             FlowLog.Emit(FlowEventIds.ModeApply,
@@ -663,7 +663,7 @@ namespace Network.Session {
 
         private void Start() {
             if(SteamManager.Instance == null) {
-                Debug.LogError("[SessionManager] SteamManager not found!");
+                DevLog.LogError("[SessionManager] SteamManager not found!");
             }
 
             // Bootstrap UGS identity early so Lobby/Matchmaker/Vivox can rely on it later.
@@ -720,7 +720,7 @@ namespace Network.Session {
         /// <param name="skipFadeOut">When true, caller already faded to black (e.g. unexpected disconnect). Skips initial fade-out.</param>
         public async UniTask LeaveToMainMenuAsync(bool skipFadeOut = false) {
             if(_isLeaving) {
-                Debug.LogWarning("[SessionManager] LeaveToMainMenuAsync ignored: leave already in progress.");
+                DevLog.LogWarning("[SessionManager] LeaveToMainMenuAsync ignored: leave already in progress.");
                 return;
             }
 
@@ -746,7 +746,7 @@ namespace Network.Session {
 
             if(!loggedMissingGameplayScenePredicate) {
                 loggedMissingGameplayScenePredicate = true;
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[SessionManager] IsGameplayScenePredicate is not set; using fallback rules for gameplay scene detection.");
             }
 

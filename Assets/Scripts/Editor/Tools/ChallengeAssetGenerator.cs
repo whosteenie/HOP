@@ -1,4 +1,5 @@
 using System.IO;
+using Diagnostics;
 using Game.Progression;
 using UnityEditor;
 using UnityEngine;
@@ -36,7 +37,7 @@ namespace Editor.Tools {
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
-        Debug.Log("Challenge Assets Generated in Resources/Challenges!");
+        DevLog.Log("Challenge Assets Generated in Resources/Challenges!");
     }
 
     private static void CreateChallenge(string id, ChallengeType type, string desc, int min, int max, int xp) {

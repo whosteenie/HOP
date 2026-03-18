@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using Diagnostics;
 using Events;
 using Unity.Services.Vivox;
 using UnityEngine;
@@ -119,7 +120,7 @@ namespace Game.Social {
 
                 if(VivoxService.Instance == null || VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) {
                     if(!Application.isEditor && Debug.isDebugBuild) {
-                        Debug.LogWarning("[HOPFLOW][VIVOX] VIVOX_TEXT_BLOCKED_NOT_READY reason=NotLoggedInOrServiceMissing");
+                        DevLog.LogWarning("[HOPFLOW][VIVOX] VIVOX_TEXT_BLOCKED_NOT_READY reason=NotLoggedInOrServiceMissing");
                     }
                     SendSystemMessage("Chat unavailable.");
                     return;
@@ -133,7 +134,7 @@ namespace Game.Social {
                         await VoiceManager.Instance.EnsureChannelJoinedAsync(canonicalChannelName, context: "ChatSend");
                     if(canonicalJoined == false) {
                         if(!Application.isEditor && Debug.isDebugBuild) {
-                            Debug.LogWarning(
+                            DevLog.LogWarning(
                                 $"[HOPFLOW][VIVOX] VIVOX_TEXT_BLOCKED_NOT_READY reason=CanonicalJoinFailed channel={canonicalChannelName}");
                         }
                         SendSystemMessage("Chat channel unavailable.");
@@ -145,7 +146,7 @@ namespace Game.Social {
                     var joined = await TryEnsureActiveChannelAsync();
                     if(joined == false || VoiceManager.Instance.TryGetJoinedChannelName(out channelName) == false) {
                         if(!Application.isEditor && Debug.isDebugBuild) {
-                            Debug.LogWarning(
+                            DevLog.LogWarning(
                                 "[HOPFLOW][VIVOX] VIVOX_TEXT_BLOCKED_NOT_READY reason=NoJoinedChannelAfterEnsure");
                         }
                         SendSystemMessage("Chat channel unavailable.");
@@ -171,7 +172,7 @@ namespace Game.Social {
                 if(trackedPendingEcho) {
                     UntrackPendingSelfEcho(pendingEchoId);
                 }
-                Debug.LogWarning($"[ChatManager] Failed to send Vivox text message: {ex.Message}");
+                DevLog.LogWarning($"[ChatManager] Failed to send Vivox text message: {ex.Message}");
             }
         }
 

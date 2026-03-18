@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Diagnostics;
 using UnityEngine;
 
 namespace Game.Audio.Authoring {
@@ -29,14 +30,14 @@ namespace Game.Audio.Authoring {
                 var e = entries[i];
                 if(string.IsNullOrWhiteSpace(e.id) || e.cue == null) {
                     if(logWarnings) {
-                        Debug.LogWarning($"[AudioService] SoundCatalog '{name}': invalid entry at index {i} (id/cue missing).", this);
+                        DevLog.LogWarning($"[AudioService] SoundCatalog '{name}': invalid entry at index {i} (id/cue missing).", this);
                     }
                     continue;
                 }
 
                 if(_lookup.ContainsKey(e.id)) {
                     if(logWarnings) {
-                        Debug.LogWarning($"[AudioService] SoundCatalog '{name}': duplicate id '{e.id}'.", this);
+                        DevLog.LogWarning($"[AudioService] SoundCatalog '{name}': duplicate id '{e.id}'.", this);
                     }
                     continue;
                 }

@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Diagnostics;
 using Game.Progression;
-using UnityEngine;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
@@ -33,7 +33,7 @@ namespace Game.UI.Misc {
 
             if(cardTemplate == null) {
                 if(templateErrorLogged) return null;
-                Debug.LogError(
+                DevLog.LogError(
                     "[ChallengeUiRenderer] challengeCardTemplate is required. Assign ChallengeCard.uxml in the inspector.",
                     context);
                 templateErrorLogged = true;
@@ -47,7 +47,7 @@ namespace Game.UI.Misc {
 
             if(titleLabel == null || timerLabel == null || listContainer == null) {
                 if(templateErrorLogged) return null;
-                Debug.LogError(
+                DevLog.LogError(
                     "[ChallengeUiRenderer] ChallengeCard template is missing required elements: title-label, timer-label, or challenge-list.",
                     context);
                 templateErrorLogged = true;
@@ -133,7 +133,7 @@ namespace Game.UI.Misc {
 
             if(rowTemplate == null) {
                 if(!templateErrorLogged) {
-                    Debug.LogError("[ChallengeUiRenderer] challengeRowTemplate is required. Assign ChallengeRow.uxml in the inspector.",
+                    DevLog.LogError("[ChallengeUiRenderer] challengeRowTemplate is required. Assign ChallengeRow.uxml in the inspector.",
                         context);
                     templateErrorLogged = true;
                 }
@@ -144,7 +144,7 @@ namespace Game.UI.Misc {
             }
 
             if(progressionManager == null) {
-                Debug.LogWarning("[ChallengeUiRenderer] ProgressionManager is null.");
+                DevLog.LogWarning("[ChallengeUiRenderer] ProgressionManager is null.");
                 HideAllRows(state);
                 ToggleEmptyLabel(state, listContainer, false);
                 return;
@@ -159,7 +159,7 @@ namespace Game.UI.Misc {
                 if(row == null) return;
                 if(row.DescriptionLabel == null || row.XpLabel == null || row.ProgressBar == null) {
                     if(templateErrorLogged) return;
-                    Debug.LogError(
+                    DevLog.LogError(
                         "[ChallengeUiRenderer] ChallengeRow template is missing required elements: description-label, xp-label, or progress-bar.",
                         context);
                     templateErrorLogged = true;
@@ -212,7 +212,7 @@ namespace Game.UI.Misc {
 
                 if(binding.DescriptionLabel == null || binding.XpLabel == null || binding.ProgressBar == null) {
                     if(templateErrorLogged) return null;
-                    Debug.LogError(
+                    DevLog.LogError(
                         "[ChallengeUiRenderer] ChallengeRow template is missing required elements: description-label, xp-label, or progress-bar.",
                         context);
                     templateErrorLogged = true;
@@ -271,7 +271,7 @@ namespace Game.UI.Misc {
             try {
                 return string.Format(def.Description, target, displayFilter);
             } catch(FormatException ex) {
-                Debug.LogError(
+                DevLog.LogError(
                     $"[ChallengeUiRenderer] Invalid challenge description format for `{def.id}`: " +
                     $"\"{def.Description}\" ({ex.Message})");
                 if(!string.IsNullOrEmpty(def.Description)) {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Game.Player.Core;
 using Network.Steam;
 using UnityEngine;
@@ -49,7 +50,7 @@ namespace Game.UI.Screens.Scoreboard {
             if(_template != null) return true;
             if(_missingTemplateLogged) return false;
             _missingTemplateLogged = true;
-            Debug.LogError(
+            DevLog.LogError(
                 "[ScoreboardManager] Missing `scoreboardRowTemplate` assignment. Assign a scoreboard row VisualTreeAsset in the inspector.",
                 _logContext);
             return false;
@@ -192,7 +193,7 @@ namespace Game.UI.Screens.Scoreboard {
             if(!missing) return true;
             if(_invalidTemplateLogged) return false;
             _invalidTemplateLogged = true;
-            Debug.LogError(
+            DevLog.LogError(
                 "[ScoreboardManager] `scoreboardRowTemplate` is missing required elements. Expected: `ping-label`, `avatar`, `speaking-indicator`, `name-label`, and `stat-0` through `stat-6`.",
                 _logContext);
             return false;
@@ -248,7 +249,7 @@ namespace Game.UI.Screens.Scoreboard {
                 if(texture != null && avatarElement != null)
                     avatarElement.style.backgroundImage = new StyleBackground(texture);
             } catch(Exception ex) {
-                Debug.LogWarning($"[ScoreboardManager] Steam avatar fetch failed for {steamId}: {ex.Message}");
+                DevLog.LogWarning($"[ScoreboardManager] Steam avatar fetch failed for {steamId}: {ex.Message}");
             }
         }
     }

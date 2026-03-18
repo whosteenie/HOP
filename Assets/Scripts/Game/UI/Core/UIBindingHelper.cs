@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
+using Diagnostics;
 using UnityEngine.UIElements;
 
 namespace Game.UI.Core {
@@ -17,7 +17,7 @@ namespace Game.UI.Core {
             var element = root.Q<T>(name);
             if(element != null) return element;
             var ctx = string.IsNullOrEmpty(context) ? "UI" : context;
-            Debug.LogError($"[{ctx}] Required UI element '{name}' (type: {typeof(T).Name}) not found in root '{root.name}'");
+            DevLog.LogError($"[{ctx}] Required UI element '{name}' (type: {typeof(T).Name}) not found in root '{root.name}'");
             return null;
         }
 
@@ -36,7 +36,7 @@ namespace Game.UI.Core {
 
             if(missing.Count <= 0) return missing;
             var ctx = string.IsNullOrEmpty(context) ? "UI" : context;
-            Debug.LogError($"[{ctx}] Missing required UI elements in '{root.name}': {string.Join(", ", missing)}");
+            DevLog.LogError($"[{ctx}] Missing required UI elements in '{root.name}': {string.Join(", ", missing)}");
 
             return missing;
         }

@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Player.Contracts;
 using Unity.Netcode;
 using UnityEngine;
@@ -45,7 +46,7 @@ namespace Game.Player.Input {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[UpperBodyPitch] IPlayerLookContext not found!");
+                DevLog.LogError("[UpperBodyPitch] IPlayerLookContext not found!");
                 enabled = false;
                 return;
             }

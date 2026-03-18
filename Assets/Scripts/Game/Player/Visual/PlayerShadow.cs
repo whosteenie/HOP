@@ -1,3 +1,4 @@
+using Diagnostics;
 using Events;
 using Game.Player.Contracts;
 using Game.Weapon.Manager;
@@ -41,7 +42,7 @@ namespace Game.Player.Visual {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[PlayerShadow] IPlayerVisualContext not found!");
+                DevLog.LogError("[PlayerShadow] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
             }

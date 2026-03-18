@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Diagnostics;
 using UnityEngine;
 
 namespace Game.Player.Visual {
@@ -49,12 +50,12 @@ namespace Game.Player.Visual {
         /// </summary>
         public PlayerMaterialPacket GetPacket(int index) {
             if(_packets == null || _packets.Count == 0) {
-                Debug.LogWarning("[PlayerMaterialPacketManager] Packets not loaded yet. Returning None packet.");
+                DevLog.LogWarning("[PlayerMaterialPacketManager] Packets not loaded yet. Returning None packet.");
                 return _nonePacket != null ? _nonePacket : CreateNonePacket();
             }
 
             if(index >= 0 && index < _packets.Count) return _packets[index];
-            Debug.LogWarning($"[PlayerMaterialPacketManager] Invalid packet index {index}. Returning None packet.");
+            DevLog.LogWarning($"[PlayerMaterialPacketManager] Invalid packet index {index}. Returning None packet.");
             return _nonePacket != null ? _nonePacket : CreateNonePacket();
         }
 

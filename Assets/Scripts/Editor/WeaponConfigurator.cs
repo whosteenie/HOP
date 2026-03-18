@@ -1,6 +1,6 @@
+using Diagnostics;
 using Game.Weapon.Core;
 using UnityEditor;
-using UnityEngine;
 
 namespace Editor {
     public class WeaponConfigurator : EditorWindow {
@@ -9,7 +9,7 @@ namespace Editor {
         public static void ApplyDefaults() {
             var guids = AssetDatabase.FindAssets("t:WeaponData");
             if (guids.Length == 0) {
-                Debug.LogWarning("No WeaponData assets found!");
+                DevLog.LogWarning("No WeaponData assets found!");
                 return;
             }
 
@@ -63,7 +63,7 @@ namespace Editor {
             }
             
             AssetDatabase.SaveAssets();
-            Debug.Log("Applied Hit Registration Defaults to all WeaponData assets.");
+            DevLog.Log("Applied Hit Registration Defaults to all WeaponData assets.");
         }
 
         private static void ConfigureWeapon(WeaponData weapon, float radius, float start, float max, string reason = "") {
@@ -71,7 +71,7 @@ namespace Editor {
             weapon.sphereCastRadius = radius;
             weapon.sphereCastGrowthStartDist = start;
             weapon.sphereCastMaxRadius = max;
-            Debug.Log($"Configured {weapon.name}: {reason}");
+            DevLog.Log($"Configured {weapon.name}: {reason}");
         }
     }
 }

@@ -1,3 +1,4 @@
+using Diagnostics;
 using Events;
 using Game.Weapon.Core;
 using Network.AntiCheat;
@@ -55,7 +56,7 @@ namespace Game.Weapon.Manager {
             if(data == null) return;
             var magCapacity = _root.ResolveWeaponCapacity(data);
             if(magCapacity <= 0) {
-                Debug.LogError(
+                DevLog.LogError(
                     $"[WeaponManager][KIN-Strict] Invalid KIN ammo capacity while draining ammo for '{data.weaponName}'.");
                 return;
             }

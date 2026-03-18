@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Diagnostics;
 using Game.Match;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -93,7 +94,7 @@ namespace Game.UI.Screens.Scoreboard {
         private string ResolveScoreboardTitle(MatchSettingsManager matchSettings) {
             if(matchSettings == null) {
                 if(_missingGamemodeTitleLogged) return "UNKNOWN MODE";
-                Debug.LogError(
+                DevLog.LogError(
                     "[ScoreboardManager] MatchSettingsManager.Instance is null while updating scoreboard title.",
                     _logContext);
                 _missingGamemodeTitleLogged = true;
@@ -103,7 +104,7 @@ namespace Game.UI.Screens.Scoreboard {
             var id = matchSettings.selectedGameModeId;
             if(string.IsNullOrEmpty(id)) {
                 if(_missingGamemodeTitleLogged) return "UNKNOWN MODE";
-                Debug.LogError("[ScoreboardManager] selectedGameModeId is empty while updating scoreboard title.",
+                DevLog.LogError("[ScoreboardManager] selectedGameModeId is empty while updating scoreboard title.",
                     _logContext);
                 _missingGamemodeTitleLogged = true;
                 return "UNKNOWN MODE";

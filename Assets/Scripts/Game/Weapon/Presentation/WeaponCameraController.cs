@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Player.Core;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -37,7 +38,7 @@ namespace Game.Weapon.Presentation {
             }
 
             if(playerController == null) {
-                Debug.LogError("[WeaponCameraController] PlayerController not found!");
+                DevLog.LogError("[WeaponCameraController] PlayerController not found!");
                 enabled = false;
                 return;
             }
@@ -50,7 +51,7 @@ namespace Game.Weapon.Presentation {
 
         private void SetupWeaponCamera() {
             if(_weaponCamera == null) {
-                Debug.LogError("[WeaponCameraController] WeaponCamera reference missing on PlayerController.");
+                DevLog.LogError("[WeaponCameraController] WeaponCamera reference missing on PlayerController.");
                 return;
             }
 
@@ -88,13 +89,13 @@ namespace Game.Weapon.Presentation {
             var mainSceneCamera = ResolveMainSceneCamera();
 
             if(mainSceneCamera == null) {
-                Debug.LogWarning("[WeaponCameraController] Main scene camera not found; weapon overlay stack setup skipped.");
+                DevLog.LogWarning("[WeaponCameraController] Main scene camera not found; weapon overlay stack setup skipped.");
                 return;
             }
 
             var mainCameraData = mainSceneCamera.GetUniversalAdditionalCameraData();
             if(mainCameraData == null) {
-                Debug.LogWarning("[WeaponCameraController] Main scene camera is missing UniversalAdditionalCameraData.");
+                DevLog.LogWarning("[WeaponCameraController] Main scene camera is missing UniversalAdditionalCameraData.");
                 return;
             }
 

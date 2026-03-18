@@ -98,7 +98,7 @@ namespace Game.Match {
             }
 
             if(uiDocument == null) {
-                Debug.LogError("[PostMatchManager] UIDocument is not assigned on PostMatchManager. " +
+                DevLog.LogError("[PostMatchManager] UIDocument is not assigned on PostMatchManager. " +
                                "Assign UIDocument on Game scene object 'PostMatchManager'.");
                 return;
             }
@@ -144,7 +144,7 @@ namespace Game.Match {
 
             if(uiDocument == null) {
                 if(_missingUiReferenceLogged) return false;
-                Debug.LogError("[PostMatchManager] UIDocument is missing; cannot bind post-match UI references.", this);
+                DevLog.LogError("[PostMatchManager] UIDocument is missing; cannot bind post-match UI references.", this);
                 _missingUiReferenceLogged = true;
                 return false;
             }
@@ -152,7 +152,7 @@ namespace Game.Match {
             var currentRoot = uiDocument.rootVisualElement;
             if(currentRoot == null) {
                 if(_missingUiReferenceLogged) return false;
-                Debug.LogError(
+                DevLog.LogError(
                     "[PostMatchManager] UIDocument rootVisualElement is null; cannot bind post-match UI references.",
                     this);
                 _missingUiReferenceLogged = true;
@@ -178,7 +178,7 @@ namespace Game.Match {
 
             if(!hasRequiredPodiumElements || _matchTimerContainer == null) {
                 if(_missingUiReferenceLogged) return false;
-                Debug.LogError(
+                DevLog.LogError(
                     "[PostMatchManager] Required post-match UI elements are missing from GameMenu.uxml. " +
                     "Expected podium slots/labels and match-timer-container.",
                     this);
@@ -261,18 +261,18 @@ namespace Game.Match {
         /// </summary>
         private void BeginPostMatchFromTimer() {
             if(!HasPostMatchAuthority) {
-                Debug.LogWarning("[PostMatchManager] BeginPostMatchFromTimer called without match authority.");
+                DevLog.LogWarning("[PostMatchManager] BeginPostMatchFromTimer called without match authority.");
                 return;
             }
 
             // Prevent post-match from starting during pre-match countdown
             if(MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch) {
-                Debug.LogWarning("[PostMatchManager] Cannot start post-match during pre-match countdown!");
+                DevLog.LogWarning("[PostMatchManager] Cannot start post-match during pre-match countdown!");
                 return;
             }
 
             if(PostMatchFlowStarted) {
-                Debug.LogWarning("[MatchTimerManager] Post match is already started!");
+                DevLog.LogWarning("[MatchTimerManager] Post match is already started!");
                 return;
             }
 
@@ -287,12 +287,12 @@ namespace Game.Match {
         /// </summary>
         public void BeginPostMatchFromScore(SpawnPoint.Team winningTeam) {
             if(!HasPostMatchAuthority) {
-                Debug.LogWarning("[PostMatchManager] BeginPostMatchFromScore called without match authority.");
+                DevLog.LogWarning("[PostMatchManager] BeginPostMatchFromScore called without match authority.");
                 return;
             }
 
             if(PostMatchFlowStarted) {
-                Debug.LogWarning("[PostMatchManager] Post match is already started!");
+                DevLog.LogWarning("[PostMatchManager] Post match is already started!");
                 return;
             }
 

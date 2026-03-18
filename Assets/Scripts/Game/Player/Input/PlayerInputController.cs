@@ -146,7 +146,7 @@ namespace Game.Player.Input {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[PlayerInputController] IPlayerInputContext not found!");
+                DevLog.LogError("[PlayerInputController] IPlayerInputContext not found!");
                 enabled = false;
                 return;
             }
@@ -670,7 +670,7 @@ namespace Game.Player.Input {
             var isMantling = IsMantling;
             if(isMantling) return;
 
-            Debug.Log("Tertiary weapons don't exist yet!");
+            DevLog.Log("Tertiary weapons don't exist yet!");
             //SwitchWeapon(2);
         }
 

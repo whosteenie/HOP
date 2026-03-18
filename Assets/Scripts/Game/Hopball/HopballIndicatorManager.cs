@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Match;
 using Game.Player.Core;
 using UnityEngine;
@@ -135,7 +136,7 @@ namespace Game.Hopball {
         /// </summary>
         private void CreateIndicator() {
             if(indicatorPrefab == null) {
-                Debug.LogWarning("[HopballIndicatorManager] Indicator prefab is not assigned!");
+                DevLog.LogWarning("[HopballIndicatorManager] Indicator prefab is not assigned!");
                 return;
             }
 
@@ -143,7 +144,7 @@ namespace Game.Hopball {
             _currentIndicator = indicatorObj.GetComponent<HopballIndicator>();
 
             if(_currentIndicator == null) {
-                Debug.LogError("[HopballIndicatorManager] Indicator prefab does not have HopballIndicator component!");
+                DevLog.LogError("[HopballIndicatorManager] Indicator prefab does not have HopballIndicator component!");
                 Destroy(indicatorObj);
                 return;
             }

@@ -233,7 +233,7 @@ namespace Network.Session {
             if(_unexpectedDisconnectInFlight || ctx.IsLeaving || ctx.IsShuttingDown) return;
             if(SessionNetworkLifecycle.IsDaStartupInFlight) {
                 if(Debug.isDebugBuild) {
-                    Debug.Log($"[SessionManager] Suppressed unexpected disconnect flow during DA startup ({source}).");
+                    DevLog.Log($"[SessionManager] Suppressed unexpected disconnect flow during DA startup ({source}).");
                 }
                 return;
             }
@@ -246,7 +246,7 @@ namespace Network.Session {
         private async UniTask HandleUnexpectedDisconnect(ISessionContext ctx, ISceneFlowActions actions, string source) {
             var currentScene = actions.GetActiveSceneName();
             if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] HandleUnexpectedDisconnect source={source} scene={currentScene}");
+                DevLog.Log($"[SessionManager] HandleUnexpectedDisconnect source={source} scene={currentScene}");
             }
 
             FlowLog.Emit(FlowEventIds.SessionExit,
@@ -263,7 +263,7 @@ namespace Network.Session {
                     await actions.LeaveToMainMenuAsync(skipFadeOut: true);
                 } else {
                     if(Debug.isDebugBuild) {
-                        Debug.Log("[SessionManager] HandleUnexpectedDisconnect: already in MainMenu, skipping capture");
+                        DevLog.Log("[SessionManager] HandleUnexpectedDisconnect: already in MainMenu, skipping capture");
                     }
                     await actions.LeaveToMainMenuAsync();
                 }
@@ -338,7 +338,7 @@ namespace Network.Session {
 
                 SessionNetworkLifecycle.ApplyLocalConnectionPayload(ctx, true);
                 if(!networkManager.StartHost()) {
-                    if(Debug.isDebugBuild) Debug.LogError("[SessionManager] Failed to start offline host after cleanup.");
+                    if(Debug.isDebugBuild) DevLog.LogError("[SessionManager] Failed to start offline host after cleanup.");
                     ctx.SetFrontStatus(SessionPhase.Error, "Failed to start offline host.");
                     await FadeInWithFallbackAsync(300);
                     return;
@@ -358,16 +358,16 @@ namespace Network.Session {
         /// Call from unexpected-disconnect flow before fade/leave.
         /// </summary>
         public static void CaptureDuplicateFpVisualsForDisconnect(ISessionContext ctx) {
-            if(Debug.isDebugBuild) Debug.Log("[SessionManager] CaptureDuplicateFpVisualsForDisconnect called");
+            if(Debug.isDebugBuild) DevLog.Log("[SessionManager] CaptureDuplicateFpVisualsForDisconnect called");
             if(!ctx.TryGetNetworkManager("CaptureFp", out var networkManager) || networkManager.LocalClient == null) {
-                if(Debug.isDebugBuild) Debug.Log("[SessionManager] CaptureFp: early out nm or LocalClient null");
+                if(Debug.isDebugBuild) DevLog.Log("[SessionManager] CaptureFp: early out nm or LocalClient null");
                 return;
             }
             if(captureDisconnectVisuals == null) return;
             var playerObject = networkManager.LocalClient.PlayerObject;
             if(playerObject == null) {
                 if(Debug.isDebugBuild)
-                    Debug.Log("[SessionManager] CaptureFp: early out playerObject null (despawned?)");
+                    DevLog.Log("[SessionManager] CaptureFp: early out playerObject null (despawned?)");
                 return;
             }
             captureDisconnectVisuals(playerObject.gameObject);
@@ -486,10 +486,10 @@ namespace Network.Session {
             SceneManager.LoadScene("MainMenu");
             var sceneLoaded = await WaitForActiveSceneAsync("MainMenu", 15f, ctx.SessionLifetimeToken);
             if(!sceneLoaded)
-                Debug.LogWarning("[SessionManager] Timed out waiting for MainMenu scene activation during leave flow.");
+                DevLog.LogWarning("[SessionManager] Timed out waiting for MainMenu scene activation during leave flow.");
             var menuReady = await WaitForMainMenuReadyAsync(15f, ctx.SessionLifetimeToken);
             if(!menuReady)
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[SessionManager] Timed out waiting for MainMenuManager initialization during leave flow.");
         }
 
@@ -504,7 +504,7 @@ namespace Network.Session {
             hostMapActions.SetSelectedMap(mapId, sceneName);
             ctx.SetPrivateMatchMapPreset(true);
             if(Debug.isDebugBuild)
-                Debug.Log($"[SessionManager] Private match map set: mapId='{mapId}' scene='{sceneName}'.");
+                DevLog.Log($"[SessionManager] Private match map set: mapId='{mapId}' scene='{sceneName}'.");
         }
 
         /// <summary>
@@ -514,7 +514,7 @@ namespace Network.Session {
             var usedPreset = actions.ConsumePrivateMatchMapPreset();
             if(usedPreset) {
                 if(Debug.isDebugBuild) {
-                    Debug.Log(
+                    DevLog.Log(
                         $"[SessionManager] Using preset private match map ({context}) mapId='{ctx.SelectedMapId}' scene='{ctx.SelectedMapSceneName}'.");
                 }
             } else if(selectRandomSceneForMode != null) {
@@ -530,7 +530,7 @@ namespace Network.Session {
                 actions.SetSelectedMap(defaultMapId, defaultScene);
             }
             if(Debug.isDebugBuild && !usedPreset) {
-                Debug.Log(
+                DevLog.Log(
                     $"[SessionManager] Map selected ({context}) mode='{ctx.SelectedGameMode}' mapId='{ctx.SelectedMapId}' scene='{ctx.SelectedMapSceneName}'.");
             }
             actions.SetSteamLobbyMapIfOwner(ctx.SelectedMapId ?? string.Empty, ctx.SelectedMapSceneName ?? string.Empty);
@@ -544,7 +544,7 @@ namespace Network.Session {
                 return false;
             SelectMapForHost(ctx, actions, contextLabel);
             if(string.IsNullOrWhiteSpace(ctx.SelectedMapSceneName)) {
-                Debug.LogError(
+                DevLog.LogError(
                     $"[SessionManager] Cannot load gameplay scene: SelectedMapSceneName is empty after map selection (context='{contextLabel}', mode='{ctx.SelectedGameMode ?? "<null>"}').");
                 return false;
             }
@@ -580,7 +580,7 @@ namespace Network.Session {
                     ctx.ApplyRuntimeMode(mode, $"SceneLoaded/{source}", refreshUi: false);
                     FlowLog.Emit(FlowEventIds.SceneLoaded, ("mode", mode), ("source", source));
                 } else {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         "[SessionManager] Game scene loaded without an authoritative mode. Keeping current mode.");
                     FlowLog.Emit(FlowEventIds.SceneLoaded,
                         ("mode", ctx.SelectedGameMode),
@@ -608,7 +608,7 @@ namespace Network.Session {
                 if(hasSceneTransition) {
                     var ready = await WaitForGameplayReadyAsync(ctx, sceneActions, 20f);
                     if(!ready) {
-                        Debug.LogWarning(
+                        DevLog.LogWarning(
                             "[SessionManager] Gameplay readiness timed out before fade-in. Revealing scene to avoid indefinite black screen.");
                     }
 

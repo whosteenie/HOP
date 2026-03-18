@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Diagnostics;
 using Game.Weapon.Core;
 using UnityEngine;
 
@@ -58,7 +59,7 @@ namespace Game.Weapon.Manager {
 
         public void InitializeWeapons() {
             if(_root.CurrentWeaponInternal == null) {
-                Debug.LogError("[WeaponManager] Weapon component not assigned!");
+                DevLog.LogError("[WeaponManager] Weapon component not assigned!");
                 return;
             }
 
@@ -77,7 +78,7 @@ namespace Game.Weapon.Manager {
             DisableUnequippedWorldWeapons();
 
             if(_root.WeaponDataListRef == null || _root.WeaponDataListRef.Count == 0) {
-                Debug.LogError("[WeaponManager] weaponDataList is empty!");
+                DevLog.LogError("[WeaponManager] weaponDataList is empty!");
                 return;
             }
 
@@ -85,14 +86,14 @@ namespace Game.Weapon.Manager {
             _root.InstantiateFpWeaponInstancesInternal();
 
             if(_root.FpWeaponInstancesRef.Count != _root.WeaponDataListRef.Count) {
-                Debug.LogError(
+                DevLog.LogError(
                     $"[WeaponManager][KIN-Strict] FP instance count mismatch. expected={_root.WeaponDataListRef.Count} actual={_root.FpWeaponInstancesRef.Count}");
             }
 
             if(_root.FpWeaponInstancesRef.Count > 0) {
                 _root.EquipInitialWeaponInternal(ResolveInitialEquippedWeaponIndex());
             } else {
-                Debug.LogError("[WeaponManager] No weapons instantiated!");
+                DevLog.LogError("[WeaponManager] No weapons instantiated!");
             }
 
             UpdateHolsterVisibility();
@@ -197,7 +198,7 @@ namespace Game.Weapon.Manager {
             _root.WeaponDataListRef.Clear();
 
             if(_root.PlayerControllerRef == null) {
-                Debug.LogError("[WeaponManager] Missing PlayerController while building equipped weapon list.");
+                DevLog.LogError("[WeaponManager] Missing PlayerController while building equipped weapon list.");
                 return;
             }
 
@@ -251,7 +252,7 @@ namespace Game.Weapon.Manager {
             DisableUnequippedWorldWeapons();
 
             if(_root.WeaponDataListRef == null || _root.WeaponDataListRef.Count == 0) {
-                Debug.LogError("[WeaponManager] weaponDataList is empty after rebuild!");
+                DevLog.LogError("[WeaponManager] weaponDataList is empty after rebuild!");
                 return;
             }
 
@@ -260,7 +261,7 @@ namespace Game.Weapon.Manager {
             _root.InstantiateFpWeaponInstancesInternal();
 
             if(_root.FpWeaponInstancesRef.Count == 0) {
-                Debug.LogError("[WeaponManager] No FP weapons available after rebuild!");
+                DevLog.LogError("[WeaponManager] No FP weapons available after rebuild!");
                 return;
             }
 
@@ -324,11 +325,11 @@ namespace Game.Weapon.Manager {
             DisableUnequippedHolsterModels();
 
             if(_root.PrimaryHolsterInternal == null) {
-                Debug.LogError("[WeaponManager] Missing Primary holster world weapon binding.");
+                DevLog.LogError("[WeaponManager] Missing Primary holster world weapon binding.");
             }
 
             if(_root.SecondaryHolsterInternal == null) {
-                Debug.LogError("[WeaponManager] Missing Secondary holster world weapon binding.");
+                DevLog.LogError("[WeaponManager] Missing Secondary holster world weapon binding.");
             }
 
             DisableHolster(_root.PrimaryHolsterInternal);
@@ -474,17 +475,17 @@ namespace Game.Weapon.Manager {
 
         private bool ValidateStrictEquippedConfig() {
             if(_root.KinemationFpsPlayerPrefabRef == null) {
-                Debug.LogError("[WeaponManager] Missing KINEMATION FPS player prefab.");
+                DevLog.LogError("[WeaponManager] Missing KINEMATION FPS player prefab.");
                 return false;
             }
 
             if(_root.WeaponCameraRef == null) {
-                Debug.LogError("[WeaponManager] Missing WeaponCamera. Strict mode requires WeaponCamera for FP viewmodels.");
+                DevLog.LogError("[WeaponManager] Missing WeaponCamera. Strict mode requires WeaponCamera for FP viewmodels.");
                 return false;
             }
 
             if(_root.WorldWeaponSocketRef == null) {
-                Debug.LogError("[WeaponManager] Missing WorldWeaponSocket. Strict mode requires explicit WorldWeaponBinding objects.");
+                DevLog.LogError("[WeaponManager] Missing WorldWeaponSocket. Strict mode requires explicit WorldWeaponBinding objects.");
                 return false;
             }
 
@@ -495,50 +496,50 @@ namespace Game.Weapon.Manager {
             var isValid = true;
             foreach(var data in _root.WeaponDataListRef) {
                 if(data == null) {
-                    Debug.LogError("[WeaponManager] Equipped weapon data is null.");
+                    DevLog.LogError("[WeaponManager] Equipped weapon data is null.");
                     isValid = false;
                     continue;
                 }
 
                 if(ResolveWeaponSlot(data) < 0) {
-                    Debug.LogError($"[WeaponManager] Weapon '{data.weaponName}' has invalid slot assignment.");
+                    DevLog.LogError($"[WeaponManager] Weapon '{data.weaponName}' has invalid slot assignment.");
                     isValid = false;
                 }
 
                 if(!_root.TryGetKinemationBinding(data, out var binding) || binding == null ||
                    binding.kinemationWeaponPrefab == null) {
-                    Debug.LogError($"[WeaponManager] Weapon '{data.weaponName}' is missing a KINEMATION binding/prefab.");
+                    DevLog.LogError($"[WeaponManager] Weapon '{data.weaponName}' is missing a KINEMATION binding/prefab.");
                     isValid = false;
                     continue;
                 }
 
                 if(WeaponManager.ResolveKinemationCapacity(binding.kinemationWeaponPrefab) <= 0) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[WeaponManager] Weapon '{data.weaponName}' has invalid KINEMATION ammo capacity. " +
                         "Set FPSWeaponSettings.ammo > 0.");
                     isValid = false;
                 }
 
                 if(_root.ResolveWorldWeaponObject(data) == null) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[WeaponManager] Weapon '{data.weaponName}' missing WorldWeaponBinding under WorldWeaponSocket.");
                     isValid = false;
                 } else {
                     var worldWeapon = _root.ResolveWorldWeaponObject(data);
                     var worldBinding = worldWeapon != null ? worldWeapon.GetComponent<WorldWeaponBinding>() : null;
                     if(worldBinding == null) {
-                        Debug.LogError(
+                        DevLog.LogError(
                             $"[WeaponManager] Weapon '{data.weaponName}' world weapon '{worldWeapon.name}' is missing WorldWeaponBinding component.");
                         isValid = false;
                     } else if(!worldBinding.TryGetRuntimeReferences(out _, out _)) {
-                        Debug.LogError(
+                        DevLog.LogError(
                             $"[WeaponManager] Weapon '{data.weaponName}' world weapon '{worldWeapon.name}' is missing assigned muzzle reference.");
                         isValid = false;
                     }
                 }
 
                 if(_root.ResolveHolsterWeaponObject(data) != null) continue;
-                Debug.LogError(
+                DevLog.LogError(
                     $"[WeaponManager] Weapon '{data.weaponName}' missing holster WorldWeaponBinding outside WorldWeaponSocket.");
                 isValid = false;
             }
@@ -548,31 +549,31 @@ namespace Game.Weapon.Manager {
 
         private static bool IsValidSelectionIndex(IReadOnlyList<WeaponData> options, int requestedIndex, string slotLabel) {
             if(options == null || options.Count == 0) {
-                Debug.LogError($"[WeaponManager] Cannot apply {slotLabel} selection. No options configured.");
+                DevLog.LogError($"[WeaponManager] Cannot apply {slotLabel} selection. No options configured.");
                 return false;
             }
 
             if(requestedIndex >= 0 && requestedIndex < options.Count) return true;
 
-            Debug.LogError(
+            DevLog.LogError(
                 $"[WeaponManager] Rejecting {slotLabel} selection index {requestedIndex}. Valid range is [0..{options.Count - 1}].");
             return false;
         }
 
         private static WeaponData GetWeaponFromOptions(IReadOnlyList<WeaponData> options, int storedIndex, string slotLabel) {
             if(options == null || options.Count == 0) {
-                Debug.LogError($"[WeaponManager] No {slotLabel} weapon options assigned.");
+                DevLog.LogError($"[WeaponManager] No {slotLabel} weapon options assigned.");
                 return null;
             }
 
             if(storedIndex < 0 || storedIndex >= options.Count) {
-                Debug.LogError($"[WeaponManager] {slotLabel} weapon index {storedIndex} out of range [0..{options.Count - 1}].");
+                DevLog.LogError($"[WeaponManager] {slotLabel} weapon index {storedIndex} out of range [0..{options.Count - 1}].");
                 return null;
             }
 
             var weaponData = options[storedIndex];
             if(weaponData == null) {
-                Debug.LogError($"[WeaponManager] {slotLabel} weapon at index {storedIndex} is null.");
+                DevLog.LogError($"[WeaponManager] {slotLabel} weapon at index {storedIndex} is null.");
             }
 
             return weaponData;

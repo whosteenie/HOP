@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Player.Combat;
 using Game.Player.Visual;
 using Game.Weapon.Core;
@@ -114,17 +115,17 @@ namespace Game.Weapon.Manager {
             for(var i = 0; i < _root.WeaponDataListRef.Count; i++) {
                 var data = _root.WeaponDataListRef[i];
                 if(data == null) {
-                    Debug.LogError($"[WeaponManager] Invalid weapon data at index {i}");
+                    DevLog.LogError($"[WeaponManager] Invalid weapon data at index {i}");
                     continue;
                 }
 
                 if(!_root.TryGetKinemationBinding(data, out var kinemationBinding)) {
-                    Debug.LogError($"[WeaponManager] Weapon '{data.weaponName}' is missing a KINEMATION binding.");
+                    DevLog.LogError($"[WeaponManager] Weapon '{data.weaponName}' is missing a KINEMATION binding.");
                     continue;
                 }
 
                 if(_root.WeaponCameraRef == null) {
-                    Debug.LogError("[WeaponManager] Missing WeaponCamera. Cannot spawn KINEMATION viewmodel.");
+                    DevLog.LogError("[WeaponManager] Missing WeaponCamera. Cannot spawn KINEMATION viewmodel.");
                     continue;
                 }
 
@@ -177,7 +178,7 @@ namespace Game.Weapon.Manager {
                 _root.FpWeaponInstancesRef.Add(kinemationHolder);
                 var capacity = _root.ResolveWeaponCapacity(data);
                 if(capacity <= 0) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[WeaponManager][KIN-Strict] Invalid KIN ammo capacity while instantiating '{data.weaponName}'.");
                     return;
                 }

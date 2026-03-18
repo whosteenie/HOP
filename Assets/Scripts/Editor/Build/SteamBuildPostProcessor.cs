@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.RegularExpressions;
+using Diagnostics;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEngine;
@@ -38,15 +39,15 @@ namespace Editor.Build {
             const uint defaultTestingAppId = 480;
             if(!TryReadAppIdFromInitScene(out var appId)) {
                 appId = defaultTestingAppId;
-                Debug.LogWarning($"[SteamBuild] Could not read Steam AppID from Init scene. Writing {appId} (Spacewar) to steam_appid.txt.");
+                DevLog.LogWarning($"[SteamBuild] Could not read Steam AppID from Init scene. Writing {appId} (Spacewar) to steam_appid.txt.");
             }
 
             var appIdPath = Path.Combine(buildDir, "steam_appid.txt");
             try {
                 File.WriteAllText(appIdPath, appId.ToString());
-                Debug.Log($"[SteamBuild] Development build: wrote steam_appid.txt ({appId}) to {appIdPath}");
+                DevLog.Log($"[SteamBuild] Development build: wrote steam_appid.txt ({appId}) to {appIdPath}");
             } catch(System.Exception e) {
-                Debug.LogError($"[SteamBuild] Failed to write steam_appid.txt: {e.Message}");
+                DevLog.LogError($"[SteamBuild] Failed to write steam_appid.txt: {e.Message}");
             }
         }
 
@@ -82,7 +83,7 @@ namespace Editor.Build {
             if(target == BuildTarget.StandaloneWindows64) {
                 var src = ResolveSteamDllPath(projectRoot, "steam_api64.dll");
                 if(string.IsNullOrEmpty(src)) {
-                    Debug.LogError("[SteamBuild] steam_api64.dll not found in project. " +
+                    DevLog.LogError("[SteamBuild] steam_api64.dll not found in project. " +
                                    "Ensure Facepunch Steamworks redistributables are present.");
                     return;
                 }
@@ -94,7 +95,7 @@ namespace Editor.Build {
             // StandaloneWindows (32-bit)
             var src32 = ResolveSteamDllPath(projectRoot, "steam_api.dll");
             if(string.IsNullOrEmpty(src32)) {
-                Debug.LogError("[SteamBuild] steam_api.dll not found in project. " +
+                DevLog.LogError("[SteamBuild] steam_api.dll not found in project. " +
                                "Ensure Facepunch Steamworks redistributables are present.");
                 return;
             }
@@ -134,9 +135,9 @@ namespace Editor.Build {
                 // Copy next to the .exe (most reliable for overlay/injection)
                 var dstRoot = Path.Combine(buildDir, dllName);
                 File.Copy(srcDllPath, dstRoot, overwrite: true);
-                Debug.Log($"[SteamBuild] Copied {dllName} to build root: {dstRoot}");
+                DevLog.Log($"[SteamBuild] Copied {dllName} to build root: {dstRoot}");
             } catch(System.Exception e) {
-                Debug.LogError($"[SteamBuild] Failed to copy Steam DLL to build root: {e.Message}");
+                DevLog.LogError($"[SteamBuild] Failed to copy Steam DLL to build root: {e.Message}");
             }
 
             try {
@@ -145,9 +146,9 @@ namespace Editor.Build {
                 Directory.CreateDirectory(pluginsDir);
                 var dstPlugins = Path.Combine(pluginsDir, dllName);
                 File.Copy(srcDllPath, dstPlugins, overwrite: true);
-                Debug.Log($"[SteamBuild] Copied {dllName} to data plugins: {dstPlugins}");
+                DevLog.Log($"[SteamBuild] Copied {dllName} to data plugins: {dstPlugins}");
             } catch(System.Exception e) {
-                Debug.LogError($"[SteamBuild] Failed to copy Steam DLL to data plugins: {e.Message}");
+                DevLog.LogError($"[SteamBuild] Failed to copy Steam DLL to data plugins: {e.Message}");
             }
         }
 

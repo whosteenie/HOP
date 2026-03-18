@@ -4,6 +4,7 @@ using Steamworks;
 using UnityEngine;
 using UnityUtils;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 
 namespace Network.Steam {
     /// <summary>
@@ -40,12 +41,12 @@ namespace Network.Steam {
                 // Initialize Steam Client
                 SteamClient.Init(appId);
                 IsInitialized = true;
-                Debug.Log($"[SteamManager] Initialized Steamworks (AppID: {appId}). Logged in as: {LocalPlayerName} ({LocalSteamId})");
+                DevLog.Log($"[SteamManager] Initialized Steamworks (AppID: {appId}). Logged in as: {LocalPlayerName} ({LocalSteamId})");
                 
             }
             catch (Exception e) {
                 IsInitialized = false;
-                Debug.LogWarning($"[SteamManager] Steam is unavailable/offline. Online features disabled. ({e.Message})");
+                DevLog.LogWarning($"[SteamManager] Steam is unavailable/offline. Online features disabled. ({e.Message})");
             }
         }
 
@@ -61,7 +62,7 @@ namespace Network.Steam {
             if(!IsInitialized) return;
             SteamClient.Shutdown();
             IsInitialized = false;
-            Debug.Log("[SteamManager] Steamworks shutdown.");
+            DevLog.Log("[SteamManager] Steamworks shutdown.");
         }
 
         private void OnDestroy() {
@@ -152,7 +153,7 @@ namespace Network.Steam {
                 return texture;
             } catch(Exception e) {
                 MarkAvatarFetchFailure(steamId);
-                Debug.LogWarning($"[SteamManager] Failed to fetch avatar for {id}: {e.Message}");
+                DevLog.LogWarning($"[SteamManager] Failed to fetch avatar for {id}: {e.Message}");
                 return null;
             }
         }
