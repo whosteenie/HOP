@@ -209,14 +209,5 @@ namespace Game.Weapon.Presentation {
         }
 
         public void SetAdsMultiplier(float m) => adsMultiplier = Mathf.Clamp01(m);
-
-        public void RecalibrateRestPose() {
-            var swayTransform = transform;
-            _baseLocalPos = swayTransform.localPosition;
-            _baseLocalRot = swayTransform.localRotation;
-            _curPos = _velPos = Vector3.zero;
-            _curRotEuler = _velRot = Vector3.zero;
-            _smoothedDelta = Vector2.zero;
-        }
     }
 }

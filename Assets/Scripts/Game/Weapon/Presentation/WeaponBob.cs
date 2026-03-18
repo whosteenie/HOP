@@ -412,11 +412,6 @@ namespace Game.Weapon.Presentation {
             _landingBobTimer = 0f;
         }
 
-        public void TriggerLandingBob() {
-            if(!CanStartLandingBob(ignoreJumpHeld: true)) return;
-            StartLandingBob();
-        }
-
         public void ConfigureFeatures(bool movementBob, bool idleBreath, bool jumpFallOffset, bool landingBob) {
             enableMovementBob = movementBob;
             enableIdleBreath = idleBreath;
@@ -431,17 +426,6 @@ namespace Game.Weapon.Presentation {
             if(!enableLandingBob) {
                 _landingBobTimer = 0f;
             }
-        }
-
-        public void RecalibrateRestPose() {
-            var bobTransform = transform;
-            _baseLocalPos = bobTransform.localPosition;
-            _baseLocalRot = bobTransform.localRotation;
-            _bobTimer = 0f;
-            _currentBobIntensity = 0f;
-            _smoothedLocalVelocity = Vector3.zero;
-            _idleBreathTimer = 0f;
-            _idleBreathIntensity = 0f;
         }
 
         private bool CanStartLandingBob(bool ignoreJumpHeld) {

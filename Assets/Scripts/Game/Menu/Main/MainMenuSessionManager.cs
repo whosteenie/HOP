@@ -737,14 +737,6 @@ namespace Game.Menu.Main {
             return mode;
         }
 
-        public void ResetLobbyUI() {
-            if(_partyMembersList != null) _partyMembersList.Clear();
-            if(_localProfileContainer != null) _localProfileContainer.Clear();
-            _hasDrawnSolo = false;
-
-            IsHost = false;
-        }
-
         /// <summary>
         /// Starts a private match with the given draft settings and optional team assignments.
         /// Applies gamemode, map, timer, score-to-win, tagged players, and draft teams before starting.

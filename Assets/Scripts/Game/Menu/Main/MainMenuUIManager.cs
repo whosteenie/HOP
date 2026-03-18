@@ -81,7 +81,6 @@ namespace Game.Menu.Main {
         private Button _quitConfirmationNo;
 
         // Lobby leave modal
-        private VisualElement _lobbyLeaveModal;
         private Button _lobbyLeaveYes;
         private Button _lobbyLeaveNo;
 
@@ -229,7 +228,7 @@ namespace Game.Menu.Main {
             _quitConfirmationNo = QOptional<Button>("quit-confirmation-no");
 
             // Lobby leave modal
-            _lobbyLeaveModal = QOptional<VisualElement>("lobby-leave-modal");
+            QOptional<VisualElement>("lobby-leave-modal");
             _lobbyLeaveYes = QOptional<Button>("lobby-leave-yes");
             _lobbyLeaveNo = QOptional<Button>("lobby-leave-no");
 
@@ -566,16 +565,6 @@ namespace Game.Menu.Main {
             UISound.PlayButtonClick(isBack: true);
             if(_quitConfirmationModal != null) {
                 _modalHost.ShowExistingModal(_quitConfirmationModal, "quit-confirmation");
-            }
-        }
-
-        /// <summary>
-        /// Shows the confirmation modal for leaving a lobby.
-        /// </summary>
-        public void ShowLobbyLeaveConfirmation() {
-            UISound.PlayButtonClick(isBack: true);
-            if(_lobbyLeaveModal != null) {
-                _modalHost.ShowExistingModal(_lobbyLeaveModal, "lobby-leave");
             }
         }
 

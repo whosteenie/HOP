@@ -612,8 +612,6 @@ namespace Game.Hopball {
             RequestDropAuthorityServerRpc(hopballRef, dropPosition, dropRotation, playerVelocity, dropReason);
         }
 
-        public IEnumerable<Collider> RegisteredPlayerColliders => _registeredPlayerColliders.Values;
-
         public void RegisterPlayerController(ulong ownerClientId, Collider playerCollider) {
             if(playerCollider == null) return;
             _registeredPlayerColliders[ownerClientId] = playerCollider;

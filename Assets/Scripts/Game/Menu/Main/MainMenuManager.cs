@@ -474,20 +474,6 @@ namespace Game.Menu.Main {
             else if(panel == _privateMatchSetupPanel) DiscordManager.Instance.SetStatus("In Main Menu", "Configuring Private Match");
             else if(panel == _loadoutPanel) DiscordManager.Instance.SetStatus("In Main Menu", "Editing Loadout");
         }
-
-
-        public void ShowCharacterCustomization() {
-            if(characterCustomizationManager != null) {
-                characterCustomizationManager.OnButtonClickedCallback = OnButtonClicked;
-                characterCustomizationManager.MouseEnterCallback = MouseEnter;
-                characterCustomizationManager.OnBackFromCustomizationCallback =
-                    () => TransitionToState(MainMenuPanelState.Loadout);
-            }
-            TransitionToState(MainMenuPanelState.Loadout);
-            if(characterCustomizationManager != null) characterCustomizationManager.ShowCustomization();
-        }
-
-
         #endregion
 
         #region Settings

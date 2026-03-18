@@ -29,7 +29,6 @@ namespace Game.Player.Input {
         private InputAction _attackAction;
         private InputAction _jumpAction;
         private InputAction _voiceAction;
-        private InputAction _grappleAction;
 
         private CinemachineCamera _fpCamera;
         private AudioListener _audioListener;
@@ -122,19 +121,6 @@ namespace Game.Player.Input {
                 }
 
                 return IsScrollBindingTriggered(_jumpScrollUpBound, _jumpScrollDownBound, scrollY);
-            }
-        }
-
-        /// <summary>
-        /// Gets whether the grapple action is currently being held (for bot recording).
-        /// </summary>
-        public bool IsGrappleHeld {
-            get {
-                if(_grappleAction == null) {
-                    RefreshCachedInputActions();
-                }
-
-                return _grappleAction != null && _grappleAction.IsPressed();
             }
         }
 
@@ -444,41 +430,6 @@ namespace Game.Player.Input {
 
         #endregion
 
-        #region Bot Control Interface
-
-        /// <summary>
-        /// Sets movement input externally (for bots). Bypasses Unity Input System.
-        /// </summary>
-        public void SetMovementInput(Vector2 move) {
-            if(!IsOwner) return; // Only owner can set input (prevents network interference)
-            _playerContext?.SetMoveInput(move);
-        }
-
-        /// <summary>
-        /// Reapplies current held movement action state directly from the input action map.
-        /// Used after control restore where no new OnMove callback may fire if the key was already held.
-        /// </summary>
-        public Vector2 ResampleHeldMovementInput(string reason = "Unknown") {
-            if(!IsOwner || _playerContext == null) return Vector2.zero;
-            if(_moveAction == null) {
-                RefreshCachedInputActions();
-            }
-
-            if(_moveAction == null) return Vector2.zero;
-
-            var move = _moveAction.ReadValue<Vector2>();
-            _playerContext.SetMoveInput(move);
-
-            FlowLog.Emit(FlowEventIds.PlayerControlState,
-                ("player", OwnerClientId),
-                ("enabled", true),
-                ("reason", reason),
-                ("sampledMove", move));
-            return move;
-        }
-
-        #endregion
-
         #region Movement
 
         [UsedImplicitly]
@@ -507,6 +458,37 @@ namespace Game.Player.Input {
             // It will be ignored during movement processing instead
             _playerContext?.SetMoveInput(value.Get<Vector2>());
         }
+
+        #endregion
+
+        #region Input Recovery
+
+        /// <summary>
+        /// Reapplies current held movement action state directly from the input action map.
+        /// Used after control restore where no new OnMove callback may fire if the key was already held.
+        /// </summary>
+        public Vector2 ResampleHeldMovementInput(string reason = "Unknown") {
+            if(!IsOwner || _playerContext == null) return Vector2.zero;
+            if(_moveAction == null) {
+                RefreshCachedInputActions();
+            }
+
+            if(_moveAction == null) return Vector2.zero;
+
+            var move = _moveAction.ReadValue<Vector2>();
+            _playerContext.SetMoveInput(move);
+
+            FlowLog.Emit(FlowEventIds.PlayerControlState,
+                ("player", OwnerClientId),
+                ("enabled", true),
+                ("reason", reason),
+                ("sampledMove", move));
+            return move;
+        }
+
+        #endregion
+
+        #region Sprint / Crouch
 
         [UsedImplicitly]
         private void OnSprint(InputValue value) {
@@ -736,7 +718,6 @@ namespace Game.Player.Input {
                 _attackAction = null;
                 _jumpAction = null;
                 _voiceAction = null;
-                _grappleAction = null;
                 return;
             }
 
@@ -745,7 +726,7 @@ namespace Game.Player.Input {
             _attackAction = _playerActionMap?.FindAction("Attack");
             _jumpAction = _playerActionMap?.FindAction("Jump");
             _voiceAction = _playerActionMap?.FindAction("Voice");
-            _grappleAction = _playerActionMap?.FindAction("Grapple");
+            _playerActionMap?.FindAction("Grapple");
         }
 
         private void OnBindingsApplied(BindingsAppliedEvent _) {
