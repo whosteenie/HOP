@@ -12,6 +12,7 @@ namespace Game.Player.Contracts {
         bool IsPostMatchFlowStarted { get; }
         bool IsWallRunning { get; }
         bool IsRightWallRunning { get; }
+        bool IsTagged { get; }
         ulong NetworkObjectId { get; }
         NetworkObject NetworkObject { get; }
         Transform PlayerTransform { get; }

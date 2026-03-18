@@ -232,6 +232,19 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when a player's FP weapon visuals should refresh after weapon-side setup.
+    /// </summary>
+    public class PlayerFpWeaponVisualRefreshRequestedEvent : GameEvent {
+        public readonly ulong PlayerNetworkObjectId;
+        public readonly GameObject FpWeaponInstance;
+
+        public PlayerFpWeaponVisualRefreshRequestedEvent(ulong playerNetworkObjectId, GameObject fpWeaponInstance) {
+            PlayerNetworkObjectId = playerNetworkObjectId;
+            FpWeaponInstance = fpWeaponInstance;
+        }
+    }
+
+    /// <summary>
     /// Event published when a player enters or exits a hill zone so match logic can track occupancy
     /// without depending on player controllers.
     /// </summary>

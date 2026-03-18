@@ -1335,6 +1335,7 @@ namespace Game.Player.Core {
         bool IPlayerLookContext.IsRagdoll => playerRagdoll != null && playerRagdoll.IsRagdoll;
         void IPlayerLookContext.UpdateTurnAnimationFromLook(float yawDelta) => UpdateTurnAnimationFromLook(yawDelta);
         bool IPlayerVisualContext.IsPostMatchFlowStarted => PlayerMatchRules.IsPostMatchFlowStarted;
+        bool IPlayerVisualContext.IsTagged => tagController != null && tagController.IsTagged.Value;
 
         Color IPlayerVisualContext.TaggedGlowColor =>
             playerTeamManager != null ? playerTeamManager.TaggedGlow : Color.white;

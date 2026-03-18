@@ -442,6 +442,11 @@ namespace Game.Weapon.Manager {
             EventBus.Publish(new PlayerHolsterShadowRefreshRequestedEvent(playerController.NetworkObjectId));
         }
 
+        internal void RequestOwnerFpWeaponVisualRefreshInternal(GameObject fpWeaponInstance) {
+            if(!IsOwner || playerController == null || playerController.NetworkObject == null || fpWeaponInstance == null) return;
+            EventBus.Publish(new PlayerFpWeaponVisualRefreshRequestedEvent(playerController.NetworkObjectId, fpWeaponInstance));
+        }
+
         internal MatchPlayerStateProxy ResolvePlayerState() {
             if(_cachedPlayerState != null) {
                 return _cachedPlayerState;

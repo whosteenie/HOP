@@ -1,5 +1,6 @@
 using System.Collections;
 using Diagnostics;
+using Events;
 using Game.Player.Contracts;
 using Game.Weapon.Manager;
 using Unity.Netcode;
@@ -32,6 +33,16 @@ namespace Game.Player.Visual {
 
         private void Awake() {
             ValidateComponents();
+        }
+
+        public override void OnNetworkSpawn() {
+            base.OnNetworkSpawn();
+            EventBus.Subscribe<PlayerFpWeaponVisualRefreshRequestedEvent>(OnPlayerFpWeaponVisualRefreshRequested);
+        }
+
+        public override void OnNetworkDespawn() {
+            EventBus.Unsubscribe<PlayerFpWeaponVisualRefreshRequestedEvent>(OnPlayerFpWeaponVisualRefreshRequested);
+            base.OnNetworkDespawn();
         }
 
         private void ValidateComponents() {
@@ -79,11 +90,20 @@ namespace Game.Player.Visual {
             }
         }
 
+        private void OnPlayerFpWeaponVisualRefreshRequested(PlayerFpWeaponVisualRefreshRequestedEvent evt) {
+            if(evt == null || _playerContext?.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != _playerContext.NetworkObjectId) return;
+            if(evt.FpWeaponInstance == null) return;
+
+            ApplyMaterialToFpArms(evt.FpWeaponInstance);
+            UpdateFpArmTagGlow(_playerContext.IsTagged, evt.FpWeaponInstance);
+        }
+
         /// <summary>
         /// Applies the current generated player material (Index 1) to the FP weapon arms.
         /// Index 0 is reserved for Outline.
         /// </summary>
-        public void ApplyMaterialToFpArms(GameObject fpWeaponInstance) {
+        private void ApplyMaterialToFpArms(GameObject fpWeaponInstance) {
             if(fpWeaponInstance == null || _cachedMaterialsArray == null || _cachedMaterialsArray.Length < 2) return;
             
             var generatedMaterial = _cachedMaterialsArray[1];

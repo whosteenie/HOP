@@ -161,15 +161,7 @@ namespace Game.Weapon.Manager {
                 skinnedRenderer.shadowCastingMode = ShadowCastingMode.Off;
             }
 
-            if(!_root.IsOwner) return;
-            ApplyPlayerMaterialToFpWeapon(fpWeaponInstance);
-
-            var tagController = _root.PlayerControllerRef != null ? _root.PlayerControllerRef.TagController : null;
-            if(tagController == null || !tagController.IsTagged.Value) return;
-            var visualController = _root.PlayerControllerRef != null ? _root.PlayerControllerRef.VisualController : null;
-            if(visualController != null) {
-                visualController.UpdateFpArmTagGlow(true, fpWeaponInstance);
-            }
+            _root.RequestOwnerFpWeaponVisualRefreshInternal(fpWeaponInstance);
         }
 
         private void ResolveKinemationViewmodelPose(KinemationWeaponBinding binding, out Vector3 localPosition,
@@ -183,15 +175,6 @@ namespace Game.Weapon.Manager {
             localPosition = _root.KinemationViewmodelLocalPosition;
             localEulerAngles = _root.KinemationViewmodelLocalEulerAngles;
         }
-        private void ApplyPlayerMaterialToFpWeapon(GameObject fpWeaponInstance) {
-            if(fpWeaponInstance == null || _root.PlayerControllerRef == null) return;
-
-            var visualController = _root.PlayerControllerRef.VisualController;
-            if(visualController != null) {
-                visualController.ApplyMaterialToFpArms(fpWeaponInstance);
-            }
-        }
-
         private GameObject ResolveFpHolderRoot(GameObject fpWeapon) {
             if(fpWeapon == null) return null;
 
