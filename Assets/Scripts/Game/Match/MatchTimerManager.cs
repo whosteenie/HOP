@@ -17,11 +17,13 @@ namespace Game.Match {
 
         private readonly NetworkVariable<int> _timeRemainingSeconds = new(value: 0);
         private readonly NetworkVariable<int> _preMatchCountdownSeconds = new(value: 0);
+        private readonly NetworkVariable<double> _preMatchCountdownEndServerTimeSeconds = new(value: 0d);
+        private readonly NetworkVariable<double> _activeMatchEndServerTimeSeconds = new(value: 0d);
         private readonly NetworkVariable<bool> _isWaitingForPlayers = new(value: false);
         private readonly NetworkVariable<bool> _isPreMatch = new(value: true);
 
-        public int TimeRemainingSeconds => _timeRemainingSeconds.Value;
-        public int PreMatchCountdownSeconds => _preMatchCountdownSeconds.Value;
+        public int TimeRemainingSeconds => GetComputedActiveTimeRemainingSeconds();
+        public int PreMatchCountdownSeconds => GetComputedPreMatchCountdownSeconds();
         public bool IsWaitingForPlayers => _isWaitingForPlayers.Value;
         public bool IsPreMatch => _isPreMatch.Value;
 
@@ -32,8 +34,11 @@ namespace Game.Match {
         private readonly HashSet<ulong> _spawnedPlayerClientIds = new();
         private readonly HashSet<ulong> _taggedPlayerClientIds = new();
         private bool _sessionOwnerCallbacksRegistered;
+        private int _lastPublishedMatchSeconds = int.MinValue;
+        private int _lastPublishedPreMatchSeconds = int.MinValue;
 
         private bool HasMatchAuthority => NetworkAuthority.HasGlobalAuthority(this);
+        private double CurrentServerTimeSeconds => NetworkManager != null ? NetworkManager.ServerTime.Time : Time.unscaledTimeAsDouble;
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -74,6 +79,31 @@ namespace Game.Match {
             // Clients can briefly see default NetworkVariable values before sync arrives.
             OnPreMatchCountdownChanged(0, GetInitialPreMatchCountdownForUi());
             OnPreMatchWaitingForPlayersChanged(false, GetInitialWaitingForPlayersForUi());
+            _lastPublishedMatchSeconds = int.MinValue;
+            _lastPublishedPreMatchSeconds = int.MinValue;
+        }
+
+        private void Update() {
+            if(!IsSpawned) return;
+
+            if(_isPreMatch.Value) {
+                var currentPreMatchSeconds = PreMatchCountdownSeconds;
+                if(currentPreMatchSeconds == _lastPublishedPreMatchSeconds) return;
+
+                _lastPublishedPreMatchSeconds = currentPreMatchSeconds;
+                EventBus.Publish(new PreMatchCountdownEvent(currentPreMatchSeconds));
+                EventBus.Publish(new SetMatchTimeEvent(currentPreMatchSeconds));
+                return;
+            }
+
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) return;
+
+            var currentSeconds = TimeRemainingSeconds;
+            if(currentSeconds == _lastPublishedMatchSeconds) return;
+
+            _lastPublishedMatchSeconds = currentSeconds;
+            EventBus.Publish(new SetMatchTimeEvent(currentSeconds));
         }
 
         public override void OnNetworkDespawn() {
@@ -174,6 +204,9 @@ namespace Game.Match {
                 var usePreMatchCountdown = matchSettings == null || matchSettings.IsPreMatchCountdownEnabled();
                 _hasTriggeredPostMatch = false;
                 _hasDesignatedInitialIt = false;
+                _preMatchCountdownEndServerTimeSeconds.Value = 0d;
+                _activeMatchEndServerTimeSeconds.Value = 0d;
+                _lastPublishedPreMatchSeconds = int.MinValue;
 
                 if(usePreMatchCountdown) {
                     var preMatchSeconds = matchSettings != null ? matchSettings.GetPreMatchCountdownSeconds() : 5;
@@ -221,7 +254,9 @@ namespace Game.Match {
 
             var matchSettings = MatchSettingsManager.Instance;
             var isInfiniteTimer = matchSettings != null && matchSettings.IsInfiniteMatchTimer();
-            if(!isInfiniteTimer && _timeRemainingSeconds.Value > 0) {
+            if(isInfiniteTimer) return;
+
+            if(_activeMatchEndServerTimeSeconds.Value > 0d) {
                 _timerRoutine = StartCoroutine(TimerCoroutine());
             }
         }
@@ -312,11 +347,16 @@ namespace Game.Match {
 
             _isWaitingForPlayers.Value = false;
 
+            if(_preMatchCountdownSeconds.Value > 0 && _preMatchCountdownEndServerTimeSeconds.Value <= 0d) {
+                _preMatchCountdownEndServerTimeSeconds.Value = CurrentServerTimeSeconds + _preMatchCountdownSeconds.Value;
+                _lastPublishedPreMatchSeconds = int.MinValue;
+            }
+
             // Pre-match countdown
-            while(HasMatchAuthority && _preMatchCountdownSeconds.Value > 0) {
-                yield return wait;
+            while(HasMatchAuthority && _isPreMatch.Value && PreMatchCountdownSeconds > 0) {
+                yield return null;
                 if(!HasMatchAuthority) yield break;
-                _preMatchCountdownSeconds.Value--;
+                if(!_isPreMatch.Value) yield break;
             }
 
             // Pre-match countdown finished - start the actual match
@@ -325,13 +365,11 @@ namespace Game.Match {
         }
 
         private IEnumerator TimerCoroutine() {
-            var wait = new WaitForSeconds(1f);
+            while(HasMatchAuthority && !_isPreMatch.Value) {
+                if(_activeMatchEndServerTimeSeconds.Value <= 0d) yield break;
+                if(CurrentServerTimeSeconds >= _activeMatchEndServerTimeSeconds.Value) break;
 
-            while(HasMatchAuthority && !_isPreMatch.Value && _timeRemainingSeconds.Value > 0) {
-                yield return wait;
-                if(!HasMatchAuthority) yield break;
-                if(_isPreMatch.Value) yield break;
-                _timeRemainingSeconds.Value--;
+                yield return null;
             }
 
             // Only trigger post-match if we're not in pre-match (safety check)
@@ -340,7 +378,7 @@ namespace Game.Match {
             FlowLog.Emit(FlowEventIds.MatchStateTransition,
                 ("from", "Active"),
                 ("to", "PostMatch"),
-                ("timeRemaining", _timeRemainingSeconds.Value));
+                ("timeRemaining", TimeRemainingSeconds));
             
             // Publish match ended event
             EventBus.Publish(new MatchEndedEvent());
@@ -349,15 +387,16 @@ namespace Game.Match {
         private void OnTimeRemainingChanged(int previous, int current) {
             // Only update UI if we're not in pre-match
             if(_isPreMatch.Value) return;
-            EventBus.Publish(new SetMatchTimeEvent(current));
+            EventBus.Publish(new SetMatchTimeEvent(TimeRemainingSeconds));
         }
 
         private void OnPreMatchCountdownChanged(int previous, int current) {
-            EventBus.Publish(new PreMatchCountdownEvent(current));
+            var computed = PreMatchCountdownSeconds;
+            EventBus.Publish(new PreMatchCountdownEvent(computed));
 
             // Display pre-match countdown in UI
             if(!_isPreMatch.Value) return;
-            EventBus.Publish(new SetMatchTimeEvent(current));
+            EventBus.Publish(new SetMatchTimeEvent(computed));
         }
 
         private static void OnPreMatchWaitingForPlayersChanged(bool previous, bool current) {
@@ -365,7 +404,7 @@ namespace Game.Match {
         }
 
         private int GetInitialPreMatchCountdownForUi() {
-            var current = _preMatchCountdownSeconds.Value;
+            var current = PreMatchCountdownSeconds;
             if(current > 0 || !_isPreMatch.Value) return current;
 
             var settings = MatchSettingsManager.Instance;
@@ -378,13 +417,20 @@ namespace Game.Match {
         }
 
         private void OnPreMatchStateChanged(bool previous, bool current) {
+            if(current) {
+                _lastPublishedPreMatchSeconds = int.MinValue;
+                EventBus.Publish(new PreMatchCountdownEvent(PreMatchCountdownSeconds));
+                EventBus.Publish(new SetMatchTimeEvent(PreMatchCountdownSeconds));
+                return;
+            }
+
             // When pre-match ends, ensure UI shows match timer
-            if(current) return;
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
                 EventBus.Publish(new SetMatchTimeEvent(-1));
             } else {
-                EventBus.Publish(new SetMatchTimeEvent(_timeRemainingSeconds.Value));
+                _lastPublishedMatchSeconds = int.MinValue;
+                EventBus.Publish(new SetMatchTimeEvent(TimeRemainingSeconds));
             }
         }
 
@@ -399,11 +445,15 @@ namespace Game.Match {
                 matchDurationSeconds = matchSettings.GetMatchDurationSeconds();
             }
 
+            _preMatchCountdownEndServerTimeSeconds.Value = 0d;
+            _preMatchCountdownSeconds.Value = 0;
             _timeRemainingSeconds.Value = Mathf.Max(0, matchDurationSeconds);
+            _activeMatchEndServerTimeSeconds.Value = CurrentServerTimeSeconds + _timeRemainingSeconds.Value;
+            _lastPublishedMatchSeconds = int.MinValue;
             FlowLog.Emit(FlowEventIds.MatchStateTransition,
                 ("from", fromState),
                 ("to", "Active"),
-                ("timeRemaining", _timeRemainingSeconds.Value));
+                ("timeRemaining", TimeRemainingSeconds));
 
             // Publish match started event
             EventBus.Publish(new MatchStartedEvent());
@@ -423,8 +473,28 @@ namespace Game.Match {
             if(!isInfiniteTimer) {
                 _timerRoutine = StartCoroutine(TimerCoroutine());
             } else {
+                _activeMatchEndServerTimeSeconds.Value = 0d;
                 EventBus.Publish(new SetMatchTimeEvent(-1));
             }
+        }
+
+        private int GetComputedActiveTimeRemainingSeconds() {
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
+                return -1;
+            }
+
+            if(!(_activeMatchEndServerTimeSeconds.Value > 0d)) return _timeRemainingSeconds.Value;
+            var secondsRemaining = Mathf.CeilToInt((float)(_activeMatchEndServerTimeSeconds.Value - CurrentServerTimeSeconds));
+            return Mathf.Max(0, secondsRemaining);
+
+        }
+
+        private int GetComputedPreMatchCountdownSeconds() {
+            if(!(_preMatchCountdownEndServerTimeSeconds.Value > 0d)) return _preMatchCountdownSeconds.Value;
+            var secondsRemaining = Mathf.CeilToInt((float)(_preMatchCountdownEndServerTimeSeconds.Value - CurrentServerTimeSeconds));
+            return Mathf.Max(0, secondsRemaining);
+
         }
 
         /// <summary>
