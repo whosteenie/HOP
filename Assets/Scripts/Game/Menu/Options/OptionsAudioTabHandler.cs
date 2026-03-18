@@ -199,7 +199,12 @@ namespace Game.Menu.Options {
                 cleanups.Add(() => _voiceVolumeSlider.UnregisterCallback(handler));
             }
 
-            if(_voiceInputVolumeSlider != null) {
+            if(_voiceInputVolumeSlider == null)
+                return () => {
+                    foreach(var c in cleanups) c?.Invoke();
+                    cleanups.Clear();
+                };
+            {
                 EventCallback<ChangeEvent<float>> handler = evt => TryApplyVivoxVoiceVolumesPreview(inputVolume01: evt.newValue);
                 _voiceInputVolumeSlider.RegisterValueChangedCallback(handler);
                 cleanups.Add(() => _voiceInputVolumeSlider.UnregisterCallback(handler));

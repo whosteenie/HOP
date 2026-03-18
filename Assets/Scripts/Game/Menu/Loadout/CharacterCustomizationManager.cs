@@ -129,10 +129,9 @@ namespace Game.Menu.Loadout {
         }
 
         protected void OnDisable() {
-            if(loadoutManager != null) {
-                loadoutManager.OnApplyCustomizationRequested -= ApplyCustomization;
-                loadoutManager.OnReloadCustomizationRequested -= ReloadSavedCustomization;
-            }
+            if(loadoutManager == null) return;
+            loadoutManager.OnApplyCustomizationRequested -= ApplyCustomization;
+            loadoutManager.OnReloadCustomizationRequested -= ReloadSavedCustomization;
         }
 
         protected override void OnInitialize() {

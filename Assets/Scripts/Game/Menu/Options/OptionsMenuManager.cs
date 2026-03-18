@@ -348,7 +348,7 @@ namespace Game.Menu.Options {
 
         private void SetupManagerCallbacks() {
             EventCallback<ClickEvent> applyHandler = _ => {
-                if(_applyButton == null || !_applyButton.enabledInHierarchy) return;
+                if(_applyButton is not { enabledInHierarchy: true }) return;
                 OnButtonClicked();
                 ApplySettings();
             };
@@ -383,14 +383,14 @@ namespace Game.Menu.Options {
 
         private void RegisterHoverCallback(Button button) {
             EventCallback<MouseEnterEvent> enterHandler = evt => {
-                if(button == null || !button.enabledInHierarchy) return;
+                if(button is not { enabledInHierarchy: true }) return;
                 MouseEnterCallback?.Invoke(evt);
             };
             button.RegisterCallback(enterHandler);
             RegisterCleanup(() => button.UnregisterCallback(enterHandler));
             if(MouseHoverCallback == null) return;
             EventCallback<MouseOverEvent> hoverHandler = evt => {
-                if(button == null || !button.enabledInHierarchy) return;
+                if(button is not { enabledInHierarchy: true }) return;
                 MouseHoverCallback(evt);
             };
             button.RegisterCallback(hoverHandler);
