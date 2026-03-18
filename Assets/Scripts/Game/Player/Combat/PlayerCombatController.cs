@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
+using Game.Match;
 using Game.Player.Contracts;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
@@ -450,7 +451,11 @@ namespace Game.Player.Combat {
             var rotation = Quaternion.identity;
             var isTeamBased = _playerContext is { IsTeamBasedMode: true };
             if(_playerContext == null || !_playerContext.TryGetReservedRespawnPose(out position, out rotation)) {
-                _playerContext?.GetFallbackRespawnPose(out position, out rotation);
+                if(_playerContext != null) {
+                    _playerContext.GetFallbackRespawnPose(out position, out rotation);
+                } else {
+                    ResolveEmergencyRespawnPose(out position, out rotation);
+                }
             }
 
             if(IsYLevelOutOfBoundsKillEnabled()) {
@@ -470,6 +475,25 @@ namespace Game.Player.Combat {
                 ("wasRagdolled", _playerRagdoll != null && _playerRagdoll.IsRagdoll));
 
             StartCoroutine(TeleportAfterPreparation(position, rotation));
+        }
+
+        private void ResolveEmergencyRespawnPose(out Vector3 position, out Quaternion rotation) {
+            position = _playerTransform != null ? _playerTransform.position : Vector3.zero;
+            rotation = _playerTransform != null ? _playerTransform.rotation : Quaternion.identity;
+
+            var spawnManager = SpawnManager.Instance;
+            if(spawnManager == null) {
+                return;
+            }
+
+            var fallbackSpawn = spawnManager.GetNextSpawnForRespawn();
+            if(fallbackSpawn == null) {
+                return;
+            }
+
+            var spawnTransform = fallbackSpawn.transform;
+            position = spawnTransform.position;
+            rotation = spawnTransform.rotation;
         }
 
         [Rpc(SendTo.Everyone)]

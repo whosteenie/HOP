@@ -19,8 +19,6 @@ namespace Game.Hopball {
         return false;
     }
 
-    private static HopballController Instance { get; set; }
-
     public readonly int IntensityID = Shader.PropertyToID("_EmissionIntensity");
     public readonly int DissolveAmountID = Shader.PropertyToID("_DissolveAmount");
 
@@ -154,9 +152,6 @@ namespace Game.Hopball {
             _networkTransform = GetComponent<NetworkTransform>();
         }
 
-        // Set singleton instance
-        Instance = this;
-
         _networkEnergy.OnValueChanged += OnEnergyChanged;
 
         // Reset all state to initial spawn state
@@ -180,11 +175,6 @@ namespace Game.Hopball {
     public override void OnNetworkDespawn() {
         base.OnNetworkDespawn();
         EventBus.Unsubscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
-
-        // Clear singleton instance
-        if(Instance == this) {
-            Instance = null;
-        }
 
         _networkEnergy.OnValueChanged -= OnEnergyChanged;
         UnregisterSessionOwnerCallbacks();

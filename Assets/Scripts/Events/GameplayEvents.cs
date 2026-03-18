@@ -251,6 +251,19 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when a player's team changes so other systems can refresh cached team-dependent state.
+    /// </summary>
+    public class PlayerTeamChangedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly int TeamId;
+
+        public PlayerTeamChangedEvent(ulong playerClientId, int teamId) {
+            PlayerClientId = playerClientId;
+            TeamId = teamId;
+        }
+    }
+
+    /// <summary>
     /// Event published by a hill when it needs active players to republish their current occupancy state.
     /// </summary>
     public class HillOccupancySnapshotRequestedEvent : GameEvent {

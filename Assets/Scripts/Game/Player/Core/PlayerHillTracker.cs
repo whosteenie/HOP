@@ -21,6 +21,7 @@ namespace Game.Player.Core {
             EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
             EventBus.Subscribe<PlayerRespawnedEvent>(OnPlayerRespawned);
             EventBus.Subscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
+            EventBus.Subscribe<PlayerTeamChangedEvent>(OnPlayerTeamChanged);
             EventBus.Subscribe<HillOccupancySnapshotRequestedEvent>(OnHillOccupancySnapshotRequested);
         }
 
@@ -28,6 +29,7 @@ namespace Game.Player.Core {
             EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
             EventBus.Unsubscribe<PlayerRespawnedEvent>(OnPlayerRespawned);
             EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
+            EventBus.Unsubscribe<PlayerTeamChangedEvent>(OnPlayerTeamChanged);
             EventBus.Unsubscribe<HillOccupancySnapshotRequestedEvent>(OnHillOccupancySnapshotRequested);
             ClearAllOccupancy();
             FlushLocalKingProgression();
@@ -81,17 +83,27 @@ namespace Game.Player.Core {
         private void OnHillOccupancySnapshotRequested(HillOccupancySnapshotRequestedEvent evt) {
             if(_player == null || evt == null) return;
             if(_player.IsSpawned == false || _player.IsDead) {
-                SetOccupancy(evt.HillNetworkObjectId, false, null);
+                ClearOccupancyForHill(evt.HillNetworkObjectId);
                 return;
             }
 
             var hill = FindHillById(evt.HillNetworkObjectId);
             if(hill == null) {
-                SetOccupancy(evt.HillNetworkObjectId, false, null);
+                ClearOccupancyForHill(evt.HillNetworkObjectId);
                 return;
             }
 
             SetOccupancy(hill, hill.ContainsPoint(transform.position));
+        }
+
+        private void OnPlayerTeamChanged(PlayerTeamChangedEvent evt) {
+            if(_player == null || evt == null || evt.PlayerClientId != _player.OwnerClientId) return;
+            if(_activeHills.Count == 0) return;
+            if(_player.IsSpawned == false || _player.IsDead) return;
+
+            foreach(var hillId in _activeHills.Keys) {
+                PublishOccupancyChanged(hillId, true, evt.TeamId);
+            }
         }
 
         private void RefreshOccupancyFromWorld() {
@@ -190,8 +202,25 @@ namespace Game.Player.Core {
                 }
             }
 
+            PublishOccupancyChanged(hillNetworkObjectId, isInsideHill, (int)_player.CurrentTeam);
+        }
+
+        private void ClearOccupancyForHill(ulong hillNetworkObjectId) {
+            if(_player == null) return;
+
+            _activeHills.Remove(hillNetworkObjectId);
+            if(_activeHills.Count == 0) {
+                FlushLocalKingProgression();
+            }
+
+            PublishOccupancyChanged(hillNetworkObjectId, false, (int)SpawnPoint.Team.None);
+        }
+
+        private void PublishOccupancyChanged(ulong hillNetworkObjectId, bool isInsideHill, int teamId) {
+            if(_player == null) return;
+
             EventBus.Publish(new PlayerHillOccupancyChangedEvent(_player.OwnerClientId, hillNetworkObjectId,
-                (int)_player.CurrentTeam, isInsideHill));
+                teamId, isInsideHill));
         }
 
         private static HillController ResolveHill(Component component) {

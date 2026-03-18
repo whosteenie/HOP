@@ -1,5 +1,6 @@
 using System.Collections;
 using Diagnostics;
+using Events;
 using Game.Match;
 using Game.Player.Combat;
 using Unity.Netcode;
@@ -78,14 +79,14 @@ namespace Game.Player.Core {
                 playerController = GetComponent<PlayerController>();
             
             if(playerController == null) {
-                Debug.LogError($"[PlayerTeamManager] PlayerController not found! GameObject: {gameObject.name}");
+                DevLog.LogError($"[PlayerTeamManager] PlayerController not found! GameObject: {gameObject.name}");
                 enabled = false;
                 return;
             }
 
             _skinned = playerController.PlayerMesh;
             if(_skinned == null) {
-                Debug.LogError($"[PlayerTeamManager] PlayerController.PlayerMesh is null! GameObject: {gameObject.name}");
+                DevLog.LogError($"[PlayerTeamManager] PlayerController.PlayerMesh is null! GameObject: {gameObject.name}");
                 enabled = false;
                 return;
             }
@@ -146,6 +147,9 @@ namespace Game.Player.Core {
         // --------------------------------------------------------------------
         private void OnTeamChanged(SpawnPoint.Team previous, SpawnPoint.Team current) {
             QueueTeamStateSyncToMatch();
+            if(IsSpawned) {
+                EventBus.Publish(new PlayerTeamChangedEvent(OwnerClientId, (int)current));
+            }
             UpdateOutlineColour();
 
             // If this is the local player's team changing, update all other players' outlines

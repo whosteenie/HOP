@@ -3,6 +3,7 @@ using Network.Session;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using Diagnostics;
 
 namespace Game.Match {
     [DisallowMultipleComponent]
@@ -106,6 +107,12 @@ namespace Game.Match {
 
         private void ApplyTeamForPlayer(ulong playerClientId, int submittedTeamId) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
+                return;
+            }
+
+            if(!IsValidSubmittedTeamId(submittedTeamId)) {
+                DevLog.LogWarning(
+                    $"[MatchPlayerStateAuthority] Rejected invalid team sync '{submittedTeamId}' for client {playerClientId}.");
                 return;
             }
 
@@ -229,6 +236,10 @@ namespace Game.Match {
             }
 
             ApplyTeamForPlayer(playerObject.OwnerClientId, submittedTeamId);
+        }
+
+        private static bool IsValidSubmittedTeamId(int submittedTeamId) {
+            return System.Enum.IsDefined(typeof(SpawnPoint.Team), submittedTeamId);
         }
     }
 }
