@@ -170,10 +170,36 @@ namespace Game.Weapon.Presentation {
         }
 
         private void CacheMainSceneCamera() {
-            _mainSceneCamera = Camera.main;
+            _mainSceneCamera = FindCandidateMainSceneCamera();
             if(_mainSceneCamera == _weaponCamera) {
                 _mainSceneCamera = null;
             }
+        }
+
+        private Camera FindCandidateMainSceneCamera() {
+            var cameraCount = Camera.allCamerasCount;
+            if(cameraCount <= 0) {
+                return null;
+            }
+
+            var cameras = new Camera[cameraCount];
+            Camera.GetAllCameras(cameras);
+
+            Camera fallback = null;
+            foreach(var sceneCamera in cameras) {
+                if(sceneCamera == null || sceneCamera == _weaponCamera || !sceneCamera.isActiveAndEnabled) continue;
+
+                if(sceneCamera.CompareTag("MainCamera")) {
+                    return sceneCamera;
+                }
+
+                var cameraData = sceneCamera.GetUniversalAdditionalCameraData();
+                if(cameraData != null && cameraData.renderType == CameraRenderType.Base && fallback == null) {
+                    fallback = sceneCamera;
+                }
+            }
+
+            return fallback;
         }
 
         /// <summary>

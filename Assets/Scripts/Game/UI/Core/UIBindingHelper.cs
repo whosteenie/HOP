@@ -17,7 +17,8 @@ namespace Game.UI.Core {
             var element = root.Q<T>(name);
             if(element != null) return element;
             var ctx = string.IsNullOrEmpty(context) ? "UI" : context;
-            DevLog.LogError($"[{ctx}] Required UI element '{name}' (type: {typeof(T).Name}) not found in root '{root.name}'");
+            DevLog.LogError(
+                $"[{ctx}] Required UI element '{name}' (type: {typeof(T).Name}) not found in root '{root.name}'");
             return null;
         }
 
@@ -25,7 +26,8 @@ namespace Game.UI.Core {
         /// Validates multiple required elements and returns a list of missing element names.
         /// Useful for batch validation during view initialization.
         /// </summary>
-        public static List<string> ValidateRequiredElements(VisualElement root, Dictionary<string, Type> requiredElements, string context = null) {
+        public static List<string> ValidateRequiredElements(VisualElement root,
+            Dictionary<string, Type> requiredElements, string context = null) {
             var missing = new List<string>();
             foreach(var kvp in requiredElements) {
                 var element = root.Q(kvp.Key);
@@ -40,6 +42,5 @@ namespace Game.UI.Core {
 
             return missing;
         }
-
     }
 }

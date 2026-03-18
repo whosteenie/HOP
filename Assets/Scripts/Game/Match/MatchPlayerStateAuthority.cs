@@ -4,7 +4,6 @@ using Network.Session;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using Diagnostics;
 
 namespace Game.Match {
     [DisallowMultipleComponent]

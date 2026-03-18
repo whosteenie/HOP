@@ -447,10 +447,8 @@ namespace Game.Player.Combat {
         private void DoRespawnServer() {
             PrepareRespawnClientRpc();
 
-            var position = Vector3.zero;
-            var rotation = Quaternion.identity;
             var isTeamBased = _playerContext is { IsTeamBasedMode: true };
-            if(_playerContext == null || !_playerContext.TryGetReservedRespawnPose(out position, out rotation)) {
+            if(_playerContext == null || !_playerContext.TryGetReservedRespawnPose(out var position, out var rotation)) {
                 if(_playerContext != null) {
                     _playerContext.GetFallbackRespawnPose(out position, out rotation);
                 } else {
