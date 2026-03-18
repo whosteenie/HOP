@@ -63,9 +63,9 @@ namespace Game.Player.Combat {
         private Coroutine _respawnTimeoutProbeCoroutine;
 
         private sealed class AssistInfo {
-            public ulong AttackerId;
-            public float LastDamageTime;
-            public float Damage;
+            internal ulong AttackerId;
+            internal float LastDamageTime;
+            internal float Damage;
         }
 
         private readonly Dictionary<ulong, List<AssistInfo>> _assistTrackers = new();

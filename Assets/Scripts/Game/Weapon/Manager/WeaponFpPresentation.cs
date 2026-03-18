@@ -25,7 +25,7 @@ namespace Game.Weapon.Manager {
             return holderRoot != null ? holderRoot : fpWeapon;
         }
 
-        public void ApplyKinemationViewmodelPose(GameObject fpWeaponRoot, KinemationWeaponBinding binding) {
+        public void ApplyKinemationViewmodelPose(GameObject fpWeaponRoot, KinWeaponBinding binding) {
             if(fpWeaponRoot == null) return;
             ResolveKinemationViewmodelPose(binding, out var localPosition, out var localEulerAngles);
             fpWeaponRoot.transform.localPosition = localPosition;
@@ -121,7 +121,7 @@ namespace Game.Weapon.Manager {
                 var kinemationDriver = kinemationHolder.AddComponent<KinFpWeaponDriver>();
                 kinemationDriver.Configure(
                     _root.KinemationFpsPlayerPrefabRef,
-                    kinemationBinding.kinemationWeaponPrefab,
+                    kinemationBinding.KinWeaponPrefab,
                     disableWeaponSounds,
                     disablePlayerSounds,
                     true,
@@ -134,7 +134,7 @@ namespace Game.Weapon.Manager {
                 );
 
                 var fpLayer = GetFpWeaponLayer();
-                KinemationViewmodelUtility.SetLayerRecursive(kinemationHolder, fpLayer);
+                KinViewmodelUtility.SetLayerRecursive(kinemationHolder, fpLayer);
                 kinemationDriver.InitializeIfNeeded(fpLayer);
                 SetupFpRenderers(kinemationHolder);
 
@@ -162,11 +162,11 @@ namespace Game.Weapon.Manager {
             _root.RequestFpVisualRefreshInternal(fpWeaponInstance);
         }
 
-        private void ResolveKinemationViewmodelPose(KinemationWeaponBinding binding, out Vector3 localPosition,
+        private void ResolveKinemationViewmodelPose(KinWeaponBinding binding, out Vector3 localPosition,
             out Vector3 localEulerAngles) {
-            if(binding is { useCustomViewmodelPose: true }) {
-                localPosition = binding.viewmodelLocalPosition;
-                localEulerAngles = binding.viewmodelLocalEulerAngles;
+            if(binding is { UseCustomViewmodelPose: true }) {
+                localPosition = binding.ViewmodelLocalPosition;
+                localEulerAngles = binding.ViewmodelLocalEulerAngles;
                 return;
             }
 

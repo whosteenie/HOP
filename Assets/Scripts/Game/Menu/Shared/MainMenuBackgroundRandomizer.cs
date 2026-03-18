@@ -23,9 +23,9 @@ namespace Game.Menu.Shared {
         }
 
         private sealed class SetupSelection {
-            public string DisplayName;
-            public int MapIndex;
-            public int SetupIndex;
+            internal string DisplayName;
+            internal int MapIndex;
+            internal int SetupIndex;
         }
 
         [Header("Registered Backgrounds")]

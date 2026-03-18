@@ -12,8 +12,8 @@ namespace Game.Social {
         public const string White = "white";
 
         private struct Candidate {
-            public string Id;
-            public Color Color;
+            internal string Id;
+            internal Color Color;
         }
 
         private static readonly Candidate[] Candidates = {

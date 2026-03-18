@@ -28,7 +28,7 @@ namespace Game.Weapon.Kinemation {
             bool weaponSoundPlaybackDisabled, bool disableKinemationPlayerSounds,
             System.Action<GameObject, FPSPlayer, Animator> setPlayerInstance) {
             if(_driver.PlayerInstance != null) {
-                KinemationViewmodelUtility.SetLayerRecursive(_driver.PlayerInstance, renderLayer);
+                KinViewmodelUtility.SetLayerRecursive(_driver.PlayerInstance, renderLayer);
                 return;
             }
 
@@ -56,9 +56,9 @@ namespace Game.Weapon.Kinemation {
             _audio.EnsureWeaponAudioSource();
 
             DisableUnneededComponents(playerInstance);
-            KinemationViewmodelUtility.SetLayerRecursive(playerInstance, renderLayer);
-            KinemationViewmodelUtility.DisableViewmodelShadows(playerInstance);
-            KinemationViewmodelUtility.AttachReloadEventRelays(playerInstance, _driver, weaponSoundPlaybackDisabled, disableKinemationPlayerSounds);
+            KinViewmodelUtility.SetLayerRecursive(playerInstance, renderLayer);
+            KinViewmodelUtility.DisableViewmodelShadows(playerInstance);
+            KinViewmodelUtility.AttachReloadEventRelays(playerInstance, _driver, weaponSoundPlaybackDisabled, disableKinemationPlayerSounds);
 
             if(disableKinemationPlayerSounds && weaponSoundPlaybackDisabled) {
                 var sources = playerInstance.GetComponentsInChildren<AudioSource>(true);

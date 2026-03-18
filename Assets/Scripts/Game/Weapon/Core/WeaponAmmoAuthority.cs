@@ -5,11 +5,11 @@ using UnityEngine;
 namespace Game.Weapon.Core {
     internal sealed class WeaponAmmoAuthority {
         private sealed class ServerWeaponState {
-            public float LastShotReceiveTime;
-            public float LastClientShotTime;
-            public int ServerAmmo;
-            public ulong LastShotId;
-            public int AcceptedClaimsForLastShot;
+            internal float LastShotReceiveTime;
+            internal float LastClientShotTime;
+            internal int ServerAmmo;
+            internal ulong LastShotId;
+            internal int AcceptedClaimsForLastShot;
         }
 
         private readonly Dictionary<int, int> _weaponAmmo = new();

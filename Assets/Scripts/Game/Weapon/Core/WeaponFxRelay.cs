@@ -13,14 +13,14 @@ namespace Game.Weapon.Core {
         private readonly List<PendingRemoteShotFx> _pendingRemoteShotFx = new();
 
         private struct PendingRemoteShotFx {
-            public Weapon Weapon;
-            public Vector3 EndPoint;
-            public Vector3 HitNormal;
-            public Vector3 ShooterVelocity;
-            public bool MadeImpact;
-            public bool HitPlayer;
-            public NetworkObjectReference HitPlayerRef;
-            public bool PlayMuzzleFlash;
+            internal Weapon Weapon;
+            internal Vector3 EndPoint;
+            internal Vector3 HitNormal;
+            internal Vector3 ShooterVelocity;
+            internal bool MadeImpact;
+            internal bool HitPlayer;
+            internal NetworkObjectReference HitPlayerRef;
+            internal bool PlayMuzzleFlash;
         }
 
         private void Awake() {

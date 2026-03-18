@@ -40,9 +40,9 @@ namespace Game.Player.Visual {
         private readonly Dictionary<GameObject, SourceAssessment> _sourceAssessmentCache = new();
 
         private struct SourceAssessment {
-            public bool IsUsable;
-            public int RendererCount;
-            public float BoundsDimension;
+            internal bool IsUsable;
+            internal int RendererCount;
+            internal float BoundsDimension;
         }
         
         private void Awake() {

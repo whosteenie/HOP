@@ -98,15 +98,15 @@ namespace Game.Hopball {
     }
 
     private struct HopballStateUpdate : INetworkSerializable {
-        public HopballStateFlags Flags;
-        public bool TargetStateSpecified;
-        public bool TargetEnabled;
-        public bool PositionSpecified;
-        public Vector3 Position;
-        public Quaternion Rotation;
+        internal HopballStateFlags Flags;
+        internal bool TargetStateSpecified;
+        internal bool TargetEnabled;
+        internal bool PositionSpecified;
+        internal Vector3 Position;
+        internal Quaternion Rotation;
         /// <summary>When true, the client with this ID should run full cleanup+restore (DA-compatible path).</summary>
-        public bool DissolveHolderClientIdSpecified;
-        public ulong DissolveHolderClientId;
+        internal bool DissolveHolderClientIdSpecified;
+        internal ulong DissolveHolderClientId;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter {
             serializer.SerializeValue(ref Flags);

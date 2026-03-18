@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Game.Weapon.Kinemation {
-    internal static class KinemationViewmodelUtility {
+    internal static class KinViewmodelUtility {
         public static void SetLayerRecursive(GameObject root, int layer) {
             if(root == null) return;
             root.layer = layer;

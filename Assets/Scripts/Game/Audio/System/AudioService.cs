@@ -14,11 +14,11 @@ namespace Game.Audio.System {
         [SerializeField] private SoundCatalog catalog;
 
         private sealed class Voice {
-            public string Id;
-            public SoundCue Cue;
-            public AudioSource Src;
-            public float StartTime;
-            public int Priority;
+            internal string Id;
+            internal SoundCue Cue;
+            internal AudioSource Src;
+            internal float StartTime;
+            internal int Priority;
         }
 
         private readonly Dictionary<SoundBus, Queue<AudioSource>> _pools = new();

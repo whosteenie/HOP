@@ -20,9 +20,9 @@ namespace Game.UI.Screens {
         private const float FadeDuration = 1.5f; // Fade out duration
 
         private sealed class ChatMessageElement {
-            public VisualElement Element;
-            public float Timestamp;
-            public bool IsVisible = true;
+            internal VisualElement Element;
+            internal float Timestamp;
+            internal bool IsVisible = true;
         }
 
         private readonly List<ChatMessageElement> _messageElements = new();

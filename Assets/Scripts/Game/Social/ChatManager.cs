@@ -34,22 +34,22 @@ namespace Game.Social {
 
         [Serializable]
         private sealed class ChunkEnvelope {
-            public string k;
-            public string id;
-            public int i;
-            public bool e;
-            public string b;
+            internal string K;
+            internal string ID;
+            internal int I;
+            internal bool E;
+            internal string B;
         }
 
         private sealed class ChunkAssemblyState {
-            public readonly SortedDictionary<int, string> Chunks = new();
-            public int EndIndex = -1;
-            public float LastUpdatedTime;
+            internal readonly SortedDictionary<int, string> Chunks = new();
+            internal int EndIndex = -1;
+            internal float LastUpdatedTime;
         }
 
         private sealed class PendingSelfEchoState {
-            public long Id;
-            public float LastUpdatedTime;
+            internal long Id;
+            internal float LastUpdatedTime;
         }
 
         private void Awake() {
@@ -210,11 +210,11 @@ namespace Game.Social {
 
         private static string BuildChunkPayload(string messageId, int chunkIndex, bool isFinalChunk, byte[] sourceBytes, int offset, int length) {
             return JsonUtility.ToJson(new ChunkEnvelope {
-                k = ChunkMarker,
-                id = messageId,
-                i = chunkIndex,
-                e = isFinalChunk,
-                b = Convert.ToBase64String(sourceBytes, offset, length)
+                K = ChunkMarker,
+                ID = messageId,
+                I = chunkIndex,
+                E = isFinalChunk,
+                B = Convert.ToBase64String(sourceBytes, offset, length)
             });
         }
 
@@ -299,16 +299,16 @@ namespace Game.Social {
             }
 
             if(envelope == null ||
-               string.Equals(envelope.k, ChunkMarker, StringComparison.Ordinal) == false ||
-               string.IsNullOrWhiteSpace(envelope.id) ||
-               envelope.i < 0 ||
-               string.IsNullOrWhiteSpace(envelope.b)) {
+               string.Equals(envelope.K, ChunkMarker, StringComparison.Ordinal) == false ||
+               string.IsNullOrWhiteSpace(envelope.ID) ||
+               envelope.I < 0 ||
+               string.IsNullOrWhiteSpace(envelope.B)) {
                 return vivoxMessage.MessageText;
             }
 
             string chunkText;
             try {
-                chunkText = Encoding.UTF8.GetString(Convert.FromBase64String(envelope.b));
+                chunkText = Encoding.UTF8.GetString(Convert.FromBase64String(envelope.B));
             } catch {
                 return vivoxMessage.MessageText;
             }
@@ -316,17 +316,17 @@ namespace Game.Social {
             var senderKey = string.IsNullOrWhiteSpace(vivoxMessage.SenderPlayerId)
                 ? "unknown"
                 : vivoxMessage.SenderPlayerId;
-            var assemblyKey = $"{senderKey}:{envelope.id}";
+            var assemblyKey = $"{senderKey}:{envelope.ID}";
 
             if(_chunkAssemblies.TryGetValue(assemblyKey, out var state) == false) {
                 state = new ChunkAssemblyState();
                 _chunkAssemblies[assemblyKey] = state;
             }
 
-            state.Chunks[envelope.i] = chunkText;
+            state.Chunks[envelope.I] = chunkText;
             state.LastUpdatedTime = Time.unscaledTime;
-            if(envelope.e) {
-                state.EndIndex = envelope.i;
+            if(envelope.E) {
+                state.EndIndex = envelope.I;
             }
 
             if(state.EndIndex < 0) {

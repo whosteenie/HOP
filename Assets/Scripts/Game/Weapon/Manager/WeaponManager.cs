@@ -29,7 +29,7 @@ namespace Game.Weapon.Manager {
 
         [Header("KINEMATION FP Integration")]
         [SerializeField] private GameObject kinemationFpsPlayerPrefab;
-        [SerializeField] private List<KinemationWeaponBinding> kinemationWeaponBindings = new();
+        [SerializeField] private List<KinWeaponBinding> kinemationWeaponBindings = new();
         [SerializeField] private float kinemationSprintWalkGaitValue = 1.2f;
         [SerializeField] private float kinemationEquipUnlockNormalizedTime = 0.82f;
         [SerializeField] private bool autoCompleteKinemationPullOut = true;
@@ -280,12 +280,12 @@ namespace Game.Weapon.Manager {
         internal void DestroyFpWeaponInstancesInternal() => _fpPresentation.DestroyFpWeaponInstances();
         internal static bool TryGetKinemationDriverInternal(GameObject fpWeaponRoot, out KinFpWeaponDriver driver) =>
             WeaponFpPresentation.TryGetKinemationDriver(fpWeaponRoot, out driver);
-        internal void ApplyKinemationViewmodelPoseInternal(GameObject fpWeaponRoot, KinemationWeaponBinding binding) =>
+        internal void ApplyKinemationViewmodelPoseInternal(GameObject fpWeaponRoot, KinWeaponBinding binding) =>
             _fpPresentation.ApplyKinemationViewmodelPose(fpWeaponRoot, binding);
         internal int GetFpWeaponLayerInternal() => _fpPresentation.GetFpWeaponLayer();
         internal void SetupFpRenderersInternal(GameObject fpWeaponInstance) =>
             _fpPresentation.SetupFpRenderers(fpWeaponInstance);
-        internal static void EnsureHierarchyActiveInternal(GameObject instanceRoot) => KinemationViewmodelUtility.EnsureHierarchyActive(instanceRoot);
+        internal static void EnsureHierarchyActiveInternal(GameObject instanceRoot) => KinViewmodelUtility.EnsureHierarchyActive(instanceRoot);
         internal void EnsureFpWeaponLightingRigInternal() => _fpLighting.EnsureFpWeaponLightingRig();
         internal int GetSlotForIndexInternal(int index) => _loadout.GetSlotForIndexInternal(index);
         internal void ResolveCurrentWorldWeaponRefInternal() => _loadout.ResolveCurrentWorldWeaponRefInternal();
@@ -413,7 +413,7 @@ namespace Game.Weapon.Manager {
             CatalogRef.Rebuild(kinemationWeaponBindings, ResolveWeaponSlot, Debug.LogError);
         }
 
-        internal bool TryGetKinemationBinding(WeaponData weaponData, out KinemationWeaponBinding binding) {
+        internal bool TryGetKinemationBinding(WeaponData weaponData, out KinWeaponBinding binding) {
             return CatalogRef.TryGetBinding(kinemationFpsPlayerPrefab, weaponData, out binding);
         }
 
@@ -427,7 +427,7 @@ namespace Game.Weapon.Manager {
         internal int ResolveWeaponCapacity(WeaponData data) {
             if(data == null) return 0;
             if(!TryGetKinemationBinding(data, out var binding) || binding == null) return 0;
-            return ResolveKinemationCapacity(binding.kinemationWeaponPrefab);
+            return ResolveKinemationCapacity(binding.KinWeaponPrefab);
         }
 
         internal bool TryValidateSwitchTargetStrict(int newIndex, out WeaponData data, out int magCapacity) {

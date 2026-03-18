@@ -503,13 +503,13 @@ namespace Game.Weapon.Manager {
                 }
 
                 if(!_root.TryGetKinemationBinding(data, out var binding) || binding == null ||
-                   binding.kinemationWeaponPrefab == null) {
+                   binding.KinWeaponPrefab == null) {
                     DevLog.LogError($"[WeaponManager] Weapon '{data.weaponName}' is missing a KINEMATION binding/prefab.");
                     isValid = false;
                     continue;
                 }
 
-                if(WeaponManager.ResolveKinemationCapacity(binding.kinemationWeaponPrefab) <= 0) {
+                if(WeaponManager.ResolveKinemationCapacity(binding.KinWeaponPrefab) <= 0) {
                     DevLog.LogError(
                         $"[WeaponManager] Weapon '{data.weaponName}' has invalid KINEMATION ammo capacity. " +
                         "Set FPSWeaponSettings.ammo > 0.");

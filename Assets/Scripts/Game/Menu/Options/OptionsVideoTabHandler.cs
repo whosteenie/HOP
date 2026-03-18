@@ -10,10 +10,10 @@ using UnityEngine.UIElements;
 namespace Game.Menu.Options {
     public class OptionsVideoTabHandler : IOptionsTabHandler {
         private struct ResolutionData {
-            public readonly int Width;
-            public readonly int Height;
-            public readonly string AspectRatio;
-            public readonly string DisplayString;
+            internal readonly int Width;
+            internal readonly int Height;
+            internal readonly string AspectRatio;
+            internal readonly string DisplayString;
 
             public ResolutionData(int w, int h) {
                 Width = w;

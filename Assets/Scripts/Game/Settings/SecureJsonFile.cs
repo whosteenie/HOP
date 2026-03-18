@@ -19,11 +19,11 @@ namespace Game.Settings {
 
         [Serializable]
         private sealed class ProtectedEnvelope {
-            public int v = 1;
-            public string salt;
-            public string iv;
-            public string payload;
-            public string sig;
+            internal int V = 1;
+            internal string Salt;
+            internal string Iv;
+            internal string Payload;
+            internal string SIG;
         }
 
         private const string Header = "HOPSEC1";
@@ -45,13 +45,13 @@ namespace Game.Settings {
             var cipherBytes = EncryptAes(plainBytes, encryptionKey, iv);
 
             var envelope = new ProtectedEnvelope {
-                v = 1,
-                salt = Convert.ToBase64String(salt),
-                iv = Convert.ToBase64String(iv),
-                payload = Convert.ToBase64String(cipherBytes)
+                V = 1,
+                Salt = Convert.ToBase64String(salt),
+                Iv = Convert.ToBase64String(iv),
+                Payload = Convert.ToBase64String(cipherBytes)
             };
 
-            envelope.sig = ComputeSignatureBase64(signingKey, envelope);
+            envelope.SIG = ComputeSignatureBase64(signingKey, envelope);
             var envelopeJson = JsonUtility.ToJson(envelope, false);
             return $"{Header}:{envelopeJson}";
         }
@@ -82,10 +82,10 @@ namespace Game.Settings {
             }
 
             try {
-                var salt = Convert.FromBase64String(envelope.salt);
-                var iv = Convert.FromBase64String(envelope.iv);
-                var cipherBytes = Convert.FromBase64String(envelope.payload);
-                var signature = Convert.FromBase64String(envelope.sig);
+                var salt = Convert.FromBase64String(envelope.Salt);
+                var iv = Convert.FromBase64String(envelope.Iv);
+                var cipherBytes = Convert.FromBase64String(envelope.Payload);
+                var signature = Convert.FromBase64String(envelope.SIG);
 
                 var masterSecret = GetOrCreateMasterSecret();
                 var encryptionKey = DeriveEncryptionKey(masterSecret, salt, logicalPath);
@@ -108,11 +108,11 @@ namespace Game.Settings {
 
         private static bool TryValidateEnvelope(ProtectedEnvelope envelope) {
             if (envelope == null) return false;
-            if (envelope.v != 1) return false;
-            if (string.IsNullOrWhiteSpace(envelope.salt)) return false;
-            if (string.IsNullOrWhiteSpace(envelope.iv)) return false;
-            if (string.IsNullOrWhiteSpace(envelope.payload)) return false;
-            return !string.IsNullOrWhiteSpace(envelope.sig);
+            if (envelope.V != 1) return false;
+            if (string.IsNullOrWhiteSpace(envelope.Salt)) return false;
+            if (string.IsNullOrWhiteSpace(envelope.Iv)) return false;
+            if (string.IsNullOrWhiteSpace(envelope.Payload)) return false;
+            return !string.IsNullOrWhiteSpace(envelope.SIG);
         }
 
         private static byte[] EncryptAes(byte[] plainBytes, byte[] key, byte[] iv) {
@@ -145,7 +145,7 @@ namespace Game.Settings {
         }
 
         private static byte[] ComputeSignature(byte[] signingKey, ProtectedEnvelope envelope) {
-            var signingText = $"{envelope.v}|{envelope.salt}|{envelope.iv}|{envelope.payload}";
+            var signingText = $"{envelope.V}|{envelope.Salt}|{envelope.Iv}|{envelope.Payload}";
             var bytes = Encoding.UTF8.GetBytes(signingText);
             using var hmac = new HMACSHA256(signingKey);
             return hmac.ComputeHash(bytes);

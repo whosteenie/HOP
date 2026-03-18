@@ -109,7 +109,7 @@ namespace Game.Weapon.Kinemation {
             _weaponRuntimeContext = ResolveWeaponRuntimeContext();
             EnsureSubsystems();
             if(PlayerInstance != null) {
-                KinemationViewmodelUtility.SetLayerRecursive(PlayerInstance, _renderLayer);
+                KinViewmodelUtility.SetLayerRecursive(PlayerInstance, _renderLayer);
                 TryCacheActiveWeapon();
                 return;
             }

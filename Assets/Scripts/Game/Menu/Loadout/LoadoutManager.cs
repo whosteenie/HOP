@@ -95,8 +95,8 @@ namespace Game.Menu.Loadout {
 
         // Velocity sampling
         private struct MovementSample {
-            public float Time;
-            public float X;
+            internal float Time;
+            internal float X;
         }
 
         private readonly List<MovementSample> _movementSamples = new();

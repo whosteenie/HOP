@@ -6,8 +6,8 @@ using UnityEngine;
 namespace Game.Player.Core {
     internal sealed class PlayerMovementValidation {
         private sealed class MovementViolation {
-            public float Time;
-            public bool WasSpeedViolation;
+            internal float Time;
+            internal bool WasSpeedViolation;
         }
 
         private readonly PlayerController _player;

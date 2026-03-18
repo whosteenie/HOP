@@ -9,16 +9,16 @@ using Object = UnityEngine.Object;
 namespace Game.UI.Misc {
     public static class ChallengeUiRenderer {
         private sealed class ChallengeRowBinding {
-            public VisualElement Root;
-            public Label DescriptionLabel;
-            public Label XpLabel;
-            public ProgressBar ProgressBar;
+            internal VisualElement Root;
+            internal Label DescriptionLabel;
+            internal Label XpLabel;
+            internal ProgressBar ProgressBar;
         }
 
         private sealed class ChallengeListRenderState {
-            public bool Initialized;
-            public readonly List<ChallengeRowBinding> Rows = new();
-            public Label EmptyLabel;
+            internal bool Initialized;
+            internal readonly List<ChallengeRowBinding> Rows = new();
+            internal Label EmptyLabel;
         }
 
         private static readonly ConditionalWeakTable<VisualElement, ChallengeListRenderState> ListRenderStates = new();
