@@ -22,7 +22,7 @@ namespace Game.Weapon.Manager {
 
         #region Serialized Fields
 
-        [SerializeField] private MonoBehaviour ownerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour ownerContextSource;
 
         [Header("Weapon System")]
         [SerializeField, HideInInspector] private List<WeaponData> weaponDataList = new();

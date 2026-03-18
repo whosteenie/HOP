@@ -25,7 +25,6 @@ namespace Game.Player.Contracts {
         SkinnedMeshRenderer PlayerMesh { get; }
         GameObject PlayerModelRoot { get; }
         Transform WorldWeaponSocket { get; }
-        GameObject[] WorldWeaponPrefabs { get; }
         Color TaggedGlowColor { get; }
         LayerMask WorldLayer { get; }
         NetworkVariable<bool> NetIsJumping { get; }

@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Game.Weapon.Core {
     [DefaultExecutionOrder(7005)] // Run after UpperBodyPitch + SpineProxy LateUpdate passes.
     public class WeaponFxRelay : NetworkBehaviour {
-        [SerializeField] private MonoBehaviour ownerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour ownerContextSource;
         private IWeaponOwnerContext _ownerContext;
         private NetworkObject _playerNetworkObject;
         private readonly List<PendingRemoteShotFx> _pendingRemoteShotFx = new();

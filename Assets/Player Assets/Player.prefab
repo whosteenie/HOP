@@ -1224,18 +1224,18 @@ GameObject:
   - component: {fileID: 1874585666564569488}
   - component: {fileID: 4157602163556837535}
   - component: {fileID: -935627131628127128}
-  - component: {fileID: 7184346531640925950}
   - component: {fileID: 6677973669287716317}
   - component: {fileID: 7906322676815125306}
-  - component: {fileID: -2503030706147355686}
-  - component: {fileID: 450411123697177773}
   - component: {fileID: 5088684734431513618}
   - component: {fileID: 7417474499678138227}
   - component: {fileID: 1564543611840940099}
+  - component: {fileID: 7184346531640925950}
   - component: {fileID: 6107098077044397896}
   - component: {fileID: -829917204645599099}
   - component: {fileID: 1752355669680099318}
   - component: {fileID: 8872513821370512775}
+  - component: {fileID: 450411123697177773}
+  - component: {fileID: -2503030706147355686}
   - component: {fileID: 8382341124825033876}
   - component: {fileID: 6297701186958565404}
   - component: {fileID: 2584550646514722606}
@@ -1317,59 +1317,6 @@ AudioListener:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2394102009201851988}
   m_Enabled: 1
---- !u!114 &7184346531640925950
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2394102009201851988}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 180ecf9b41d478f468eb3e9083753217, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineImpulseSource
-  ImpulseDefinition:
-    ImpulseChannel: 1
-    ImpulseShape: 1
-    CustomImpulseShape:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    ImpulseDuration: 0.2
-    ImpulseType: 1
-    DissipationRate: 0.106
-    RawSignal: {fileID: 0}
-    AmplitudeGain: 1
-    FrequencyGain: 1
-    RepeatMode: 0
-    Randomize: 1
-    TimeEnvelope:
-      AttackShape:
-        serializedVersion: 2
-        m_Curve: []
-        m_PreInfinity: 2
-        m_PostInfinity: 2
-        m_RotationOrder: 4
-      DecayShape:
-        serializedVersion: 2
-        m_Curve: []
-        m_PreInfinity: 2
-        m_PostInfinity: 2
-        m_RotationOrder: 4
-      AttackTime: 0
-      SustainTime: 0.2
-      DecayTime: 0.7
-      ScaleWithImpact: 1
-      HoldForever: 0
-    ImpactRadius: 100
-    DirectionMode: 0
-    DissipationMode: 2
-    DissipationDistance: 100
-    PropagationSpeed: 343
-  DefaultVelocity: {x: 0, y: 0.05, z: 0}
 --- !u!114 &6677973669287716317
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1441,33 +1388,6 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!114 &-2503030706147355686
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2394102009201851988}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 50ce550ff9b55af49beac7e23af9ec4f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerDamageRelay
-  ShowTopMostFoldoutHeaderGroup: 1
---- !u!114 &450411123697177773
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2394102009201851988}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 43bd32485787ffd48a8e175608526603, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NetworkFXRelay
-  ShowTopMostFoldoutHeaderGroup: 1
-  ownerContextSource: {fileID: 0}
 --- !u!114 &5088684734431513618
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1481,6 +1401,28 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FPController
   ShowTopMostFoldoutHeaderGroup: 1
+  disableKinemationFrameworkComponents: 1
+  disableOnlyKinemationFrameworkCameraComponents: 0
+  logKinemationFrameworkDisables: 0
+  disableUnexpectedChildCameras: 1
+  outOfBoundsMarkerName: OOB
+  outOfBoundsMarkerTag: OOB
+  defaultOutOfBoundsY: 600
+  worldLayer:
+    serializedVersion: 2
+    m_Bits: 512
+  playerLayer:
+    serializedVersion: 2
+    m_Bits: 128
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 256
+  weaponLayer:
+    serializedVersion: 2
+    m_Bits: 64
+  hopballLayer:
+    serializedVersion: 2
+    m_Bits: 4096
   playerTransform: {fileID: 1874585666564569488}
   characterController: {fileID: 4157602163556837535}
   playerInputController: {fileID: 1564543611840940099}
@@ -1536,32 +1478,10 @@ MonoBehaviour:
   audioRelay: {fileID: 1488962690683598236}
   impulseSource: {fileID: 7184346531640925950}
   speedTrail: {fileID: 6772666014369885431}
-  worldLayer:
-    serializedVersion: 2
-    m_Bits: 512
-  playerLayer:
-    serializedVersion: 2
-    m_Bits: 128
-  enemyLayer:
-    serializedVersion: 2
-    m_Bits: 256
-  weaponLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  hopballLayer:
-    serializedVersion: 2
-    m_Bits: 4096
-  disableKinemationFrameworkComponents: 1
-  disableOnlyKinemationFrameworkCameraComponents: 0
-  logKinemationFrameworkDisables: 0
-  disableUnexpectedChildCameras: 1
   moveInput: {x: 0, y: 0}
   lookInput: {x: 0, y: 0}
   sprintInput: 0
   crouchInput: 0
-  outOfBoundsMarkerName: OOB
-  outOfBoundsMarkerTag: OOB
-  defaultOutOfBoundsY: 600
   playerMaterialIndex:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
@@ -1722,6 +1642,59 @@ MonoBehaviour:
   sniperScopedWeaponPosition: {x: 0, y: -0.05, z: 0.15}
   sniperScopedWeaponRotation: {x: 0, y: 0, z: 0}
   sniperMuzzleCameraOffset: {x: 0, y: -0.05, z: 0.15}
+--- !u!114 &7184346531640925950
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 180ecf9b41d478f468eb3e9083753217, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineImpulseSource
+  ImpulseDefinition:
+    ImpulseChannel: 1
+    ImpulseShape: 1
+    CustomImpulseShape:
+      serializedVersion: 2
+      m_Curve: []
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    ImpulseDuration: 0.2
+    ImpulseType: 1
+    DissipationRate: 0.106
+    RawSignal: {fileID: 0}
+    AmplitudeGain: 1
+    FrequencyGain: 1
+    RepeatMode: 0
+    Randomize: 1
+    TimeEnvelope:
+      AttackShape:
+        serializedVersion: 2
+        m_Curve: []
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      DecayShape:
+        serializedVersion: 2
+        m_Curve: []
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      AttackTime: 0
+      SustainTime: 0.2
+      DecayTime: 0.7
+      ScaleWithImpact: 1
+      HoldForever: 0
+    ImpactRadius: 100
+    DirectionMode: 0
+    DissipationMode: 2
+    DissipationDistance: 100
+    PropagationSpeed: 343
+  DefaultVelocity: {x: 0, y: 0.05, z: 0}
 --- !u!114 &6107098077044397896
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1840,6 +1813,33 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   ownerContextSource: {fileID: 0}
   currentAmmo: 0
+--- !u!114 &450411123697177773
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43bd32485787ffd48a8e175608526603, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkFXRelay
+  ShowTopMostFoldoutHeaderGroup: 1
+  ownerContextSource: {fileID: 0}
+--- !u!114 &-2503030706147355686
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50ce550ff9b55af49beac7e23af9ec4f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerDamageRelay
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &8382341124825033876
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5674,7 +5674,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7129668303251482571}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.024829209, y: 0.16649558, z: 0.0133682145, w: 0.9856389}
+  m_LocalRotation: {x: 0.024829209, y: 0.16649558, z: 0.013368216, w: 0.9856389}
   m_LocalPosition: {x: 0, y: 0.08378157, z: -0.0000003860332}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0

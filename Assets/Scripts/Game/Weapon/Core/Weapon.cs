@@ -16,7 +16,7 @@ namespace Game.Weapon.Core {
         public const float MaxDamageMultiplier = 3f;
 
         [Header("References")]
-        [SerializeField] private MonoBehaviour ownerContextSource;
+        [HideInInspector, SerializeField] private MonoBehaviour ownerContextSource;
 
         private CinemachineCamera _fpCamera;
         private Animator _playerAnimator;

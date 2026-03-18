@@ -27,7 +27,6 @@ namespace Game.Player.Visual {
 
         private GameObject _playerModelRoot;
         private Transform _worldWeaponSocket;
-        private GameObject[] _worldWeaponPrefabs;
         private MaterialPropertyBlock _tagPropertyBlock;
 
         private Material[] _cachedMaterialsArray;
@@ -76,10 +75,6 @@ namespace Game.Player.Visual {
 
             if(_worldWeaponSocket == null) {
                 _worldWeaponSocket = _playerContext.WorldWeaponSocket;
-            }
-
-            if(_worldWeaponPrefabs == null || _worldWeaponPrefabs.Length == 0) {
-                _worldWeaponPrefabs = _playerContext.WorldWeaponPrefabs;
             }
             ApplyMaterialToAllFpArms();
         }

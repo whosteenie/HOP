@@ -38,6 +38,27 @@ namespace Game.Player.Core {
 
         #region Serialized Fields
 
+        [Header("KINEMATION Safeguards")]
+        [SerializeField] private bool disableKinemationFrameworkComponents = true;
+
+        [SerializeField] private bool disableOnlyKinemationFrameworkCameraComponents;
+        [SerializeField] private bool logKinemationFrameworkDisables;
+        [SerializeField] private bool disableUnexpectedChildCameras = true;
+
+        [Header("Out Of Bounds")]
+        [SerializeField] private string outOfBoundsMarkerName = "OOB";
+
+        [SerializeField] private string outOfBoundsMarkerTag = "OOB";
+        [SerializeField] private float defaultOutOfBoundsY = 600f;
+
+        [Header("Layers")]
+        [SerializeField] private LayerMask worldLayer;
+
+        [SerializeField] private LayerMask playerLayer;
+        [SerializeField] private LayerMask enemyLayer;
+        [SerializeField] private LayerMask weaponLayer;
+        [SerializeField] private LayerMask hopballLayer;
+
         [Header("Core Components")]
         [SerializeField] private Transform playerTransform;
 
@@ -97,7 +118,6 @@ namespace Game.Player.Core {
 
         // [SerializeField] private MeshRenderer worldWeapon;
         [SerializeField] private Transform worldWeaponSocket;
-        [SerializeField] private GameObject[] worldWeaponPrefabs;
 
 
         [Header("Audio / Visual Effects")]
@@ -109,41 +129,9 @@ namespace Game.Player.Core {
         [SerializeField] private CinemachineImpulseSource impulseSource;
         [SerializeField] private SpeedTrail speedTrail;
 
-
-        [Header("Layers")]
-        [SerializeField] private LayerMask worldLayer;
-
-        [SerializeField] private LayerMask playerLayer;
-        [SerializeField] private LayerMask enemyLayer;
-        [SerializeField] private LayerMask weaponLayer;
-        [SerializeField] private LayerMask hopballLayer;
-
-        [Header("KINEMATION Safeguards")]
-        [SerializeField] private bool disableKinemationFrameworkComponents = true;
-
-        [SerializeField] private bool disableOnlyKinemationFrameworkCameraComponents;
-        [SerializeField] private bool logKinemationFrameworkDisables;
-        [SerializeField] private bool disableUnexpectedChildCameras = true;
-
-        #endregion
-
-        #region Public Input Fields
-
-        public Vector2 moveInput;
-        public Vector2 lookInput;
-        public bool sprintInput;
-        public bool crouchInput;
-        public bool LockLook { get; set; }
-
         #endregion
 
         #region Private Fields
-
-        [Header("Out Of Bounds")]
-        [SerializeField] private string outOfBoundsMarkerName = "OOB";
-
-        [SerializeField] private string outOfBoundsMarkerTag = "OOB";
-        [SerializeField] private float defaultOutOfBoundsY = 600f;
 
         private static readonly NetworkVariable<float> MissingHealthState = new(100f);
         private static readonly NetworkVariable<bool> MissingDeathState = new();
@@ -171,99 +159,113 @@ namespace Game.Player.Core {
 
         #region Network Variables
 
-        public NetworkVariable<int> playerMaterialIndex = new(0,
+        [HideInInspector] public NetworkVariable<int> playerMaterialIndex = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
         // New material packet system NetworkVariables
         [Header("Material Customization (New System)")]
-        public NetworkVariable<int> playerMaterialPacketIndex = new(0,
+        [HideInInspector] public NetworkVariable<int> playerMaterialPacketIndex = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
         // Base color as Vector4 (RGBA) for network serialization
-        public NetworkVariable<Vector4> playerBaseColor = new(new Vector4(1f, 1f, 1f, 1f),
+        [HideInInspector] public NetworkVariable<Vector4> playerBaseColor = new(new Vector4(1f, 1f, 1f, 1f),
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<float> playerSmoothness = new(0.5f,
+        [HideInInspector] public NetworkVariable<float> playerSmoothness = new(0.5f,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<float> playerMetallic = new(0f,
+        [HideInInspector] public NetworkVariable<float> playerMetallic = new(0f,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
         // Specular color as Vector4 (RGBA) for network serialization
-        public NetworkVariable<Vector4> playerSpecularColor = new(new Vector4(0.2f, 0.2f, 0.2f, 1f),
+        [HideInInspector] public NetworkVariable<Vector4> playerSpecularColor = new(new Vector4(0.2f, 0.2f, 0.2f, 1f),
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<float> playerHeightStrength = new(0.02f,
+        [HideInInspector] public NetworkVariable<float> playerHeightStrength = new(0.02f,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<bool> playerEmissionEnabled = new(false,
+        [HideInInspector] public NetworkVariable<bool> playerEmissionEnabled = new(false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<Vector4> playerEmissionColor = new(new Vector4(0f, 0f, 0f, 1f),
+        [HideInInspector] public NetworkVariable<Vector4> playerEmissionColor = new(new Vector4(0f, 0f, 0f, 1f),
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<bool> netIsCrouching = new(false,
+        [HideInInspector] public NetworkVariable<bool> netIsCrouching = new(false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<bool> netIsSliding = new(false,
+        [HideInInspector] public NetworkVariable<bool> netIsSliding = new(false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<bool> netIsJumping = new(false,
+        [HideInInspector] public NetworkVariable<bool> netIsJumping = new(false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<bool> netIsFalling = new(false,
+        [HideInInspector] public NetworkVariable<bool> netIsFalling = new(false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<int> jumpAnimationSequence = new(0,
+        [HideInInspector] public NetworkVariable<int> jumpAnimationSequence = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<int> landAnimationSequence = new(0,
+        [HideInInspector] public NetworkVariable<int> landAnimationSequence = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<int> mantleAnimationSequence = new(0,
+        [HideInInspector] public NetworkVariable<int> mantleAnimationSequence = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<bool> netIsWallRunning = new(false,
+        [HideInInspector] public NetworkVariable<bool> netIsWallRunning = new(false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<bool> netIsRightWallRun = new(false,
+        [HideInInspector] public NetworkVariable<bool> netIsRightWallRun = new(false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<float> netWallRunDirection = new(1f,
+        [HideInInspector] public NetworkVariable<float> netWallRunDirection = new(1f,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
         // Weapon selection NetworkVariables (synced across all clients)
-        public NetworkVariable<int> primaryWeaponIndex = new(0,
+        [HideInInspector] public NetworkVariable<int> primaryWeaponIndex = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<int> secondaryWeaponIndex = new(0,
+        [HideInInspector] public NetworkVariable<int> secondaryWeaponIndex = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
         // Voice PTT state (synced so other players see speaking indicator)
-        public NetworkVariable<bool> isPttActive = new(false,
+        [HideInInspector] public NetworkVariable<bool> isPttActive = new(false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
+
+        #endregion
+
+        #region Public Input Fields
+
+        [HideInInspector]
+        public Vector2 moveInput;
+        [HideInInspector]
+        public Vector2 lookInput;
+        [HideInInspector]
+        public bool sprintInput;
+        [HideInInspector]
+        public bool crouchInput;
+        public bool LockLook { get; set; }
 
         #endregion
 
@@ -957,7 +959,6 @@ namespace Game.Player.Core {
         public WeaponFxRelay FxRelay => fxRelay;
         public NetworkAudioRelay AudioRelay => audioRelay;
         public CinemachineImpulseSource ImpulseSource => impulseSource;
-        public GameObject[] WorldWeaponPrefabs => worldWeaponPrefabs;
         public Game.Weapon.Core.Weapon WeaponComponent => weaponComponent;
         public Animator PlayerAnimator => playerAnimator;
         public Transform WorldWeaponSocket => worldWeaponSocket;
