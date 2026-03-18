@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Diagnostics;
 using Network.AntiCheat;
 using Network.Core;
 using Unity.Netcode;
@@ -30,15 +29,18 @@ namespace Game.Weapon.Core {
 
         private void ValidateComponents() {
             if(_ownerContext == null) {
-                if(ownerContextSource is IWeaponOwnerContext ownerContext) {
-                    _ownerContext = ownerContext;
+                if(ownerContextSource != null) {
+                    var ownerContext = (IWeaponOwnerContext)ownerContextSource;
+                    if(ownerContext != null) {
+                        _ownerContext = ownerContext;
+                    }
                 } else {
                     foreach(var candidate in GetComponentsInParent<MonoBehaviour>(true)) {
-                        if(candidate is IWeaponOwnerContext resolvedContext) {
-                            ownerContextSource = candidate;
-                            _ownerContext = resolvedContext;
-                            break;
-                        }
+                        if(candidate == null) continue;
+                        var resolvedContext = (IWeaponOwnerContext)candidate;
+                        ownerContextSource = candidate;
+                        _ownerContext = resolvedContext;
+                        break;
                     }
                 }
             }
@@ -77,7 +79,7 @@ namespace Game.Weapon.Core {
         public void RequestShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact,
             bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash = true,
             Vector3 shooterVelocity = default) {
-            if(_ownerContext == null || !_ownerContext.IsOwner || !_playerNetworkObject.IsSpawned) return;
+            if(_ownerContext is not { IsOwner: true } || !_playerNetworkObject.IsSpawned) return;
 
             RequestShotFxServerRpc(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
                 shooterVelocity);

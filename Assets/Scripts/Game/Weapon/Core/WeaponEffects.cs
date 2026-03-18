@@ -43,7 +43,7 @@ namespace Game.Weapon.Core {
         }
 
         public void PlayNetworkedMuzzleFlash(Vector3 endPoint) {
-            if(_weapon.OwnerContext != null && _weapon.OwnerContext.IsOwner) {
+            if(_weapon.OwnerContext is { IsOwner: true }) {
                 return;
             }
 
@@ -104,7 +104,7 @@ namespace Game.Weapon.Core {
                 trailAudioSource.enabled = false;
             }
 
-            if(!madeImpact && _weapon.OwnerContext != null && _weapon.OwnerContext.IsOwner && _weapon.AudioRelay != null) {
+            if(!madeImpact && _weapon.OwnerContext is { IsOwner: true } && _weapon.AudioRelay != null) {
                 _weapon.AudioRelay.RequestPlay("weapons.bullet.trail", start, allowOverlap: true);
             }
 
@@ -116,7 +116,7 @@ namespace Game.Weapon.Core {
             yield return new WaitForEndOfFrame();
 
             var start = fallbackStart;
-            if(_weapon.OwnerContext != null && _weapon.OwnerContext.IsOwner) {
+            if(_weapon.OwnerContext is { IsOwner: true }) {
                 if(!_weapon.TryGetOwnerTracerStartPositionInternal(out start)) {
                     start = fallbackStart;
                 }
@@ -128,7 +128,7 @@ namespace Game.Weapon.Core {
         public void PlayFireSound() {
             if(UseKinemationEventSoundRouting() && _weapon.KinDriver != null &&
                _weapon.KinDriver.HasKinemationFireSound()) {
-                if(_weapon.OwnerContext == null || !_weapon.OwnerContext.IsOwner) return;
+                if(_weapon.OwnerContext is not { IsOwner: true }) return;
                 if(_weapon.AudioRelay == null || _weapon.OwnerContext.NetworkObject == null) return;
 
                 var kinemationFireSoundId = _weapon.KinDriver.GetKinemationFireSoundId();
@@ -143,7 +143,7 @@ namespace Game.Weapon.Core {
             }
 
             if(UseKinemationInternalSounds()) return;
-            if(_weapon.OwnerContext == null || !_weapon.OwnerContext.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(_weapon.AudioRelay == null) return;
 
             var soundId = _weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.shootSoundId : "";
@@ -154,7 +154,7 @@ namespace Game.Weapon.Core {
         }
 
         public void PlayDryFireSound() {
-            if(_weapon.OwnerContext == null || !_weapon.OwnerContext.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(_weapon.AudioRelay == null) return;
             _weapon.AudioRelay.RequestPlayAttached("weapons.bullet.dry",
                 new NetworkObjectReference(_weapon.OwnerContext.NetworkObject), allowOverlap: true);
@@ -166,7 +166,7 @@ namespace Game.Weapon.Core {
 
             if(ShouldSuppressLegacyReloadSound()) return;
             if(UseKinemationInternalSounds()) return;
-            if(_weapon.OwnerContext == null || !_weapon.OwnerContext.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(_weapon.AudioRelay == null) return;
             var soundId = _weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.reloadSoundId : "";
             if(!string.IsNullOrWhiteSpace(soundId)) {
@@ -189,7 +189,7 @@ namespace Game.Weapon.Core {
 
             if(_weapon.KinemationWeaponSoundEventBuffer.Count == 0) return;
             if(!UseKinemationEventSoundRouting()) return;
-            if(_weapon.OwnerContext == null || !_weapon.OwnerContext.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(_weapon.AudioRelay == null || _weapon.OwnerContext.NetworkObject == null) return;
 
             var attachRef = new NetworkObjectReference(_weapon.OwnerContext.NetworkObject);
@@ -203,7 +203,7 @@ namespace Game.Weapon.Core {
         public void StopKinemationEventSounds() {
             if(_weapon.KinDriver == null) return;
             if(!UseKinemationEventSoundRouting()) return;
-            if(_weapon.OwnerContext == null || !_weapon.OwnerContext.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(_weapon.AudioRelay == null) return;
 
             var eventClipCount = _weapon.KinDriver.GetKinemationSoundClipCount();
@@ -408,7 +408,7 @@ namespace Game.Weapon.Core {
             var isLocalPlayerHit = false;
             if(hitPlayer && hitPlayerRef.TryGet(out var hitNetworkObject) && hitNetworkObject != null) {
                 var hitParticipant = hitNetworkObject.GetComponent<IWeaponCombatParticipant>();
-                if(hitParticipant != null && hitParticipant.IsOwner) {
+                if(hitParticipant is { IsOwner: true }) {
                     isLocalPlayerHit = true;
                 }
             }
@@ -423,7 +423,7 @@ namespace Game.Weapon.Core {
                     if(decal != null) {
                         decal.gameObject.SetActive(false);
                     }
-                } else if(_weapon.OwnerContext != null && _weapon.OwnerContext.IsOwner && _weapon.AudioRelay != null) {
+                } else if(_weapon.OwnerContext is { IsOwner: true } && _weapon.AudioRelay != null) {
                     _weapon.AudioRelay.RequestPlay("weapons.bullet.impact", hitPoint, allowOverlap: true);
                 }
             }

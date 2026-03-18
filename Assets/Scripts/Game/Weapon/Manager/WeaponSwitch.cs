@@ -617,7 +617,7 @@ namespace Game.Weapon.Manager {
                 _root.CurrentWorldWeaponInstanceInternal.SetActive(true);
             }
 
-            var isOwner = _root.OwnerContext != null && _root.OwnerContext.IsOwner;
+            var isOwner = _root.OwnerContext is { IsOwner: true };
             var isPostMatch = _root.IsPostMatchFlowActive;
             var targetMode = isOwner && !isPostMatch ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
 

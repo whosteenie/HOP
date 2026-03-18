@@ -1,5 +1,5 @@
 using Game.Match;
-using Game.Player.Weapon;
+using Game.Player.Core;
 using Game.Weapon.Manager;
 using Network.Components;
 using Unity.Collections;

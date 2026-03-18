@@ -8,7 +8,6 @@ using Game.Player.Combat;
 using Game.Player.Contracts;
 using Game.Player.Input;
 using Game.Player.Movement;
-using Game.Player.Weapon;
 using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
@@ -270,7 +269,7 @@ namespace Game.Player.Core {
 
         #region Public Properties
 
-        public float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
+        private float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
         private float BaseFov => lookController != null ? lookController.BaseFov : 80f;
         public bool IsJumpHeld => playerInputController != null && playerInputController.IsJumpHeld;
         public WallRunController WallRunController => wallRunController;
@@ -815,7 +814,7 @@ namespace Game.Player.Core {
 
         #region Damage & Death Methods
 
-        public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
+        private bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
             string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
             if(combatController != null) {
                 return combatController.ApplyDamageServer_Auth(amount, hitPoint, hitDirection, attackerId, bodyPartTag,
@@ -1062,7 +1061,7 @@ namespace Game.Player.Core {
 
         #region Velocity Helpers
 
-        public Vector3 GetHorizontalVelocity() {
+        private Vector3 GetHorizontalVelocity() {
             return movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
         }
 
@@ -1072,7 +1071,7 @@ namespace Game.Player.Core {
 
         public Vector3 GetFullVelocity => movementController != null ? movementController.FullVelocity : Vector3.zero;
 
-        public float GetMaxSpeed() {
+        private float GetMaxSpeed() {
             return movementController != null ? movementController.MaxSpeed : 5f;
         }
 

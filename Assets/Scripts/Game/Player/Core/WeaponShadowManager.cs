@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Diagnostics;
-using Game.Player.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
-namespace Game.Player.Weapon {
+namespace Game.Player.Core {
     /// <summary>
     /// Dynamically creates shadow-only duplicates of world geometry that cast shadows on the weapon.
     /// Only checks when the player is moving. Uses sphere cast with player radius for accurate shadow detection.

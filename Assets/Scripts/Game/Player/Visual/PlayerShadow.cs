@@ -159,7 +159,7 @@ namespace Game.Player.Visual {
         }
 
         /// <summary>Sets shadow casting mode for world weapon renderers.</summary>
-        public void SetWorldWeaponShadowMode(ShadowCastingMode mode, bool isEnabled = true) {
+        private void SetWorldWeaponShadowMode(ShadowCastingMode mode, bool isEnabled = true) {
             // Get the currently equipped world weapon from the socket
             var currentWorldWeapon = GetCurrentWorldWeapon();
 

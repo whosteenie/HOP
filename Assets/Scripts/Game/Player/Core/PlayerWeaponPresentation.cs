@@ -42,7 +42,7 @@ namespace Game.Player.Core {
                 if(updateHud) {
                     EventBus.Publish(new UpdateAmmoEvent(currentWeapon.currentAmmo, currentWeapon.GetMagSize()));
                     EventBus.Publish(new UpdateHealthEvent(_player.NetHealth.Value, 100f));
-                    EventBus.Publish(new UpdateMultiplierEvent(1f, Game.Weapon.Core.Weapon.MaxDamageMultiplier));
+                    EventBus.Publish(new UpdateMultiplierEvent(1f, Weapon.Core.Weapon.MaxDamageMultiplier));
                 }
             }
 

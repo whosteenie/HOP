@@ -26,7 +26,6 @@ namespace Game.Weapon.Core {
         private WeaponEffects _effects;
 
         private int _currentMagCapacity = 1;
-        private IWeaponOwnerContext _ownerContext;
 
         [Header("Runtime State")]
         public int currentAmmo;
@@ -37,7 +36,7 @@ namespace Game.Weapon.Core {
         private static readonly NetworkVariable<float> MissingDamageMultiplierState = new(1f);
 
         public NetworkVariable<float> NetCurrentDamageMultiplier =>
-            _ownerContext != null ? _ownerContext.ReplicatedDamageMultiplierState ?? MissingDamageMultiplierState : MissingDamageMultiplierState;
+            OwnerContext != null ? OwnerContext.ReplicatedDamageMultiplierState ?? MissingDamageMultiplierState : MissingDamageMultiplierState;
 
         private float CurrentDamageMultiplier {
             get => IsOwner ? _localDamageMultiplier : NetCurrentDamageMultiplier.Value;
@@ -100,7 +99,8 @@ namespace Game.Weapon.Core {
 
         #region Internal Facade Properties
 
-        internal IWeaponOwnerContext OwnerContext => _ownerContext;
+        internal IWeaponOwnerContext OwnerContext { get; private set; }
+
         internal WeaponManager Manager { get; private set; }
 
         private WeaponDamageRelay DamageRelay { get; set; }
@@ -208,35 +208,38 @@ namespace Game.Weapon.Core {
         }
 
         private void ValidateComponents() {
-            if(_ownerContext == null) {
-                if(ownerContextSource is IWeaponOwnerContext ownerContext) {
-                    _ownerContext = ownerContext;
+            if(OwnerContext == null) {
+                if(ownerContextSource != null) {
+                    var ownerContext = (IWeaponOwnerContext)ownerContextSource;
+                    if(ownerContext != null) {
+                        OwnerContext = ownerContext;
+                    }
                 } else {
                     foreach(var candidate in GetComponentsInParent<MonoBehaviour>(true)) {
-                        if(candidate is IWeaponOwnerContext resolvedContext) {
-                            ownerContextSource = candidate;
-                            _ownerContext = resolvedContext;
-                            break;
-                        }
+                        if(candidate == null) continue;
+                        var resolvedContext = (IWeaponOwnerContext)candidate;
+                        ownerContextSource = candidate;
+                        OwnerContext = resolvedContext;
+                        break;
                     }
                 }
             }
 
-            if(_ownerContext == null) {
+            if(OwnerContext == null) {
                 DevLog.LogError("[Weapon] IWeaponOwnerContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_fpCamera == null && _ownerContext.FpCameraTransform != null) {
-                _fpCamera = _ownerContext.FpCameraTransform.GetComponent<CinemachineCamera>();
+            if(_fpCamera == null && OwnerContext.FpCameraTransform != null) {
+                _fpCamera = OwnerContext.FpCameraTransform.GetComponent<CinemachineCamera>();
             }
-            if(_playerAnimator == null) _playerAnimator = _ownerContext.PlayerAnimator;
-            EnemyLayerMask = _ownerContext.EnemyLayer;
-            WorldLayerMask = _ownerContext.WorldLayer;
-            if(DamageRelay == null) DamageRelay = _ownerContext.DamageRelay;
-            if(AudioRelay == null) AudioRelay = _ownerContext.AudioRelay;
-            if(Manager == null) Manager = _ownerContext.WeaponManager;
+            if(_playerAnimator == null) _playerAnimator = OwnerContext.PlayerAnimator;
+            EnemyLayerMask = OwnerContext.EnemyLayer;
+            WorldLayerMask = OwnerContext.WorldLayer;
+            if(DamageRelay == null) DamageRelay = OwnerContext.DamageRelay;
+            if(AudioRelay == null) AudioRelay = OwnerContext.AudioRelay;
+            if(Manager == null) Manager = OwnerContext.WeaponManager;
 
             LastFireTime = Time.time;
 
@@ -340,7 +343,7 @@ namespace Game.Weapon.Core {
         }
 
         private void PublishOwnerAmmoToHud(int maxAmmoOverride = -1) {
-            if(_ownerContext == null || !_ownerContext.IsOwner) return;
+            if(OwnerContext is not { IsOwner: true }) return;
             var maxAmmo = maxAmmoOverride > 0 ? maxAmmoOverride : GetCurrentMagCapacity();
             EventBus.Publish(new UpdateAmmoEvent(currentAmmo, maxAmmo));
         }
@@ -355,8 +358,8 @@ namespace Game.Weapon.Core {
                 AuthoritativePeakDamageMultiplier = 1f;
                 AuthoritativeLastPeakTime = 0f;
                 ResetMotionBaseline();
-                if(_ownerContext != null) {
-                    _ownerContext.ReplicatedDamageMultiplierState.Value = 1f;
+                if(OwnerContext != null) {
+                    OwnerContext.ReplicatedDamageMultiplierState.Value = 1f;
                 }
             }
 

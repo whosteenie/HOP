@@ -15,7 +15,7 @@ namespace Game.Weapon.Core {
         public void SyncKinemationLocomotion() {
             var kinemationDriver = _weapon.KinDriver;
             var ownerContext = _weapon.OwnerContext;
-            if(kinemationDriver == null || ownerContext == null || !ownerContext.IsOwner) {
+            if(kinemationDriver == null || ownerContext is not { IsOwner: true }) {
                 return;
             }
 
@@ -61,7 +61,7 @@ namespace Game.Weapon.Core {
         public void TryPrewarmKinemationMuzzleIfNeeded() {
             if(_weapon.HasPrewarmedKinemationMuzzleForCurrentWeapon) return;
             if(_weapon.KinDriver == null) return;
-            if(_weapon.OwnerContext == null || !_weapon.OwnerContext.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             _weapon.PrewarmKinemationMuzzleFxInternal();
         }
 
@@ -85,7 +85,7 @@ namespace Game.Weapon.Core {
                 : null;
 
             if(_weapon.KinDriver != null) {
-                var fpLayer = _weapon.OwnerContext != null && _weapon.OwnerContext.IsOwner
+                var fpLayer = _weapon.OwnerContext is { IsOwner: true }
                     ? LayerMask.NameToLayer("Weapon")
                     : LayerMask.NameToLayer("Masked");
                 _weapon.KinDriver.InitializeIfNeeded(fpLayer);
@@ -157,23 +157,22 @@ namespace Game.Weapon.Core {
             if(_weapon.CurrentWeaponData == null) return false;
 
             var ownerContext = _weapon.OwnerContext;
-            if(ownerContext != null &&
-               ownerContext.IsOwner &&
-               ownerContext.IsSniperOverlayActive) {
-                var fpCameraTransform = ownerContext.FpCameraTransform;
-                if(fpCameraTransform == null) return false;
+            switch(ownerContext) {
+                case { IsOwner: true, IsSniperOverlayActive: true }: {
+                    var fpCameraTransform = ownerContext.FpCameraTransform;
+                    if(fpCameraTransform == null) return false;
 
-                muzzlePosition = fpCameraTransform.TransformPoint(ownerContext.SniperMuzzleCameraOffset);
-                return true;
-            }
-
-            if(ownerContext != null && ownerContext.IsOwner) {
-                if(!TryGetRequiredOwnerMuzzleTransform(out var ownerMuzzleTransform, "TryGetMuzzlePosition")) {
-                    return false;
+                    muzzlePosition = fpCameraTransform.TransformPoint(ownerContext.SniperMuzzleCameraOffset);
+                    return true;
                 }
+                case { IsOwner: true }: {
+                    if(!TryGetRequiredOwnerMuzzleTransform(out var ownerMuzzleTransform, "TryGetMuzzlePosition")) {
+                        return false;
+                    }
 
-                muzzlePosition = ownerMuzzleTransform.position;
-                return true;
+                    muzzlePosition = ownerMuzzleTransform.position;
+                    return true;
+                }
             }
 
             if(!TryGetStrictWorldMuzzleTransform(out var remoteWorldMuzzleTransform, "TryGetMuzzlePosition")) {
@@ -187,7 +186,7 @@ namespace Game.Weapon.Core {
         private bool TryGetMuzzlePositionFromCamera(out Vector3 muzzlePosition) {
             muzzlePosition = default;
             var ownerContext = _weapon.OwnerContext;
-            if(ownerContext == null || !ownerContext.IsOwner || _weapon.CurrentWeaponData == null) {
+            if(ownerContext is not { IsOwner: true } || _weapon.CurrentWeaponData == null) {
                 return TryGetMuzzlePosition(out muzzlePosition);
             }
 
@@ -224,7 +223,7 @@ namespace Game.Weapon.Core {
             muzzleTransform = null;
 
             var ownerContext = _weapon.OwnerContext;
-            if(ownerContext == null || !ownerContext.IsOwner) {
+            if(ownerContext is not { IsOwner: true }) {
                 if(logErrors) {
                     DevLog.LogError(
                         $"[Weapon][MuzzleStrict][{context}] Owner-only muzzle query called on non-owner.",
@@ -245,7 +244,7 @@ namespace Game.Weapon.Core {
             muzzleTransform = null;
 
             var ownerContext = _weapon.OwnerContext;
-            if(ownerContext != null && ownerContext.IsOwner && !allowOwnerInstance) {
+            if(ownerContext is { IsOwner: true } && !allowOwnerInstance) {
                 if(logErrors) {
                     DevLog.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Called on owner instance. " +
@@ -331,7 +330,7 @@ namespace Game.Weapon.Core {
             muzzleTransform = null;
 
             var ownerContext = _weapon.OwnerContext;
-            if(ownerContext == null || !ownerContext.IsOwner) {
+            if(ownerContext is not { IsOwner: true }) {
                 if(logErrors) {
                     DevLog.LogError($"[Weapon][MuzzleStrict][{context}] FP muzzle requested by non-owner.", _weapon);
                 }
@@ -399,7 +398,7 @@ namespace Game.Weapon.Core {
                 remapDepth));
         }
 
-        private bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
+        private static bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
             mainSceneCamera = null;
 
             mainSceneCamera = FindCandidateMainSceneCamera(weaponCamera);

@@ -108,7 +108,7 @@ namespace Game.Weapon.Core {
             if(!_weapon.IsOwner) return;
             if(!_weapon.CurrentWeaponData) return;
 
-            var isDead = _weapon.OwnerContext != null && _weapon.OwnerContext.IsDead;
+            var isDead = _weapon.OwnerContext is { IsDead: true };
             var currentSpeed = _weapon.OwnerContext != null ? _weapon.OwnerContext.FullVelocity.magnitude : 0f;
             var peakMultiplier = _weapon.PeakDamageMultiplier;
             var lastPeakTime = _weapon.LastPeakTime;
@@ -126,7 +126,7 @@ namespace Game.Weapon.Core {
             if(!Network.Core.NetworkAuthority.HasGlobalAuthority(_weapon)) return;
             if(!_weapon.CurrentWeaponData) return;
 
-            var isDead = _weapon.OwnerContext != null && _weapon.OwnerContext.IsDead;
+            var isDead = _weapon.OwnerContext is { IsDead: true };
             var observedSpeed = SampleObservedSpeed();
             var authoritativePeakMultiplier = _weapon.AuthoritativePeakDamageMultiplier;
             var authoritativeLastPeakTime = _weapon.AuthoritativeLastPeakTime;
@@ -187,7 +187,7 @@ namespace Game.Weapon.Core {
             RaycastHit hit = default;
             var useHybridSystem = _weapon.CurrentWeaponData != null && _weapon.CurrentWeaponData.useSphereCast
                                   || _weapon.CurrentWeaponData != null && _weapon.CurrentWeaponData.useSniperOverlay &&
-                                  _weapon.OwnerContext != null && _weapon.OwnerContext.IsSniperOverlayActive;
+                                  _weapon.OwnerContext is { IsSniperOverlayActive: true };
 
             if(useHybridSystem) {
                 var hasWorldHit = Physics.Raycast(origin, direction, out var worldHit, maxDist, _weapon.WorldLayerMask);
@@ -236,7 +236,7 @@ namespace Game.Weapon.Core {
                     }
                 }
 #if UNITY_EDITOR
-                if(_weapon.OwnerContext != null && _weapon.OwnerContext.IsOwner) {
+                if(_weapon.OwnerContext is { IsOwner: true }) {
                     var debugPoint = shotHit ? hit.point : Vector3.zero;
                     DrawHitRegistrationDebug(origin, direction, maxDist, debugPoint, shotHit, baseRadius, maxRadius,
                         growthStart, growthEnd);
@@ -261,7 +261,7 @@ namespace Game.Weapon.Core {
                 hitPlayer = hitPlayer && registeredDamage;
             }
 
-            if(_weapon.OwnerContext != null && _weapon.OwnerContext.IsOwner) {
+            if(_weapon.OwnerContext is { IsOwner: true }) {
                 _weapon.StartCoroutine(_weapon.SpawnOwnerTracerAfterViewUpdateInternal(
                     tracerStartPosition,
                     endPoint,
@@ -281,8 +281,7 @@ namespace Game.Weapon.Core {
                     shooterVelocityAtShot);
             }
 
-            if(_weapon.OwnerContext != null &&
-               _weapon.OwnerContext.IsOwner &&
+            if(_weapon.OwnerContext is { IsOwner: true } &&
                _weapon.OwnerContext.FxRelay != null) {
                 _weapon.OwnerContext.FxRelay.RequestShotFx(
                     endPoint,
@@ -340,13 +339,13 @@ namespace Game.Weapon.Core {
         }
 
         private void RecordShotFiredProgression() {
-            if(_weapon.OwnerContext == null || !_weapon.OwnerContext.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(ProgressionManager.Instance == null) return;
             ProgressionManager.Instance.RecordShotFired();
         }
 
         private void RecordShotHitProgression() {
-            if(_weapon.OwnerContext == null || !_weapon.OwnerContext.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(ProgressionManager.Instance == null) return;
             ProgressionManager.Instance.RecordShotHit();
         }

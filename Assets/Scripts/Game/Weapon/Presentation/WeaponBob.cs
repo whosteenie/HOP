@@ -145,8 +145,8 @@ namespace Game.Weapon.Presentation {
             while(current != null && depth < maxDepth) {
                 var behaviours = current.GetComponents<MonoBehaviour>();
                 foreach(var behaviour in behaviours) {
-                    var bobContext = behaviour as IWeaponBobContext;
-                    if(bobContext == null) continue;
+                    if(behaviour == null) continue;
+                    var bobContext = (IWeaponBobContext)behaviour;
                     _context = bobContext;
                     return;
                 }
