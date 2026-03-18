@@ -75,5 +75,13 @@ namespace Events {
             Seed = seed;
         }
     }
+
+    public sealed class RequestNetworkStopSoundIdEvent : GameEvent {
+        public readonly string SoundId;
+
+        public RequestNetworkStopSoundIdEvent(string soundId) {
+            SoundId = soundId;
+        }
+    }
 }
 

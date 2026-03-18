@@ -6,6 +6,20 @@ using UnityEngine;
 namespace Game.Audio.System {
     [DisallowMultipleComponent]
     public sealed class NetworkAudioRelay : NetworkBehaviour {
+        public override void OnNetworkSpawn() {
+            base.OnNetworkSpawn();
+            if(IsOwner) {
+                AudioServiceEventBusBridge.RegisterLocalRelay(this);
+            }
+        }
+
+        public override void OnNetworkDespawn() {
+            if(IsOwner) {
+                AudioServiceEventBusBridge.UnregisterLocalRelay(this);
+            }
+            base.OnNetworkDespawn();
+        }
+
         /// <summary>
         /// Client-side convenience API for requesting a networked SFX play.
         /// Typically called by the local owner when an SFX-worthy event happens.

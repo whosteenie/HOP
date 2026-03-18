@@ -1,6 +1,5 @@
 using Diagnostics;
 using Events;
-using Game.Audio.System;
 using Game.Player.Contracts;
 using Game.Weapon.Presentation;
 using Unity.Cinemachine;
@@ -22,7 +21,6 @@ namespace Game.Player.Movement {
         private GrappleController _grappleController;
         private WallRunController _wallRunController;
         private MantleController _mantleController;
-        private NetworkAudioRelay _audioRelay;
         private Transform _playerTransform;
 
         // Wall contact dampening
@@ -121,7 +119,6 @@ namespace Game.Player.Movement {
                 _wallRunController = GetComponent<WallRunController>();
             }
             if(_mantleController == null) _mantleController = GetComponent<MantleController>();
-            if(_audioRelay == null) _audioRelay = _playerContext.AudioRelay;
 
             _obstacleMask = _playerContext.WorldLayer | _playerContext.EnemyLayer;
             _gravityY = Physics.gravity.y;
@@ -171,9 +168,11 @@ namespace Game.Player.Movement {
                 return;
             }
 
-            if(!IsOwner || _audioRelay == null || _playerContext?.NetworkObject == null) return;
-            _audioRelay.RequestPlayAttached("foley.tile.walk", new NetworkObjectReference(_playerContext.NetworkObject),
-                allowOverlap: true);
+            if(!IsOwner || _playerContext?.NetworkObject == null) return;
+            EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
+                "foley.tile.walk",
+                new NetworkObjectReference(_playerContext.NetworkObject),
+                allowOverlap: true));
         }
 
         public void PlayRunSound() {
@@ -190,9 +189,11 @@ namespace Game.Player.Movement {
                 return;
             }
 
-            if(!IsOwner || _audioRelay == null || _playerContext?.NetworkObject == null) return;
-            _audioRelay.RequestPlayAttached("foley.tile.run", new NetworkObjectReference(_playerContext.NetworkObject),
-                allowOverlap: true);
+            if(!IsOwner || _playerContext?.NetworkObject == null) return;
+            EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
+                "foley.tile.run",
+                new NetworkObjectReference(_playerContext.NetworkObject),
+                allowOverlap: true));
         }
 
         /// <summary>
@@ -548,9 +549,11 @@ namespace Game.Player.Movement {
                 CancelSlideForJump();
             }
 
-            if(IsOwner && _audioRelay != null && _playerContext?.NetworkObject != null) {
-                _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(_playerContext.NetworkObject),
-                    allowOverlap: true);
+            if(IsOwner && _playerContext?.NetworkObject != null) {
+                EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
+                    "foley.tile.jump.start",
+                    new NetworkObjectReference(_playerContext.NetworkObject),
+                    allowOverlap: true));
             }
 
             VerticalVelocity = Mathf.Sqrt(height * -2f * _gravityY * GravityScale);
@@ -595,12 +598,11 @@ namespace Game.Player.Movement {
 
             IsInJumpPadLaunch = true;
 
-            if(IsOwner && _audioRelay != null && _playerContext?.NetworkObject != null) {
+            if(IsOwner && _playerContext?.NetworkObject != null) {
                 // Networked jumppad + jump foley, as before.
-                _audioRelay.RequestPlayAttached("gameplay.jumppad", new NetworkObjectReference(_playerContext.NetworkObject),
-                    allowOverlap: true);
-                _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(_playerContext.NetworkObject),
-                    allowOverlap: true);
+                var attachRef = new NetworkObjectReference(_playerContext.NetworkObject);
+                EventBus.Publish(new RequestNetworkAttachedSoundIdEvent("gameplay.jumppad", attachRef, allowOverlap: true));
+                EventBus.Publish(new RequestNetworkAttachedSoundIdEvent("foley.tile.jump.start", attachRef, allowOverlap: true));
             }
 
             if(IsOwner) {
@@ -774,9 +776,11 @@ namespace Game.Player.Movement {
                 _playerContext.SetSlidingAnimationState(true, playTrigger: true);
             }
 
-            if(IsOwner && _audioRelay != null && _playerContext?.NetworkObject != null) {
-                _audioRelay.RequestPlayAttached("foley.slide", new NetworkObjectReference(_playerContext.NetworkObject),
-                    allowOverlap: false);
+            if(IsOwner && _playerContext?.NetworkObject != null) {
+                EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
+                    "foley.slide",
+                    new NetworkObjectReference(_playerContext.NetworkObject),
+                    allowOverlap: false));
             }
         }
 
@@ -867,8 +871,8 @@ namespace Game.Player.Movement {
         private void EndSlide() {
             IsSliding = false;
 
-            if(IsOwner && _audioRelay != null) {
-                _audioRelay.RequestStop("foley.slide");
+            if(IsOwner) {
+                EventBus.Publish(new RequestNetworkStopSoundIdEvent("foley.slide"));
             }
 
             // Set remaining velocity (continues in slide direction at current speed)
@@ -894,8 +898,8 @@ namespace Game.Player.Movement {
         public void CancelSlideForJump() {
             if(!IsSliding) return;
             
-            if(IsOwner && _audioRelay != null) {
-                _audioRelay.RequestStop("foley.slide");
+            if(IsOwner) {
+                EventBus.Publish(new RequestNetworkStopSoundIdEvent("foley.slide"));
             }
 
             // Preserve full slide velocity for jump

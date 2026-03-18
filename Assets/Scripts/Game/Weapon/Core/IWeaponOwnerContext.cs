@@ -1,4 +1,3 @@
-using Game.Audio.System;
 using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
@@ -28,7 +27,6 @@ namespace Game.Weapon.Core {
         ulong OwnerClientId { get; }
         WeaponDamageRelay DamageRelay { get; }
         WeaponFxRelay FxRelay { get; }
-        NetworkAudioRelay AudioRelay { get; }
         WeaponManager WeaponManager { get; }
         Weapon CurrentWeapon { get; }
         NetworkVariable<float> ReplicatedDamageMultiplierState { get; }

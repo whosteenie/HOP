@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Game.Audio.System;
+using Events;
 using Game.Match;
 using Game.Player.Core;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -37,8 +36,7 @@ namespace Game.UI.Screens.Scoreboard {
             var seconds = secondsRemaining % 60;
             _matchTimerLabel.text = $"{minutes:00}:{seconds:00}";
             if(!playTickSfx || minutes != 0 || seconds is > 5 or < 1) return;
-            if(AudioService.Instance != null)
-                AudioService.Instance.Play("ui.timer", Vector3.zero);
+            EventBus.Publish(new PlayLocalSoundIdEvent("ui.timer"));
         }
 
         public void ApplyInitialTimerState() {

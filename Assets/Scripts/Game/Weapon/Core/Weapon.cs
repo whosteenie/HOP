@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using Diagnostics;
 using Events;
-using Game.Audio.System;
 using Game.Weapon.Kinemation;
 using Game.Weapon.Manager;
 using Network.Core;
@@ -104,8 +103,6 @@ namespace Game.Weapon.Core {
         internal WeaponManager Manager { get; private set; }
 
         private WeaponDamageRelay DamageRelay { get; set; }
-
-        internal NetworkAudioRelay AudioRelay { get; private set; }
 
         internal KinFpWeaponDriver KinDriver { get; set; }
 
@@ -241,7 +238,6 @@ namespace Game.Weapon.Core {
             EnemyLayerMask = OwnerContext.EnemyLayer;
             WorldLayerMask = OwnerContext.WorldLayer;
             if(DamageRelay == null) DamageRelay = OwnerContext.DamageRelay;
-            if(AudioRelay == null) AudioRelay = OwnerContext.AudioRelay;
             if(Manager == null) Manager = OwnerContext.WeaponManager;
 
             LastFireTime = Time.time;
@@ -283,10 +279,8 @@ namespace Game.Weapon.Core {
         }
 
         private static void OnHitConfirm(bool wasKill) {
-            if(AudioService.Instance == null) return;
-
             var soundId = wasKill ? "ui.hit.hitmarker.kill" : "ui.hit.hitmarker.hit";
-            AudioService.Instance.Play(soundId, Vector3.zero);
+            EventBus.Publish(new PlayLocalSoundIdEvent(soundId));
         }
 
         #endregion

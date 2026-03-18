@@ -1,5 +1,5 @@
 using Cysharp.Threading.Tasks;
-using Game.Audio.System;
+using Events;
 using Game.Match;
 using Game.Menu.Game;
 using Game.Menu.Main;
@@ -119,9 +119,7 @@ namespace Game.Adapters {
         // ===== Audio =====
 
         private static void StopAllAudio() {
-            if(AudioService.Instance != null) {
-                AudioService.Instance.StopAll();
-            }
+            EventBus.Publish(new StopAllLocalSoundsEvent());
         }
 
         // ===== Map selection =====

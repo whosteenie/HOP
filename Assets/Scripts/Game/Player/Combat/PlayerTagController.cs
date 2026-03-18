@@ -1,6 +1,5 @@
 using Diagnostics;
 using Events;
-using Game.Audio.System;
 using Game.Match;
 using Game.Player.Contracts;
 using Network.Core;
@@ -235,9 +234,7 @@ namespace Game.Player.Combat {
         [Rpc(SendTo.Owner)]
         // ReSharper disable once MemberCanBeMadeStatic.Local
         private void PlayTaggedSoundClientRpc() {
-            if(AudioService.Instance != null) {
-                AudioService.Instance.Play("ui.tag.tagged", Vector3.zero);
-            }
+            EventBus.Publish(new PlayLocalSoundIdEvent("ui.tag.tagged"));
         }
 
         /// <summary>
@@ -246,9 +243,7 @@ namespace Game.Player.Combat {
         [Rpc(SendTo.Owner)]
         // ReSharper disable once MemberCanBeMadeStatic.Local
         private void PlayTaggingSoundClientRpc() {
-            if(AudioService.Instance != null) {
-                AudioService.Instance.Play("ui.tag.tagger", Vector3.zero);
-            }
+            EventBus.Publish(new PlayLocalSoundIdEvent("ui.tag.tagger"));
             EventBus.Publish(new PlayerTagRecordedProgressionEvent(OwnerClientId));
         }
 

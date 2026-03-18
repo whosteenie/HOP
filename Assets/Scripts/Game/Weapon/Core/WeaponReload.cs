@@ -1,4 +1,5 @@
 using Diagnostics;
+using Events;
 using Game.Weapon.Manager;
 using UnityEngine;
 
@@ -62,11 +63,10 @@ namespace Game.Weapon.Core {
 
             if(!_weapon.UseKinemationInternalSoundsInternal() &&
                !_weapon.ShouldSuppressReloadSoundInternal() &&
-               _weapon.OwnerContext is { IsOwner: true } &&
-               _weapon.AudioRelay != null) {
+               _weapon.OwnerContext is { IsOwner: true }) {
                 var soundId = _weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.reloadSoundId : "";
                 if(!string.IsNullOrWhiteSpace(soundId)) {
-                    _weapon.AudioRelay.RequestStop(soundId);
+                    EventBus.Publish(new RequestNetworkStopSoundIdEvent(soundId));
                 }
             }
 

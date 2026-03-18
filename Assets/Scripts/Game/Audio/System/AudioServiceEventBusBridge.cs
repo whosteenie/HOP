@@ -25,6 +25,7 @@ namespace Game.Audio.System {
 
             EventBus.Subscribe<RequestNetworkWorldSoundIdEvent>(OnRequestNetworkWorld);
             EventBus.Subscribe<RequestNetworkAttachedSoundIdEvent>(OnRequestNetworkAttached);
+            EventBus.Subscribe<RequestNetworkStopSoundIdEvent>(OnRequestNetworkStop);
         }
 
         private void OnDisable() {
@@ -36,6 +37,7 @@ namespace Game.Audio.System {
 
             EventBus.Unsubscribe<RequestNetworkWorldSoundIdEvent>(OnRequestNetworkWorld);
             EventBus.Unsubscribe<RequestNetworkAttachedSoundIdEvent>(OnRequestNetworkAttached);
+            EventBus.Unsubscribe<RequestNetworkStopSoundIdEvent>(OnRequestNetworkStop);
         }
 
         private static void OnPlayLocal(PlayLocalSoundIdEvent evt) {
@@ -98,6 +100,16 @@ namespace Game.Audio.System {
             if(relay == null) return;
 
             relay.RequestPlayAttached(evt.SoundId, evt.AttachTo, evt.AllowOverlap, evt.Seed);
+        }
+
+        private static void OnRequestNetworkStop(RequestNetworkStopSoundIdEvent evt) {
+            if(evt == null) return;
+            if(string.IsNullOrWhiteSpace(evt.SoundId)) return;
+
+            var relay = LocalRelay;
+            if(relay == null) return;
+
+            relay.RequestStop(evt.SoundId);
         }
     }
 }

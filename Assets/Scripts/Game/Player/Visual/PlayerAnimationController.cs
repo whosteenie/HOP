@@ -1,5 +1,5 @@
-using Game.Audio.System;
 using Diagnostics;
+using Events;
 using Game.Player.Contracts;
 using Unity.Netcode;
 using UnityEngine;
@@ -16,7 +16,6 @@ namespace Game.Player.Visual {
         private IPlayerVisualContext _playerContext;
 
         private Animator _playerAnimator;
-        private NetworkAudioRelay _audioRelay;
         private Transform _playerTransform;
 
         // Animation parameter hashes
@@ -62,7 +61,6 @@ namespace Game.Player.Visual {
             }
 
             if(_playerAnimator == null) _playerAnimator = _playerContext.PlayerAnimator;
-            if(_audioRelay == null) _audioRelay = _playerContext.AudioRelay;
             if(_playerTransform == null) _playerTransform = _playerContext.PlayerTransform;
         }
 
@@ -171,9 +169,11 @@ namespace Game.Player.Visual {
                 if(IsOwner) {
                     TriggerLandingAnimation();
                     // Only play landing sound if enough time has passed since spawn/respawn
-                    if(_audioRelay != null && Time.time - _lastSpawnTime >= LandingSoundCooldown) {
-                        _audioRelay.RequestPlayAttached("foley.tile.jump.land", new NetworkObjectReference(_playerContext.NetworkObject),
-                            allowOverlap: true);
+                    if(Time.time - _lastSpawnTime >= LandingSoundCooldown && _playerContext?.NetworkObject != null) {
+                        EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
+                            "foley.tile.jump.land",
+                            new NetworkObjectReference(_playerContext.NetworkObject),
+                            allowOverlap: true));
                     }
                 }
 

@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using Diagnostics;
 using Events;
-using Game.Audio.System;
 using Game.Match;
 using Game.Player.Core;
 using Network.Core;
@@ -554,11 +553,9 @@ namespace Game.Hopball {
         [Rpc(SendTo.Everyone)]
         // ReSharper disable once MemberCanBeMadeStatic.Local
         private void PlaySpawnSoundClientRpc(Vector3 position) {
-            if(AudioService.Instance == null) return;
-
             const string soundId = "gameplay.hopball.spawn";
-            AudioService.Instance.Stop(soundId);
-            AudioService.Instance.Play(soundId, position);
+            // Match prior behavior: stop before playing (no overlap).
+            EventBus.Publish(new PlayLocalWorldSoundIdEvent(soundId, position, allowOverlap: false));
         }
 
         /// <summary>Prewarms hopball visual object pools on all clients.</summary>

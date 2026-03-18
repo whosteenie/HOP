@@ -1,7 +1,6 @@
 using System.Collections;
 using Diagnostics;
 using Events;
-using Game.Audio.System;
 using Game.Player.Contracts;
 using Game.Weapon.Kinemation;
 using Unity.Cinemachine;
@@ -18,7 +17,6 @@ namespace Game.Player.Movement {
 
         private CinemachineCamera _fpCamera;
         private CharacterController _characterController;
-        private NetworkAudioRelay _audioRelay;
         private LayerMask _playerLayer;
         [SerializeField] private Transform grappleOriginTp;
 
@@ -158,10 +156,6 @@ namespace Game.Player.Movement {
 
             if(_characterController == null) {
                 _characterController = _playerContext.CharacterController;
-            }
-
-            if(_audioRelay == null) {
-                _audioRelay = _playerContext.AudioRelay;
             }
 
             if(_movementController == null) {
@@ -526,11 +520,11 @@ namespace Game.Player.Movement {
                 DevLog.LogError("[GrappleController] Grapple started but grapple mesh is null!");
             }
 
-            if(_audioRelay != null && IsOwner) {
-                if(_playerContext != null)
-                    _audioRelay.RequestPlayAttached("gameplay.grapple",
-                        new NetworkObjectReference(_playerContext.NetworkObject),
-                        allowOverlap: true);
+            if(IsOwner && _playerContext?.NetworkObject != null) {
+                EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
+                    "gameplay.grapple",
+                    new NetworkObjectReference(_playerContext.NetworkObject),
+                    allowOverlap: true));
             }
 
             // Publish grapple started event

@@ -1,4 +1,3 @@
-using Game.Audio.System;
 using Game.Weapon.Manager;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -17,7 +16,6 @@ namespace Game.Player.Contracts {
         NetworkObject NetworkObject { get; }
         Transform PlayerTransform { get; }
         Animator PlayerAnimator { get; }
-        NetworkAudioRelay AudioRelay { get; }
         CinemachineCamera FpCamera { get; }
         Camera WeaponCamera { get; }
         WeaponManager WeaponManager { get; }

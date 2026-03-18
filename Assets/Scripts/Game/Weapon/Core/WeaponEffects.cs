@@ -1,5 +1,6 @@
 using System.Collections;
 using Diagnostics;
+using Events;
 using Game.Weapon.Kinemation;
 using Unity.Netcode;
 using UnityEngine;
@@ -104,8 +105,8 @@ namespace Game.Weapon.Core {
                 trailAudioSource.enabled = false;
             }
 
-            if(!madeImpact && _weapon.OwnerContext is { IsOwner: true } && _weapon.AudioRelay != null) {
-                _weapon.AudioRelay.RequestPlay("weapons.bullet.trail", start, allowOverlap: true);
+            if(!madeImpact && _weapon.OwnerContext is { IsOwner: true }) {
+                EventBus.Publish(new RequestNetworkWorldSoundIdEvent("weapons.bullet.trail", start, allowOverlap: true));
             }
 
             _weapon.StartCoroutine(SpawnTrail(trail, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef, shooterVelocity));
@@ -129,14 +130,14 @@ namespace Game.Weapon.Core {
             if(UseEventSoundRouting() && _weapon.KinDriver != null &&
                _weapon.KinDriver.HasKinemationFireSound()) {
                 if(_weapon.OwnerContext is not { IsOwner: true }) return;
-                if(_weapon.AudioRelay == null || _weapon.OwnerContext.NetworkObject == null) return;
+                if(_weapon.OwnerContext.NetworkObject == null) return;
 
                 var kinemationFireSoundId = _weapon.KinDriver.GetKinemationFireSoundId();
                 if(!string.IsNullOrWhiteSpace(kinemationFireSoundId)) {
-                    _weapon.AudioRelay.RequestPlayAttached(
+                    EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
                         kinemationFireSoundId,
                         new NetworkObjectReference(_weapon.OwnerContext.NetworkObject),
-                        allowOverlap: true);
+                        allowOverlap: true));
                 }
 
                 return;
@@ -144,20 +145,24 @@ namespace Game.Weapon.Core {
 
             if(UseKinemationInternalSounds()) return;
             if(_weapon.OwnerContext is not { IsOwner: true }) return;
-            if(_weapon.AudioRelay == null) return;
+            if(_weapon.OwnerContext.NetworkObject == null) return;
 
             var soundId = _weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.shootSoundId : "";
             if(!string.IsNullOrWhiteSpace(soundId)) {
-                _weapon.AudioRelay.RequestPlayAttached(soundId,
-                    new NetworkObjectReference(_weapon.OwnerContext.NetworkObject), allowOverlap: true);
+                EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
+                    soundId,
+                    new NetworkObjectReference(_weapon.OwnerContext.NetworkObject),
+                    allowOverlap: true));
             }
         }
 
         public void PlayDryFireSound() {
             if(_weapon.OwnerContext is not { IsOwner: true }) return;
-            if(_weapon.AudioRelay == null) return;
-            _weapon.AudioRelay.RequestPlayAttached("weapons.bullet.dry",
-                new NetworkObjectReference(_weapon.OwnerContext.NetworkObject), allowOverlap: true);
+            if(_weapon.OwnerContext.NetworkObject == null) return;
+            EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
+                "weapons.bullet.dry",
+                new NetworkObjectReference(_weapon.OwnerContext.NetworkObject),
+                allowOverlap: true));
         }
 
         public void PlayReloadEffects() {
@@ -167,11 +172,13 @@ namespace Game.Weapon.Core {
             if(ShouldSuppressReloadSound()) return;
             if(UseKinemationInternalSounds()) return;
             if(_weapon.OwnerContext is not { IsOwner: true }) return;
-            if(_weapon.AudioRelay == null) return;
+            if(_weapon.OwnerContext.NetworkObject == null) return;
             var soundId = _weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.reloadSoundId : "";
             if(!string.IsNullOrWhiteSpace(soundId)) {
-                _weapon.AudioRelay.RequestPlayAttached(soundId,
-                    new NetworkObjectReference(_weapon.OwnerContext.NetworkObject), allowOverlap: false);
+                EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
+                    soundId,
+                    new NetworkObjectReference(_weapon.OwnerContext.NetworkObject),
+                    allowOverlap: false));
             }
         }
 
@@ -190,13 +197,13 @@ namespace Game.Weapon.Core {
             if(_weapon.KinemationWeaponSoundEventBuffer.Count == 0) return;
             if(!UseEventSoundRouting()) return;
             if(_weapon.OwnerContext is not { IsOwner: true }) return;
-            if(_weapon.AudioRelay == null || _weapon.OwnerContext.NetworkObject == null) return;
+            if(_weapon.OwnerContext.NetworkObject == null) return;
 
             var attachRef = new NetworkObjectReference(_weapon.OwnerContext.NetworkObject);
             foreach(var clipIndex in _weapon.KinemationWeaponSoundEventBuffer) {
                 if(!_weapon.KinDriver.TryGetKinemationSoundId(clipIndex, out var eventSoundId)) continue;
                 if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
-                _weapon.AudioRelay.RequestPlayAttached(eventSoundId, attachRef, allowOverlap: true);
+                EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(eventSoundId, attachRef, allowOverlap: true));
             }
         }
 
@@ -204,14 +211,13 @@ namespace Game.Weapon.Core {
             if(_weapon.KinDriver == null) return;
             if(!UseEventSoundRouting()) return;
             if(_weapon.OwnerContext is not { IsOwner: true }) return;
-            if(_weapon.AudioRelay == null) return;
 
             var eventClipCount = _weapon.KinDriver.GetKinemationSoundClipCount();
             for(var clipIndex = 0; clipIndex < eventClipCount; clipIndex++) {
                 if(!_weapon.KinDriver.IsLikelyReloadEventSoundClip(clipIndex)) continue;
                 if(!_weapon.KinDriver.TryGetKinemationSoundId(clipIndex, out var eventSoundId)) continue;
                 if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
-                _weapon.AudioRelay.RequestStop(eventSoundId);
+                EventBus.Publish(new RequestNetworkStopSoundIdEvent(eventSoundId));
             }
         }
 
@@ -423,8 +429,8 @@ namespace Game.Weapon.Core {
                     if(decal != null) {
                         decal.gameObject.SetActive(false);
                     }
-                } else if(_weapon.OwnerContext is { IsOwner: true } && _weapon.AudioRelay != null) {
-                    _weapon.AudioRelay.RequestPlay("weapons.bullet.impact", hitPoint, allowOverlap: true);
+                } else if(_weapon.OwnerContext is { IsOwner: true }) {
+                    EventBus.Publish(new RequestNetworkWorldSoundIdEvent("weapons.bullet.impact", hitPoint, allowOverlap: true));
                 }
             }
 

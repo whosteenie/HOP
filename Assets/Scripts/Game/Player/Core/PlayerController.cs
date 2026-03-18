@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Diagnostics;
 using Events;
-using Game.Audio.System;
 using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Contracts;
@@ -23,7 +22,6 @@ using SessionManager = Network.Session.SessionManager;
 namespace Game.Player.Core {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
-    [RequireComponent(typeof(NetworkAudioRelay))]
     [RequireComponent(typeof(PlayerHillTracker))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext,
@@ -125,7 +123,6 @@ namespace Game.Player.Core {
 
         [SerializeField] private WeaponDamageRelay damageRelay;
         [SerializeField] private WeaponFxRelay fxRelay;
-        [SerializeField] private NetworkAudioRelay audioRelay;
         [SerializeField] private CinemachineImpulseSource impulseSource;
         [SerializeField] private SpeedTrail speedTrail;
 
@@ -257,14 +254,10 @@ namespace Game.Player.Core {
 
         #region Public Input Fields
 
-        [HideInInspector]
-        public Vector2 moveInput;
-        [HideInInspector]
-        public Vector2 lookInput;
-        [HideInInspector]
-        public bool sprintInput;
-        [HideInInspector]
-        public bool crouchInput;
+        [HideInInspector] public Vector2 moveInput;
+        [HideInInspector] public Vector2 lookInput;
+        [HideInInspector] public bool sprintInput;
+        [HideInInspector] public bool crouchInput;
         public bool LockLook { get; set; }
 
         #endregion
@@ -366,7 +359,6 @@ namespace Game.Player.Core {
                 deathCameraController ? deathCameraController : GetComponent<DeathCameraController>();
             weaponManager = weaponManager ? weaponManager : GetComponent<WeaponManager>();
             weaponComponent = weaponComponent ? weaponComponent : GetComponent<Game.Weapon.Core.Weapon>();
-            audioRelay = audioRelay ? audioRelay : GetComponent<NetworkAudioRelay>();
             audioListener = audioListener ? audioListener : GetComponentInChildren<AudioListener>(true);
             impulseSource = impulseSource ? impulseSource : GetComponentInChildren<CinemachineImpulseSource>(true);
             speedTrail = speedTrail ? speedTrail : GetComponentInChildren<SpeedTrail>(true);
@@ -386,7 +378,6 @@ namespace Game.Player.Core {
             if(combatController == null) missingRefs.Add(nameof(combatController));
             if(animationController == null) missingRefs.Add(nameof(animationController));
             if(weaponManager == null) missingRefs.Add(nameof(weaponManager));
-            if(audioRelay == null) missingRefs.Add(nameof(audioRelay));
 
             if(missingRefs.Count > 0) {
                 DevLog.LogError(
@@ -415,9 +406,7 @@ namespace Game.Player.Core {
             DisableConflictingKinemationComponents();
             DisableUnexpectedCamerasAndListeners();
 
-            if(audioRelay == null) {
-                audioRelay = GetComponent<NetworkAudioRelay>();
-            }
+            // NetworkAudioRelay is optional from PlayerController's perspective (event-driven audio).
         }
 
         private void OnTransformChildrenChanged() {
@@ -440,7 +429,6 @@ namespace Game.Player.Core {
 
         public override void OnDestroy() {
             CancelPendingIdentitySync();
-            UnregisterLocalAudioRelay();
             UnsubscribeFromLocalVoiceEvents();
             UnsubscribeFromHopballStateEvents();
             UnsubscribeFromNetworkVariables();
@@ -461,7 +449,6 @@ namespace Game.Player.Core {
 
             if(IsOwner) {
                 LocalPlayer = this;
-                RegisterLocalAudioRelay();
             }
 
             RegisterSpawnedPlayer(this);
@@ -530,20 +517,9 @@ namespace Game.Player.Core {
 
             UnregisterSpawnedPlayer(this);
             CancelPendingIdentitySync();
-            UnregisterLocalAudioRelay();
 
             UnsubscribeFromLocalVoiceEvents();
             UnsubscribeFromNetworkVariables();
-        }
-
-        private void RegisterLocalAudioRelay() {
-            if(!IsOwner || audioRelay == null) return;
-            AudioServiceEventBusBridge.RegisterLocalRelay(audioRelay);
-        }
-
-        private void UnregisterLocalAudioRelay() {
-            if(!IsOwner || audioRelay == null) return;
-            AudioServiceEventBusBridge.UnregisterLocalRelay(audioRelay);
         }
 
         private void BeginIdentitySync(ulong localSteamId, string ugsPlayerId, string playerDisplayName) {
@@ -957,7 +933,6 @@ namespace Game.Player.Core {
         public GrappleController GrappleController => grappleController;
         public WeaponDamageRelay DamageRelay => damageRelay;
         public WeaponFxRelay FxRelay => fxRelay;
-        public NetworkAudioRelay AudioRelay => audioRelay;
         public CinemachineImpulseSource ImpulseSource => impulseSource;
         public Game.Weapon.Core.Weapon WeaponComponent => weaponComponent;
         public Animator PlayerAnimator => playerAnimator;
@@ -1099,9 +1074,7 @@ namespace Game.Player.Core {
         [Rpc(SendTo.Everyone)]
         private void PlayHitEffectsClientRpc(Vector3 hitPoint, float amount) {
             if(IsOwner) {
-                if(AudioService.Instance != null) {
-                    AudioService.Instance.Play("ui.hit.hurt", Vector3.zero);
-                }
+                EventBus.Publish(new PlayLocalSoundIdEvent("ui.hit.hurt"));
 
                 impulseSource.GenerateImpulse();
 
@@ -1187,8 +1160,11 @@ namespace Game.Player.Core {
             if(lookController != null) lookController.SetSniperZoomActive(active, zoomFov);
         }
 
-        void IPlayerInputContext.SetCurrentFpWeaponVisible(bool visible) => _weaponPresentation.SetCurrentFpWeaponVisible(visible);
+        void IPlayerInputContext.SetCurrentFpWeaponVisible(bool visible) =>
+            _weaponPresentation.SetCurrentFpWeaponVisible(visible);
+
         GameObject IPlayerInputContext.GetCurrentFpWeapon() => _weaponPresentation.GetCurrentFpWeapon();
+
         void IPlayerInputContext.OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) =>
             _weaponPresentation.OffsetCurrentFpWeapon(localPosition, localEulerAngles);
 
@@ -1250,6 +1226,7 @@ namespace Game.Player.Core {
         void IPlayerCombatContext.SetOutOfBoundsGraceWindow(float seconds) => SetOutOfBoundsGraceWindow(seconds);
         void IPlayerCombatContext.ResetLookPitchFromRespawn() => ResetLookPitchFromRespawn();
         void IPlayerCombatContext.ClearLookInput() => lookInput = Vector2.zero;
+
         void IPlayerCombatContext.SetWeaponCameraEnabled(bool cameraEnabled) {
             if(weaponCameraController != null) {
                 weaponCameraController.SetWeaponCameraEnabled(cameraEnabled);
@@ -1352,7 +1329,9 @@ namespace Game.Player.Core {
         NetworkVariable<int> IPlayerVisualContext.JumpAnimationSequence => jumpAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.LandAnimationSequence => landAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.MantleAnimationSequence => mantleAnimationSequence;
-        void IPlayerVisualContext.SetWeaponCameraEnabled(bool cameraEnabled) => ((IPlayerCombatContext)this).SetWeaponCameraEnabled(cameraEnabled);
+
+        void IPlayerVisualContext.SetWeaponCameraEnabled(bool cameraEnabled) =>
+            ((IPlayerCombatContext)this).SetWeaponCameraEnabled(cameraEnabled);
 
         NetworkVariable<int> IPlayerMaterialCustomizationContext.PlayerMaterialPacketIndexState =>
             playerMaterialPacketIndex;
@@ -1397,7 +1376,10 @@ namespace Game.Player.Core {
         bool IWeaponOwnerContext.IsGrounded => IsGrounded;
         bool IWeaponOwnerContext.IsSliding => movementController != null && movementController.IsSliding;
         bool IWeaponOwnerContext.IsWallRunning => wallRunController != null && wallRunController.IsWallRunning;
-        bool IWeaponOwnerContext.IsSniperOverlayActive => playerInputController != null && playerInputController.IsSniperOverlayActive;
+
+        bool IWeaponOwnerContext.IsSniperOverlayActive =>
+            playerInputController != null && playerInputController.IsSniperOverlayActive;
+
         bool IWeaponOwnerContext.SprintInput => sprintInput;
         Vector2 IWeaponOwnerContext.MoveInput => moveInput;
         float IWeaponOwnerContext.CurrentPitch => CurrentPitch;
@@ -1405,8 +1387,10 @@ namespace Game.Player.Core {
         Vector3 IWeaponOwnerContext.HorizontalVelocity => GetHorizontalVelocity();
         Vector3 IWeaponOwnerContext.FullVelocity => GetFullVelocity;
         Vector3 IWeaponOwnerContext.Position => Position;
+
         Vector3 IWeaponOwnerContext.SniperMuzzleCameraOffset =>
             playerInputController != null ? playerInputController.SniperMuzzleCameraOffset : Vector3.zero;
+
         Transform IWeaponOwnerContext.PlayerTransform => PlayerTransform;
         Transform IWeaponOwnerContext.FpCameraTransform => FpCameraTransform;
         Animator IWeaponOwnerContext.PlayerAnimator => playerAnimator;
@@ -1415,10 +1399,13 @@ namespace Game.Player.Core {
         NetworkObject IWeaponOwnerContext.NetworkObject => NetworkObject;
         ulong IWeaponOwnerContext.OwnerClientId => OwnerClientId;
         WeaponDamageRelay IWeaponOwnerContext.DamageRelay => damageRelay;
+
         WeaponFxRelay IWeaponOwnerContext.FxRelay => fxRelay;
-        NetworkAudioRelay IWeaponOwnerContext.AudioRelay => audioRelay;
+
+        // No longer exposed via IWeaponOwnerContext; audio is event-driven.
         WeaponManager IWeaponOwnerContext.WeaponManager => weaponManager;
         Game.Weapon.Core.Weapon IWeaponOwnerContext.CurrentWeapon => CurrentWeapon;
+
         NetworkVariable<float> IWeaponOwnerContext.ReplicatedDamageMultiplierState =>
             ResolvePlayerState() != null ? ResolvePlayerState().replicatedDamageMultiplier : MissingFloatState;
 

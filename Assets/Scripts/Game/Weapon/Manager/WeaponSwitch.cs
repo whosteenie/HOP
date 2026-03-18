@@ -1,7 +1,6 @@
 using System.Collections;
 using Diagnostics;
 using Events;
-using Game.Audio.System;
 using Game.Weapon.Core;
 using Network.AntiCheat;
 using Network.Core;
@@ -174,8 +173,8 @@ namespace Game.Weapon.Manager {
                 return;
             }
 
-            if(playSwitchAudio && _root.IsOwner && AudioService.Instance != null) {
-                AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
+            if(playSwitchAudio && _root.IsOwner) {
+                EventBus.Publish(new PlayLocalSoundIdEvent("ui.weapon.switch"));
             }
 
             if(_root.CurrentWeaponInternal != null && _root.CurrentWeaponInternal.IsReloadInProgress) {
