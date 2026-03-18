@@ -164,7 +164,7 @@ namespace Game.Weapon.Core {
             PlayReloadAnimation();
             _weapon.PlayReloadAnimationServerRpc();
 
-            if(ShouldSuppressLegacyReloadSound()) return;
+            if(ShouldSuppressReloadSound()) return;
             if(UseKinemationInternalSounds()) return;
             if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(_weapon.AudioRelay == null) return;
@@ -223,7 +223,7 @@ namespace Game.Weapon.Core {
             return _weapon.KinDriver != null && _weapon.KinDriver.IsKinemationSoundRoutingEnabled();
         }
 
-        public bool ShouldSuppressLegacyReloadSound() {
+        public bool ShouldSuppressReloadSound() {
             return UseKinemationEventSoundRouting() &&
                    _weapon.KinDriver != null &&
                    _weapon.KinDriver.HasAnyKinemationEventSound();

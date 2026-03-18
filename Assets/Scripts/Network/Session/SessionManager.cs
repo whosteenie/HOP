@@ -415,7 +415,7 @@ namespace Network.Session {
                 this,
                 this,
                 () => SessionNetworkLifecycle.HasActiveSession,
-                source => _sceneFlow.TriggerUnexpectedDisconnectFlow(this, this, source));
+                source => _sceneFlow.TriggerDisconnectFlow(this, this, source));
         }
 
         private void UnregisterNetworkCallbacks() {
@@ -735,8 +735,8 @@ namespace Network.Session {
             }
         }
 
-        private async UniTask EnsureMainMenuLoadedAndReadyAsync(string currentScene) =>
-            await SessionSceneFlow.EnsureMainMenuLoadedAndReadyAsync(this, currentScene);
+        private async UniTask EnsureMainMenuReadyAsync(string currentScene) =>
+            await SessionSceneFlow.EnsureMainMenuReadyAsync(this, currentScene);
 
         public static Func<string, bool> IsGameplayScenePredicate { get; set; }
         private static bool loggedMissingGameplayScenePredicate;
@@ -1003,8 +1003,8 @@ namespace Network.Session {
         UniTask ILeaveToMenuActions.ClearMatchStateAsync() => ClearMatchStateAsync();
         UniTask ILeaveToMenuActions.CleanupNetworkAsync() => CleanupNetworkAsync();
 
-        UniTask ILeaveToMenuActions.EnsureMainMenuLoadedAndReadyAsync(string currentScene) =>
-            EnsureMainMenuLoadedAndReadyAsync(currentScene);
+        UniTask ILeaveToMenuActions.EnsureMainMenuReadyAsync(string currentScene) =>
+            EnsureMainMenuReadyAsync(currentScene);
 
         string ILeaveToMenuActions.GetActiveSceneName() => SceneManager.GetActiveScene().name;
 

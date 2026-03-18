@@ -32,22 +32,22 @@ namespace Game.Player.Core {
         }
 
         public float GetOutOfBoundsKillY() {
-            RefreshOutOfBoundsCacheIfNeeded();
+            RefreshOobCache();
             return _cachedOutOfBoundsY;
         }
 
         public bool IsYLevelOutOfBoundsKillEnabled() {
-            RefreshOutOfBoundsCacheIfNeeded();
+            RefreshOobCache();
             return _cachedUseYLevelOutOfBoundsKill;
         }
 
         private bool IsTriggerOutOfBoundsKillEnabled() {
-            RefreshOutOfBoundsCacheIfNeeded();
+            RefreshOobCache();
             return _cachedUseTriggerOutOfBoundsKill;
         }
 
         private Collider GetOutOfBoundsTriggerCollider() {
-            RefreshOutOfBoundsCacheIfNeeded();
+            RefreshOobCache();
             return _cachedOutOfBoundsTriggerCollider;
         }
 
@@ -147,7 +147,7 @@ namespace Game.Player.Core {
             EventBus.Publish(new UpdateOutOfBoundsCountdownEvent(false));
         }
 
-        private void RefreshOutOfBoundsCacheIfNeeded() {
+        private void RefreshOobCache() {
             var activeScene = SceneManager.GetActiveScene();
             if(_cachedOobSceneHandle == activeScene.handle) return;
 

@@ -37,7 +37,7 @@ namespace Game.Adapters {
                 var duration = matchSettings != null ? matchSettings.GetMatchDurationSeconds() : 0;
                 if(duration > 0 && timer.TimeRemainingSeconds >= 0) {
                     var remainingFraction = timer.TimeRemainingSeconds / (float)Mathf.Max(1, duration);
-                    var minRemaining = ResolveBackfillTimeRemainingThreshold(mode);
+                    var minRemaining = ResolveTimeThreshold(mode);
                     if(remainingFraction <= minRemaining) return (false, $"LateTime:{remainingFraction:0.00}");
                 }
             }
@@ -45,24 +45,24 @@ namespace Game.Adapters {
             var scoreToWin = matchSettings != null ? matchSettings.GetScoreToWin() : 0;
             if(scoreToWin <= 0) return (true, "Eligible");
 
-            var scoreProgress = ResolveBackfillScoreProgress(mode);
+            var scoreProgress = ResolveScoreProgress(mode);
             if(scoreProgress <= 0f) return (true, "Eligible");
-            var progressThreshold = ResolveBackfillScoreThreshold(mode);
+            var progressThreshold = ResolveScoreThreshold(mode);
             if(progressThreshold <= 0f) return (true, "Eligible");
             return scoreProgress >= progressThreshold ? (false, $"LateScore:{scoreProgress:0.00}") : (true, "Eligible");
         }
 
-        private static float ResolveBackfillTimeRemainingThreshold(string mode) => mode switch {
+        private static float ResolveTimeThreshold(string mode) => mode switch {
             "Hopball" => 0.20f, "KOTH" => 0.20f, "Team Deathmatch" => 0.20f, "Deathmatch" => 0.20f, "Gun Tag" => 0.20f,
             _ => 0.15f
         };
 
-        private static float ResolveBackfillScoreThreshold(string mode) => mode switch {
+        private static float ResolveScoreThreshold(string mode) => mode switch {
             "Hopball" => 0.70f, "KOTH" => 0.80f, "Team Deathmatch" => 0.75f, "Deathmatch" => 0.80f, "Gun Tag" => 0f,
             _ => 0.80f
         };
 
-        private static float ResolveBackfillScoreProgress(string mode) => mode switch {
+        private static float ResolveScoreProgress(string mode) => mode switch {
             "Hopball" => ResolveHopballScoreProgress(),
             "KOTH" => ResolveKothBackfillScoreProgress(),
             "Team Deathmatch" => ResolveKillProgress(teamMode: true),

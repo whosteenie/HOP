@@ -43,6 +43,6 @@ namespace Game.Weapon.Core {
         WeaponDamageRelay DamageRelay { get; }
         bool ApplyDamageServerAuth(float damage, Vector3 hitPoint, Vector3 hitDirection, ulong attackerClientId,
             string bodyPartTag, bool isHeadshot, string weaponId);
-        void ProcessRespawnAuthorityRequest();
+        void ProcessRespawnRequest();
     }
 }

@@ -300,7 +300,7 @@ namespace Game.Player.Movement {
                 fpCamera.transform.localPosition = new Vector3(0f, targetCameraHeight, 0f);
             }
 
-            UpdateCharacterControllerCrouch(targetCrouchState);
+            UpdateCrouchHeight(targetCrouchState);
         }
 
         /// <summary>
@@ -517,7 +517,7 @@ namespace Game.Player.Movement {
             }
         }
 
-        private void UpdateCharacterControllerCrouch(bool isCrouching) {
+        private void UpdateCrouchHeight(bool isCrouching) {
             var targetTransition = isCrouching ? 1f : 0f;
             if(!IsOwner) {
                 _crouchTransition = Mathf.Lerp(_crouchTransition, targetTransition, 10f * Time.deltaTime);

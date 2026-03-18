@@ -388,7 +388,7 @@ namespace Game.Social {
         }
 
         private long TrackPendingSelfEcho() {
-            CleanupExpiredPendingSelfEchoes();
+            CleanupPendingSelfEchoes();
             var id = _nextPendingSelfEchoId++;
             _pendingSelfEchoes.Enqueue(new PendingSelfEchoState {
                 Id = id,
@@ -398,13 +398,13 @@ namespace Game.Social {
         }
 
         private bool TryConsumePendingSelfEcho() {
-            CleanupExpiredPendingSelfEchoes();
+            CleanupPendingSelfEchoes();
             if(_pendingSelfEchoes.Count == 0) return false;
             _pendingSelfEchoes.Dequeue();
             return true;
         }
 
-        private void CleanupExpiredPendingSelfEchoes() {
+        private void CleanupPendingSelfEchoes() {
             if(_pendingSelfEchoes.Count == 0) return;
 
             var now = Time.unscaledTime;

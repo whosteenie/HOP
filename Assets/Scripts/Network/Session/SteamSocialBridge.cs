@@ -29,7 +29,7 @@ namespace Network.Session {
         private static Action<string, bool> lobbyPresenceNotifier;
         private static Action<ISessionContext> updateLocalDisplayMetadata;
 
-        private static void SafeInvokeLobbyPresenceNotifier(string friendName, bool joined) {
+        private static void NotifyLobbyPresence(string friendName, bool joined) {
             if(lobbyPresenceNotifier == null) return;
             try {
                 lobbyPresenceNotifier(friendName, joined);
@@ -75,7 +75,7 @@ namespace Network.Session {
             SteamMatchmaking.OnLobbyMemberJoined += OnLobbyMemberJoined;
             SteamMatchmaking.OnLobbyMemberLeave += OnLobbyMemberLeave;
             SteamFriends.OnGameLobbyJoinRequested += OnGameLobbyJoinRequested;
-            SteamFriends.OnGameRichPresenceJoinRequested += OnGameRichPresenceJoinRequested;
+            SteamFriends.OnGameRichPresenceJoinRequested += OnRichPresenceJoinRequested;
         }
 
         public void Unregister() {
@@ -84,7 +84,7 @@ namespace Network.Session {
             SteamMatchmaking.OnLobbyMemberJoined -= OnLobbyMemberJoined;
             SteamMatchmaking.OnLobbyMemberLeave -= OnLobbyMemberLeave;
             SteamFriends.OnGameLobbyJoinRequested -= OnGameLobbyJoinRequested;
-            SteamFriends.OnGameRichPresenceJoinRequested -= OnGameRichPresenceJoinRequested;
+            SteamFriends.OnGameRichPresenceJoinRequested -= OnRichPresenceJoinRequested;
 
             _ctx = null;
             _actions = null;
@@ -127,7 +127,7 @@ namespace Network.Session {
             }
 
             if(friend.Id != SteamClient.SteamId) {
-                SafeInvokeLobbyPresenceNotifier(friend.Name, true);
+                NotifyLobbyPresence(friend.Name, true);
             }
 
             if(_ctx.CurrentLobby.HasValue && _ctx.CurrentLobby.Value.Id == lobby.Id && lobby.MemberCount > 1) {
@@ -144,7 +144,7 @@ namespace Network.Session {
 
             if(_ctx is { CurrentLobby: not null } && _ctx.CurrentLobby.Value.Id == lobby.Id &&
                friend.Id != SteamClient.SteamId) {
-                SafeInvokeLobbyPresenceNotifier(friend.Name, false);
+                NotifyLobbyPresence(friend.Name, false);
             }
 
             _ctx?.NotifyPartyStateChanged();
@@ -152,10 +152,10 @@ namespace Network.Session {
 
         private void OnGameLobbyJoinRequested(Lobby lobby, SteamId id) {
             if(_ctx == null || _actions == null) return;
-            _ctx.LaunchSessionTask(HandleGameLobbyJoinRequestedAsync(lobby), "SteamGameLobbyJoinRequested");
+            _ctx.LaunchSessionTask(HandleLobbyJoinRequestedAsync(lobby), "SteamGameLobbyJoinRequested");
         }
 
-        private async UniTask HandleGameLobbyJoinRequestedAsync(Lobby lobby) {
+        private async UniTask HandleLobbyJoinRequestedAsync(Lobby lobby) {
             var ctx = _ctx;
             if(ctx == null) return;
 
@@ -177,7 +177,7 @@ namespace Network.Session {
             }
         }
 
-        private void OnGameRichPresenceJoinRequested(Friend friend, string connect) {
+        private void OnRichPresenceJoinRequested(Friend friend, string connect) {
             if(string.IsNullOrEmpty(connect) || _ctx == null || _actions == null) return;
             _ctx.LaunchSessionTask(HandleSteamConnectStringAsync(connect), "SteamRichPresenceJoinRequested");
         }

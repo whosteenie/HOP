@@ -85,7 +85,7 @@ namespace Game.Social {
             EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
             if(VivoxService.Instance == null) return;
             VivoxService.Instance.ParticipantAddedToChannel -= OnParticipantAddedToChannel;
-            VivoxService.Instance.ParticipantRemovedFromChannel -= OnParticipantRemovedFromChannel;
+            VivoxService.Instance.ParticipantRemovedFromChannel -= OnParticipantRemoved;
         }
 
         private async Task InitializeVivoxAsync() {
@@ -100,7 +100,7 @@ namespace Game.Social {
 
                 // Subscribe to service events
                 VivoxService.Instance.ParticipantAddedToChannel += OnParticipantAddedToChannel;
-                VivoxService.Instance.ParticipantRemovedFromChannel += OnParticipantRemovedFromChannel;
+                VivoxService.Instance.ParticipantRemovedFromChannel += OnParticipantRemoved;
 
                 // Login automatically if we have a user
                 await EnsureLoggedInForIdentityAsync();
@@ -534,7 +534,7 @@ namespace Game.Social {
             }
         }
 
-        private void OnParticipantRemovedFromChannel(VivoxParticipant participant) {
+        private void OnParticipantRemoved(VivoxParticipant participant) {
             if (_participantSpeechActions.TryGetValue(participant.PlayerId, out var action)) {
                 participant.ParticipantSpeechDetected -= action;
                 _participantSpeechActions.Remove(participant.PlayerId);

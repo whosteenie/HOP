@@ -556,7 +556,7 @@ namespace Game.Player.Movement {
 
             // If we're very close, end the grapple
             if(distanceToPoint < 1f) {
-                if(TryHandleJumpPadAnchorProximity()) {
+                if(TryHandleJumpPadAnchor()) {
                     return;
                 }
 
@@ -671,7 +671,7 @@ namespace Game.Player.Movement {
             HandleJumpPadHandoff(sphereHit.collider, isMegaPad);
         }
 
-        private bool TryHandleJumpPadAnchorProximity() {
+        private bool TryHandleJumpPadAnchor() {
             var hitCount = Physics.OverlapSphereNonAlloc(_grapplePoint,
                 JumpPadAnchorProbeRadius,
                 _jumpPadAnchorProbeResults,

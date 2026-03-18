@@ -41,14 +41,14 @@ namespace Game.Player.Visual {
         }
 
         private void OnMaterialPacketChanged() {
-            UpdatePlayerMaterialFromNetwork();
+            UpdateMaterialFromNetwork();
         }
 
         private void OnMaterialCustomizationChanged() {
-            UpdatePlayerMaterialFromNetwork();
+            UpdateMaterialFromNetwork();
         }
 
-        public void UpdatePlayerMaterialFromNetwork() {
+        public void UpdateMaterialFromNetwork() {
             var baseColor = new Color(
                 _player.PlayerBaseColorState.Value.x,
                 _player.PlayerBaseColorState.Value.y,
@@ -90,7 +90,7 @@ namespace Game.Player.Visual {
                 _player.MinHeightStrengthValue, _player.MaxHeightStrengthValue);
             _player.PlayerEmissionEnabledState.Value = customization.emissionEnabled;
             _player.PlayerEmissionColorState.Value = customization.emissionColor;
-            UpdatePlayerMaterialFromNetwork();
+            UpdateMaterialFromNetwork();
         }
 
         public void SaveMaterialCustomizationToPrefs() {

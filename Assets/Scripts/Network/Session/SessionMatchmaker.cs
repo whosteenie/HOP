@@ -83,7 +83,7 @@ namespace Network.Session {
             _ctx.SetMatchmakingStartTime(Time.time);
             _ctx.SetFrontStatus(SessionPhase.Searching, $"Searching for {mode}...");
 
-            if(await TryJoinInProgressPublicMatchAsync(mode, maxPlayers)) {
+            if(await TryJoinInProgressAsync(mode, maxPlayers)) {
                 return;
             }
 
@@ -386,7 +386,7 @@ namespace Network.Session {
             }
         }
 
-        private async UniTask<bool> TryJoinInProgressPublicMatchAsync(string mode, int maxPlayers) {
+        private async UniTask<bool> TryJoinInProgressAsync(string mode, int maxPlayers) {
             var indexedOptions = new QueryLobbiesOptions {
                 Count = 100,
                 Filters = new List<QueryFilter> {

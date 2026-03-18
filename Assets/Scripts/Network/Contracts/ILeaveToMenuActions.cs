@@ -12,7 +12,7 @@ namespace Network.Contracts {
         void LeaveLobby();
         UniTask ClearMatchStateAsync();
         UniTask CleanupNetworkAsync();
-        UniTask EnsureMainMenuLoadedAndReadyAsync(string currentScene);
+        UniTask EnsureMainMenuReadyAsync(string currentScene);
         string GetActiveSceneName();
     }
 }

@@ -397,7 +397,7 @@ namespace Game.Weapon.Core {
                 return Mathf.Clamp(currentMultiplier, 1f, Weapon.MaxDamageMultiplier);
             }
 
-            var targetMultiplier = CalculateTargetDamageMultiplier(currentSpeed);
+            var targetMultiplier = CalculateDamageMultiplier(currentSpeed);
 
             if(targetMultiplier >= currentMultiplier) {
                 currentMultiplier = Mathf.Lerp(currentMultiplier, targetMultiplier, Weapon.MultiplierGainRate * Time.deltaTime);
@@ -413,7 +413,7 @@ namespace Game.Weapon.Core {
             return Mathf.Clamp(currentMultiplier, 1f, Weapon.MaxDamageMultiplier);
         }
 
-        private static float CalculateTargetDamageMultiplier(float currentSpeed) {
+        private static float CalculateDamageMultiplier(float currentSpeed) {
             if(currentSpeed < Weapon.MinSpeedThreshold) {
                 return 1f;
             }

@@ -133,7 +133,7 @@ namespace Game.Player.Combat {
             _authoritativeHealthShadowValidUntil = Time.time;
         }
 
-        private void CommitAuthoritativeHealthShadow(float healthValue, bool isDead) {
+        private void CommitHealthShadow(float healthValue, bool isDead) {
             _authoritativeHealthShadow = Mathf.Clamp(healthValue, 0f, MaxHealth);
             _authoritativeDeadShadow = isDead;
             _hasAuthoritativeHealthShadow = true;
@@ -205,7 +205,7 @@ namespace Game.Player.Combat {
 
                 var healthBefore = ResolveAuthoritativeHealth();
                 ApplyHealthStateAuthority(0f, true, incrementDeaths: true, hitPoint, hitDirection, bodyPartTag);
-                CommitAuthoritativeHealthShadow(0f, true);
+                CommitHealthShadow(0f, true);
                 _deathStatePending = true;
                 StartRespawnTimeoutProbe();
                 FlowLog.Emit(FlowEventIds.PlayerLethal,
@@ -277,7 +277,7 @@ namespace Game.Player.Combat {
 
                 ApplyHealthStateAuthority(newHp, isLethalHit, incrementDeaths: isLethalHit, hitPoint, hitDirection,
                     bodyPartTag);
-                CommitAuthoritativeHealthShadow(newHp, isLethalHit);
+                CommitHealthShadow(newHp, isLethalHit);
 
                 if(_playerContext != null) {
                     _playerContext.PlayHitEffects(hitPoint, amount);
@@ -432,7 +432,7 @@ namespace Game.Player.Combat {
             WeaponCombatAuthority.Instance.RequestRespawnServerRpc(new NetworkObjectReference(NetworkObject));
         }
 
-        public void ProcessRespawnAuthorityRequest() {
+        public void ProcessRespawnRequest() {
             if(!HasCombatAuthority) return;
             if(netIsDead is not { Value: true }) return;
             DoRespawnServer();
@@ -518,7 +518,7 @@ namespace Game.Player.Combat {
 
             _playerContext?.SetOutOfBoundsGraceWindow(outOfBoundsGraceAfterRespawnSeconds);
             _deathStatePending = false;
-            CommitAuthoritativeHealthShadow(MaxHealth, false);
+            CommitHealthShadow(MaxHealth, false);
             ResetHealthAndRegenerationState();
             StopRespawnTimeoutProbe();
             var isDeadNow = netIsDead is { Value: true };

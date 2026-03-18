@@ -364,7 +364,7 @@ namespace Network.Session {
 
             IsBackfillEligibilityUpdateInFlight = true;
             try {
-                if(await TryUpdateBackfillEligibilityAsync(ctx, allowed, reason, "HeartbeatRefresh")) {
+                if(await TryUpdateBackfillAsync(ctx, allowed, reason, "HeartbeatRefresh")) {
                     _lastPublishedBackfillAllowed = allowed;
                     _lastPublishedBackfillReason = reason;
                 }
@@ -388,7 +388,7 @@ namespace Network.Session {
             }
         }
 
-        private static async UniTask<bool> TryUpdateBackfillEligibilityAsync(ISessionContext ctx, bool allowed, string reason, string context) {
+        private static async UniTask<bool> TryUpdateBackfillAsync(ISessionContext ctx, bool allowed, string reason, string context) {
             var matchLobby = ctx.UgsMatchLobby;
             if(matchLobby == null || string.IsNullOrEmpty(matchLobby.Id) || matchLobby.Data == null) return false;
             try {

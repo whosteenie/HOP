@@ -218,7 +218,7 @@ namespace Game.UI.HUD {
             // Check if we're in Tag mode (always check fresh)
             if(!IsTagMode()) {
                 // Ensure we restore numeric health if tag text was previously shown.
-                TryRestoreHealthFromLocalPlayer();
+                TryRestoreHealth();
                 return;
             }
 
@@ -288,7 +288,7 @@ namespace Game.UI.HUD {
 
             // If we're not in tag mode, immediately restore numeric health text/value.
             if(!IsTagMode()) {
-                TryRestoreHealthFromLocalPlayer();
+                TryRestoreHealth();
             }
 
             TryRestoreAmmoFromLocalPlayer();
@@ -313,7 +313,7 @@ namespace Game.UI.HUD {
         /// This prevents stale "You're it!" text persisting across mode transitions.
         /// </summary>
         /// <summary>Restores health display from local player if available.</summary>
-        private void TryRestoreHealthFromLocalPlayer() {
+        private void TryRestoreHealth() {
             if(_healthBar == null || _healthValue == null) return;
             if(IsTagMode()) return;
 

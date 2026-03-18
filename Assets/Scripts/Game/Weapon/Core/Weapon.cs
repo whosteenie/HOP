@@ -439,8 +439,8 @@ namespace Game.Weapon.Core {
             return _effects.UseKinemationInternalSounds();
         }
 
-        internal bool ShouldSuppressLegacyReloadSoundInternal() {
-            return _effects.ShouldSuppressLegacyReloadSound();
+        internal bool ShouldSuppressReloadSoundInternal() {
+            return _effects.ShouldSuppressReloadSound();
         }
 
         internal void StopKinemationEventSoundsInternal() {

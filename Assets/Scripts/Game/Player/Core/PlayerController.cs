@@ -470,7 +470,7 @@ namespace Game.Player.Core {
             SubscribeToLocalVoiceEvents();
             SubscribeToHopballStateEvents();
             TryBindStateSubscriptions();
-            UpdatePlayerMaterialFromNetwork();
+            UpdateMaterialFromNetwork();
             _spawnPresentation.HandleNetworkSpawnPresentation();
         }
 
@@ -610,8 +610,8 @@ namespace Game.Player.Core {
         /// <summary>
         /// Called when material packet index changes. Triggers material update.
         /// </summary>
-        private void UpdatePlayerMaterialFromNetwork() {
-            _materialCustomization.UpdatePlayerMaterialFromNetwork();
+        private void UpdateMaterialFromNetwork() {
+            _materialCustomization.UpdateMaterialFromNetwork();
         }
 
         /// <summary>
@@ -636,7 +636,7 @@ namespace Game.Player.Core {
         /// Main update loop for core player logic, movement synchronization, and server validation.
         /// </summary>
         private void Update() {
-            UpdateRuntimeSafetyMaintenance();
+            UpdateRuntimeSafety();
             UpdateAuthorityFrameState();
 
             if(IsOwner) {
@@ -659,7 +659,7 @@ namespace Game.Player.Core {
                 lookController.UpdateLook();
         }
 
-        private void UpdateRuntimeSafetyMaintenance() {
+        private void UpdateRuntimeSafety() {
             if((!disableKinemationFrameworkComponents && !disableUnexpectedChildCameras) ||
                (Time.frameCount & 15) != 0) return;
             DisableConflictingKinemationComponents();
@@ -683,14 +683,14 @@ namespace Game.Player.Core {
         }
 
         private void UpdateOwnerFrameState() {
-            UpdateOwnerMovementAndAnimation();
+            UpdateOwnerMovement();
 
             if(lookController != null) {
                 lookController.UpdateSpeedFov();
             }
         }
 
-        private void UpdateOwnerMovementAndAnimation() {
+        private void UpdateOwnerMovement() {
             if(movementController == null) return;
 
             movementController.UpdateMovement(fpCamera);
@@ -1435,9 +1435,9 @@ namespace Game.Player.Core {
                 weaponId);
         }
 
-        void IWeaponCombatParticipant.ProcessRespawnAuthorityRequest() {
+        void IWeaponCombatParticipant.ProcessRespawnRequest() {
             if(combatController != null) {
-                combatController.ProcessRespawnAuthorityRequest();
+                combatController.ProcessRespawnRequest();
             }
         }
 

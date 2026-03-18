@@ -36,8 +36,8 @@ namespace Game.UI.Screens {
             EventBus.Subscribe<VoiceParticipantSpeechChangedEvent>(OnVoiceParticipantSpeechChangedEvent);
             EventBus.Unsubscribe<VoiceParticipantRemovedEvent>(OnVoiceParticipantRemovedEvent);
             EventBus.Subscribe<VoiceParticipantRemovedEvent>(OnVoiceParticipantRemovedEvent);
-            EventBus.Unsubscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChangedEvent);
-            EventBus.Subscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChangedEvent);
+            EventBus.Unsubscribe<VoiceLocalPttStateChangedEvent>(OnLocalPttChanged);
+            EventBus.Subscribe<VoiceLocalPttStateChangedEvent>(OnLocalPttChanged);
             EventBus.Unsubscribe<VoiceOverlayResetEvent>(OnVoiceOverlayResetEvent);
             EventBus.Subscribe<VoiceOverlayResetEvent>(OnVoiceOverlayResetEvent);
             EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
@@ -230,7 +230,7 @@ namespace Game.UI.Screens {
             }
         }
 
-        private void OnVoiceLocalPttStateChangedEvent(VoiceLocalPttStateChangedEvent evt) {
+        private void OnLocalPttChanged(VoiceLocalPttStateChangedEvent evt) {
             if(evt == null) return;
             OnLocalPttStateChanged(evt.IsActive);
         }

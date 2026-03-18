@@ -45,8 +45,8 @@ namespace Game.UI.HUD {
                     t.style.opacity = 0f;
             }
 
-            EventBus.Unsubscribe<ShowDamageVignetteFromWorldHitEvent>(OnShowDamageVignetteFromWorldHit);
-            EventBus.Subscribe<ShowDamageVignetteFromWorldHitEvent>(OnShowDamageVignetteFromWorldHit);
+            EventBus.Unsubscribe<ShowDamageVignetteFromWorldHitEvent>(OnWorldHitVignette);
+            EventBus.Subscribe<ShowDamageVignetteFromWorldHitEvent>(OnWorldHitVignette);
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -56,11 +56,11 @@ namespace Game.UI.HUD {
         }
 
         protected override void OnCleanup() {
-            EventBus.Unsubscribe<ShowDamageVignetteFromWorldHitEvent>(OnShowDamageVignetteFromWorldHit);
+            EventBus.Unsubscribe<ShowDamageVignetteFromWorldHitEvent>(OnWorldHitVignette);
             base.OnCleanup();
         }
 
-        private void OnShowDamageVignetteFromWorldHit(ShowDamageVignetteFromWorldHitEvent evt) {
+        private void OnWorldHitVignette(ShowDamageVignetteFromWorldHitEvent evt) {
             if(evt == null || _indicators == null) return;
 
             var toHit = evt.WorldHitPos - evt.CameraPosition;

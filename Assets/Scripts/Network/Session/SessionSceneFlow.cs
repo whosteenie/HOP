@@ -229,7 +229,7 @@ namespace Network.Session {
         /// Call when local client disconnects unexpectedly (e.g. from OnClientDisconnected / OnClientStopped).
         /// Launches HandleUnexpectedDisconnect if not already in progress.
         /// </summary>
-        public void TriggerUnexpectedDisconnectFlow(ISessionContext ctx, ISceneFlowActions actions, string source) {
+        public void TriggerDisconnectFlow(ISessionContext ctx, ISceneFlowActions actions, string source) {
             if(_unexpectedDisconnectInFlight || ctx.IsLeaving || ctx.IsShuttingDown) return;
             if(SessionNetworkLifecycle.IsDaStartupInFlight) {
                 if(Debug.isDebugBuild) {
@@ -437,7 +437,7 @@ namespace Network.Session {
             FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_NETWORK_CLEANUP_DONE"));
 
             FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_SCENE_LOAD_BEGIN"));
-            await actions.EnsureMainMenuLoadedAndReadyAsync(currentScene);
+            await actions.EnsureMainMenuReadyAsync(currentScene);
             FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_SCENE_LOAD_DONE"));
 
             if(shouldRevealMenu) {
@@ -481,7 +481,7 @@ namespace Network.Session {
         /// <summary>
         /// Loads MainMenu scene and waits for it to be active and MainMenuManager ready. Used by leave-to-menu flow.
         /// </summary>
-        public static async UniTask EnsureMainMenuLoadedAndReadyAsync(ISessionContext ctx, string currentScene) {
+        public static async UniTask EnsureMainMenuReadyAsync(ISessionContext ctx, string currentScene) {
             if(currentScene == "MainMenu") return;
             SceneManager.LoadScene("MainMenu");
             var sceneLoaded = await WaitForActiveSceneAsync("MainMenu", 15f, ctx.SessionLifetimeToken);

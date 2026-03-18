@@ -312,7 +312,7 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            player.ProcessRespawnAuthorityRequest();
+            player.ProcessRespawnRequest();
         }
     }
 }
