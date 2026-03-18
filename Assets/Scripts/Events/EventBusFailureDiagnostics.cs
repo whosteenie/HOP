@@ -139,7 +139,7 @@ namespace Events {
                 WriteRecord(record, flushImmediately: settingsSnapshot.ImmediateFlushOnError);
 
                 if(settingsSnapshot.EchoToUnityConsole) {
-                    Debug.LogError(
+                    EventDevLog.LogError(
                         $"[EventBusFailure] event={record.eventType} publisher={record.publisherContext} " +
                         $"subscriber={record.subscriberDeclaringType}.{record.subscriberMethod} " +
                         $"exception={record.exceptionType}: {record.exceptionMessage} session={record.sessionId} " +
@@ -151,7 +151,7 @@ namespace Events {
                 }
 
                 internalErrorLogged = true;
-                Debug.LogError($"[EventBusFailure] Diagnostics pipeline failure: {internalException}");
+                EventDevLog.LogError($"[EventBusFailure] Diagnostics pipeline failure: {internalException}");
             }
 
             return settingsSnapshot.FailFastOnHandlerException;
@@ -250,7 +250,7 @@ namespace Events {
                 } catch(Exception flushException) {
                     if(internalErrorLogged) return;
                     internalErrorLogged = true;
-                    Debug.LogError($"[EventBusFailure] Failed flushing diagnostics log: {flushException}");
+                    EventDevLog.LogError($"[EventBusFailure] Failed flushing diagnostics log: {flushException}");
                 }
             }
         }
@@ -269,7 +269,7 @@ namespace Events {
                 } catch(Exception closeException) {
                     if(internalErrorLogged == false) {
                         internalErrorLogged = true;
-                        Debug.LogError($"[EventBusFailure] Failed closing diagnostics log: {closeException}");
+                        EventDevLog.LogError($"[EventBusFailure] Failed closing diagnostics log: {closeException}");
                     }
                 } finally {
                     writer = null;
@@ -294,7 +294,7 @@ namespace Events {
                     // Current product scope is Windows-first for local file diagnostics.
                     // Keep failure capture active, but disable file sink on other platforms.
                     if(settings.FileLoggingEnabled) {
-                        Debug.Log("[EventBusFailure] File logging is supported on Windows only; disabling file sink for this session.");
+                        EventDevLog.Log("[EventBusFailure] File logging is supported on Windows only; disabling file sink for this session.");
                     }
                     settings.FileLoggingEnabled = false;
                 }
@@ -349,7 +349,7 @@ namespace Events {
             } catch(Exception writerException) {
                 if(internalErrorLogged == false) {
                     internalErrorLogged = true;
-                    Debug.LogError($"[EventBusFailure] Failed opening diagnostics log file: {writerException}");
+                    EventDevLog.LogError($"[EventBusFailure] Failed opening diagnostics log file: {writerException}");
                 }
 
                 writer = null;
@@ -415,7 +415,7 @@ namespace Events {
                 var byteCount = Encoding.UTF8.GetByteCount(json) + NewLineByteCount;
                 if(bytesWritten + byteCount > settings.MaxFileSizeBytes) {
                     maxFileSizeReached = true;
-                    Debug.LogWarning(
+                    EventDevLog.LogWarning(
                         $"[EventBusFailure] Log file size cap reached for session {activeSessionId}. " +
                         "Further EventBus failure records will be dropped.");
                     return;
@@ -431,7 +431,7 @@ namespace Events {
             } catch(Exception writeException) {
                 if(internalErrorLogged) return;
                 internalErrorLogged = true;
-                Debug.LogError($"[EventBusFailure] Failed writing diagnostics record: {writeException}");
+                EventDevLog.LogError($"[EventBusFailure] Failed writing diagnostics record: {writeException}");
             }
         }
 

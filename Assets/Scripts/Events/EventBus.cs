@@ -167,8 +167,8 @@ namespace Events {
             // Check if handler's target is a MonoBehaviour that might not be initialized
             if(handler.Target is not MonoBehaviour monoBehaviour) return;
             if(monoBehaviour == null || !monoBehaviour.gameObject.activeInHierarchy) {
-                Debug.LogWarning($"[EventBus] Subscribing to {typeof(T).Name} from inactive/destroyed MonoBehaviour: " +
-                                 $"{handler.Target.GetType().Name}. Handler may not receive events.");
+                EventDevLog.LogWarning($"[EventBus] Subscribing to {typeof(T).Name} from inactive/destroyed MonoBehaviour: " +
+                                       $"{handler.Target.GetType().Name}. Handler may not receive events.");
             }
         }
 #endif
@@ -229,8 +229,8 @@ namespace Events {
                     if(!Subscribers.ContainsKey(eventType) || Subscribers[eventType].Count == 0) {
                         // Only warn if this event is not marked as optional
                         if(!OptionalEvents.Contains(eventType)) {
-                            Debug.LogWarning($"[EventBus] {eventType.Name} published but NO SUBSCRIBERS! " +
-                                             $"Is {eventType.Name} handler missing?");
+                            EventDevLog.LogWarning($"[EventBus] {eventType.Name} published but NO SUBSCRIBERS! " +
+                                                   $"Is {eventType.Name} handler missing?");
                         }
                     }
 
@@ -253,8 +253,8 @@ namespace Events {
                         EventHistory.RemoveAt(0);
                     }
 
-                    Debug.Log($"[EventBus] Publishing {eventType.Name} from {callerInfo} " +
-                              $"to {subscriberCount} subscriber(s) (corr={GetCurrentCorrelationId()})");
+                    EventDevLog.Log($"[EventBus] Publishing {eventType.Name} from {callerInfo} " +
+                                    $"to {subscriberCount} subscriber(s) (corr={GetCurrentCorrelationId()})");
                 }
 #endif
 
@@ -288,12 +288,12 @@ namespace Events {
                             if(shouldLog) {
                                 var callerInfo = BuildCallerInfo(callerMember, callerFile, callerLine);
 
-                                Debug.LogError($"[EventBus] Exception in {eventType.Name} handler:\n" +
-                                               $"Event: {gameEvent}\n" +
-                                               $"Handler: {handler.GetType().Name}\n" +
-                                               $"Publisher: {callerInfo}\n" +
-                                               $"CorrelationId: {GetCurrentCorrelationId()}\n" +
-                                               $"Exception: {ex}");
+                                EventDevLog.LogError($"[EventBus] Exception in {eventType.Name} handler:\n" +
+                                                     $"Event: {gameEvent}\n" +
+                                                     $"Handler: {handler.GetType().Name}\n" +
+                                                     $"Publisher: {callerInfo}\n" +
+                                                     $"CorrelationId: {GetCurrentCorrelationId()}\n" +
+                                                     $"Exception: {ex}");
                             }
 #endif
                             if(shouldRethrow) {
@@ -306,7 +306,7 @@ namespace Events {
                                 var duration = Time.realtimeSinceStartup - startTime;
                                 if(duration > 0.01f) { // Log slow handlers (>10ms)
                                     var handlerName = handler.GetType().Name;
-                                    Debug.LogWarning($"[EventBus] Slow handler: {handlerName} took {duration * 1000:F2}ms");
+                                    EventDevLog.LogWarning($"[EventBus] Slow handler: {handlerName} took {duration * 1000:F2}ms");
                                 }
 
                                 // Track handler timings for editor window
@@ -342,14 +342,14 @@ namespace Events {
         /// Log all current subscriptions. Useful for debugging.
         /// </summary>
         public static void LogSubscriptions() {
-            Debug.Log("=== Event Bus Subscriptions ===");
+            EventDevLog.Log("=== Event Bus Subscriptions ===");
             if(Subscribers.Count == 0) {
-                Debug.Log("No active subscriptions.");
+                EventDevLog.Log("No active subscriptions.");
                 return;
             }
 
             foreach(var kvp in Subscribers) {
-                Debug.Log($"{kvp.Key.Name}: {kvp.Value.Count} subscriber(s)");
+                EventDevLog.Log($"{kvp.Key.Name}: {kvp.Value.Count} subscriber(s)");
                 foreach(var handler in kvp.Value) {
                     var method = handler.GetType().GetMethod("Invoke");
                     var methodName = "Unknown";
@@ -359,7 +359,7 @@ namespace Events {
                         var declaringType = method.DeclaringType;
                         if(declaringType != null) typeName = declaringType.Name;
                     }
-                    Debug.Log($"  - {typeName}.{methodName}");
+                    EventDevLog.Log($"  - {typeName}.{methodName}");
                 }
             }
         }
@@ -368,14 +368,14 @@ namespace Events {
         /// Print the last 100 events. Useful for debugging.
         /// </summary>
         public static void PrintEventHistory() {
-            Debug.Log("=== Event Bus History (Last 100) ===");
+            EventDevLog.Log("=== Event Bus History (Last 100) ===");
             if(EventHistory.Count == 0) {
-                Debug.Log("No events in history.");
+                EventDevLog.Log("No events in history.");
                 return;
             }
 
             foreach(var entry in EventHistory) {
-                Debug.Log(entry);
+                EventDevLog.Log(entry);
             }
         }
 
@@ -384,7 +384,7 @@ namespace Events {
         /// </summary>
         public static void ClearEventHistory() {
             EventHistory.Clear();
-            Debug.Log("[EventBus] Event history cleared.");
+            EventDevLog.Log("[EventBus] Event history cleared.");
         }
 
         /// <summary>
@@ -392,7 +392,7 @@ namespace Events {
         /// </summary>
         public static void SetLoggingEnabled(bool enabled) {
             loggingEnabled = enabled;
-            Debug.Log($"[EventBus] Logging {(enabled ? "enabled" : "disabled")}.");
+            EventDevLog.Log($"[EventBus] Logging {(enabled ? "enabled" : "disabled")}.");
         }
 #endif
 

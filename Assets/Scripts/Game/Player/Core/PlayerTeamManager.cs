@@ -1,4 +1,5 @@
 using System.Collections;
+using Diagnostics;
 using Game.Match;
 using Game.Player.Combat;
 using Unity.Netcode;
@@ -204,7 +205,8 @@ namespace Game.Player.Core {
         /// </summary>
         public void UpdateOutlineColour() {
             if(_skinned == null || _propertyBlock == null) {
-                Debug.LogWarning($"[PlayerTeamManager] Cannot update outline - skinned: {_skinned != null}, propertyBlock: {_propertyBlock != null}, GameObject: {gameObject.name}");
+                DevLog.LogWarning(
+                    $"[PlayerTeamManager] Cannot update outline - skinned: {_skinned != null}, propertyBlock: {_propertyBlock != null}, GameObject: {gameObject.name}");
                 return;
             }
 
@@ -212,7 +214,8 @@ namespace Game.Player.Core {
             if(_gameModeCacheValid && _cachedGameModeId != currentGameModeId) {
                 // Game mode changed - invalidate cache
                 _gameModeCacheValid = false;
-                Debug.Log($"[PlayerTeamManager] Game mode changed from '{_cachedGameModeId}' to '{currentGameModeId}', invalidating cache. GameObject: {gameObject.name}");
+                DevLog.Log(
+                    $"[PlayerTeamManager] Game mode changed from '{_cachedGameModeId}' to '{currentGameModeId}', invalidating cache. GameObject: {gameObject.name}");
             }
 
             // Cache game mode checks

@@ -228,7 +228,7 @@ namespace Game.Match {
         public void MarkClientScenePresented(ulong clientId, string source = "ServerLocal") {
             if(!HasMatchAuthority) return;
             if(_clientsScenePresented.Add(clientId) && Debug.isDebugBuild) {
-                Debug.Log($"[MatchTimerManager] Client {clientId} marked scene-presented ({source}).");
+                DevLog.Log($"[MatchTimerManager] Client {clientId} marked scene-presented ({source}).");
             }
         }
 
@@ -258,7 +258,7 @@ namespace Game.Match {
                 if(!expectedCountLocked && waitedSeconds >= expectedJoinGraceSeconds && connectedCount < expectedPlayers) {
                     expectedPlayers = Mathf.Max(connectedCount, 1);
                     expectedCountLocked = true;
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[MatchTimerManager] Expected-player grace expired. Continuing with {expectedPlayers} expected connected players.");
                 }
 
@@ -280,19 +280,19 @@ namespace Game.Match {
                 }
 
                 if (haveExpectedConnections && allPlayersReady && allConnectedPresented && connectedCount > 0) {
-                    Debug.Log(
+                    DevLog.Log(
                         $"[MatchTimerManager] All {connectedCount}/{expectedPlayers} expected players connected, spawned, and scene-presented. Starting countdown.");
                     break;
                 }
 
-                Debug.Log(
+                DevLog.Log(
                     $"[MatchTimerManager] Waiting for players... expected={expectedPlayers} connected={connectedCount} spawnedReady={allPlayersReady} presented={_clientsScenePresented.Count}");
                 yield return wait;
                 waitedSeconds += 1f;
             }
 
             if (waitedSeconds >= maxWaitSeconds) {
-                Debug.LogWarning("[MatchTimerManager] Timed out waiting for all players. Starting countdown anyway.");
+                DevLog.LogWarning("[MatchTimerManager] Timed out waiting for all players. Starting countdown anyway.");
             }
 
             _isWaitingForPlayers.Value = false;
