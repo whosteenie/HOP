@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Game.Audio.System;
-using Game.Hopball;
 using Game.Match;
 using Game.Player.Core;
 using Unity.Netcode;
@@ -122,7 +121,6 @@ namespace Game.UI.Screens.Scoreboard {
             MatchSettingsManager matchSettings) {
             if(allControllers == null) throw new ArgumentNullException(nameof(allControllers));
             if(matchSettings == null) return;
-            int yourScore, enemyScore;
             var networkManager = NetworkManager.Singleton;
             if(networkManager == null || networkManager.LocalClient == null) return;
             var localPlayer = networkManager.LocalClient.PlayerObject;
@@ -133,20 +131,9 @@ namespace Game.UI.Screens.Scoreboard {
             if(localTeamMgr == null) return;
             var localTeam = localTeamMgr.netTeam.Value;
 
-            switch(matchSettings.selectedGameModeId) {
-                case "Hopball" when HopballSpawnManager.Instance != null:
-                    var ha = HopballSpawnManager.Instance.GetTeamAScore();
-                    var hb = HopballSpawnManager.Instance.GetTeamBScore();
-                    (yourScore, enemyScore) = localTeam == SpawnPoint.Team.TeamA ? (ha, hb) : (hb, ha);
-                    break;
-                case "KOTH" when KingOfTheHillManager.Instance != null:
-                    var ka = KingOfTheHillManager.Instance.GetTeamAScore();
-                    var kb = KingOfTheHillManager.Instance.GetTeamBScore();
-                    (yourScore, enemyScore) = localTeam == SpawnPoint.Team.TeamA ? (ka, kb) : (kb, ka);
-                    break;
-                default:
-                    (yourScore, enemyScore) = ScoreboardPlayerData.CalculateTeamKillScores(allControllers, localTeam);
-                    break;
+            if(!MatchObjectiveScoreResolver.TryGetLocalizedTeamScores(matchSettings.selectedGameModeId, localTeam,
+                   out var yourScore, out var enemyScore)) {
+                (yourScore, enemyScore) = ScoreboardPlayerData.CalculateTeamKillScores(allControllers, localTeam);
             }
 
             _leftScoreValue.text = yourScore.ToString();

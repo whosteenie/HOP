@@ -277,6 +277,21 @@ namespace Events {
     }
 
     /// <summary>
+    /// Synchronous query event used to resolve team objective scores for a given gamemode
+    /// without depending on a specific objective manager implementation.
+    /// </summary>
+    public class ObjectiveTeamScoresRequestedEvent : GameEvent {
+        public readonly string GameModeId;
+        public bool HasScores;
+        public int TeamAScore;
+        public int TeamBScore;
+
+        public ObjectiveTeamScoresRequestedEvent(string gameModeId) {
+            GameModeId = gameModeId;
+        }
+    }
+
+    /// <summary>
     /// Event published by a hill when it needs active players to republish their current occupancy state.
     /// </summary>
     public class HillOccupancySnapshotRequestedEvent : GameEvent {

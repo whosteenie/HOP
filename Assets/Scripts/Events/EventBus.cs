@@ -53,6 +53,7 @@ namespace Events {
             typeof(PlayerFpWeaponVisualRefreshRequestedEvent),
             typeof(PlayerHillOccupancyChangedEvent),
             typeof(PlayerTeamChangedEvent),
+            typeof(ObjectiveTeamScoresRequestedEvent),
             typeof(HillOccupancySnapshotRequestedEvent),
             typeof(PlayerTagBootstrapSnapshotRequestedEvent),
             typeof(PlayerTagBootstrapStateReportedEvent),

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Diagnostics;
-using Game.Hopball;
 using Game.Match;
 using Game.Player.Core;
 using Unity.Netcode;
@@ -169,28 +168,11 @@ namespace Game.UI.Screens.Scoreboard {
                 yourCount++;
             }
 
-            if(matchSettings != null && matchSettings.selectedGameModeId == "Hopball" &&
-               HopballSpawnManager.Instance != null) {
-                var teamA = HopballSpawnManager.Instance.GetTeamAScore();
-                var teamB = HopballSpawnManager.Instance.GetTeamBScore();
-                if(localTeam == SpawnPoint.Team.TeamA) {
-                    if(yourScoreValue != null) yourScoreValue.text = teamA.ToString();
-                    if(enemyScoreValue != null) enemyScoreValue.text = teamB.ToString();
-                } else {
-                    if(yourScoreValue != null) yourScoreValue.text = teamB.ToString();
-                    if(enemyScoreValue != null) enemyScoreValue.text = teamA.ToString();
-                }
-            } else if(matchSettings != null && matchSettings.selectedGameModeId == "KOTH" &&
-                      KingOfTheHillManager.Instance != null) {
-                var teamA = KingOfTheHillManager.Instance.GetTeamAScore();
-                var teamB = KingOfTheHillManager.Instance.GetTeamBScore();
-                if(localTeam == SpawnPoint.Team.TeamA) {
-                    if(yourScoreValue != null) yourScoreValue.text = teamA.ToString();
-                    if(enemyScoreValue != null) enemyScoreValue.text = teamB.ToString();
-                } else {
-                    if(yourScoreValue != null) yourScoreValue.text = teamB.ToString();
-                    if(enemyScoreValue != null) enemyScoreValue.text = teamA.ToString();
-                }
+            if(matchSettings != null &&
+               MatchObjectiveScoreResolver.TryGetLocalizedTeamScores(matchSettings.selectedGameModeId, localTeam,
+                   out var yourObjectiveScore, out var enemyObjectiveScore)) {
+                if(yourScoreValue != null) yourScoreValue.text = yourObjectiveScore.ToString();
+                if(enemyScoreValue != null) enemyScoreValue.text = enemyObjectiveScore.ToString();
             } else {
                 var (yourScore, enemyScore) = ScoreboardPlayerData.CalculateTeamKillScores(allControllers, localTeam);
                 if(enemyScoreValue != null) enemyScoreValue.text = enemyScore.ToString();

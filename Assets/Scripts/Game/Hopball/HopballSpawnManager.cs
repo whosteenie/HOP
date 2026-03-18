@@ -74,6 +74,7 @@ namespace Game.Hopball {
             EventBus.Subscribe<HopballEnergyDepletedEvent>(OnHopballEnergyDepletedEvent);
             EventBus.Subscribe<HopballRespawnRequestedEvent>(OnHopballRespawnRequestedEvent);
             EventBus.Subscribe<HopballCollisionIgnoreStateChangedEvent>(OnHopballCollisionIgnoreStateChangedEvent);
+            EventBus.Subscribe<ObjectiveTeamScoresRequestedEvent>(OnObjectiveTeamScoresRequested);
 
             if(HasHopballAuthority) {
                 // Reset scores
@@ -107,6 +108,7 @@ namespace Game.Hopball {
             EventBus.Unsubscribe<HopballEnergyDepletedEvent>(OnHopballEnergyDepletedEvent);
             EventBus.Unsubscribe<HopballRespawnRequestedEvent>(OnHopballRespawnRequestedEvent);
             EventBus.Unsubscribe<HopballCollisionIgnoreStateChangedEvent>(OnHopballCollisionIgnoreStateChangedEvent);
+            EventBus.Unsubscribe<ObjectiveTeamScoresRequestedEvent>(OnObjectiveTeamScoresRequested);
             _teamAScore.OnValueChanged -= OnTeamAScoreChanged;
             _teamBScore.OnValueChanged -= OnTeamBScoreChanged;
             CleanupActiveHopball();
@@ -161,6 +163,15 @@ namespace Game.Hopball {
 
         public int GetTeamAScore() => _teamAScore.Value;
         public int GetTeamBScore() => _teamBScore.Value;
+
+        private void OnObjectiveTeamScoresRequested(ObjectiveTeamScoresRequestedEvent evt) {
+            if(evt == null || evt.HasScores) return;
+            if(evt.GameModeId != "Hopball") return;
+
+            evt.TeamAScore = _teamAScore.Value;
+            evt.TeamBScore = _teamBScore.Value;
+            evt.HasScores = true;
+        }
 
         /// <summary>
         /// Spawns the first hopball after initial delay.

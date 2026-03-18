@@ -86,6 +86,7 @@ namespace Game.Match {
 
             _teamAScore.OnValueChanged += OnScoreChanged;
             _teamBScore.OnValueChanged += OnScoreChanged;
+            EventBus.Subscribe<ObjectiveTeamScoresRequestedEvent>(OnObjectiveTeamScoresRequested);
 
         }
 
@@ -107,6 +108,7 @@ namespace Game.Match {
             CleanupActiveHill();
             _teamAScore.OnValueChanged -= OnScoreChanged;
             _teamBScore.OnValueChanged -= OnScoreChanged;
+            EventBus.Unsubscribe<ObjectiveTeamScoresRequestedEvent>(OnObjectiveTeamScoresRequested);
         }
 
         public override void OnDestroy() {
@@ -267,6 +269,15 @@ namespace Game.Match {
 
         public int GetTeamAScore() => _teamAScore.Value;
         public int GetTeamBScore() => _teamBScore.Value;
+
+        private void OnObjectiveTeamScoresRequested(ObjectiveTeamScoresRequestedEvent evt) {
+            if(evt == null || evt.HasScores) return;
+            if(evt.GameModeId != "KOTH") return;
+
+            evt.TeamAScore = _teamAScore.Value;
+            evt.TeamBScore = _teamBScore.Value;
+            evt.HasScores = true;
+        }
 
         private IEnumerator GameStartRoutine() {
             if(postPrematchSpawnDelay > 0f) {
