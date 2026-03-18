@@ -25,8 +25,11 @@
 
 /* Stat containers */
 .multiplier-container {
+    width: 280px;
+    min-width: 280px;
     flex-direction: row; 
     align-items: center;
+    justify-content: center;
     min-height: 56px; 
     padding: 8px 16px;
     background-color: rgba(12, 12, 18, 0.4);

@@ -81,6 +81,7 @@ namespace Game.Match {
                 DevLog.LogWarning("[MatchTimerManager] Unexpected network despawn while DA session is still active.");
             }
 
+            ExitAuthoritativeMode();
             base.OnNetworkDespawn();
             UnsubscribeGameplayEvents();
             if(NetworkManager != null) {
@@ -314,6 +315,7 @@ namespace Game.Match {
             // Pre-match countdown
             while(HasMatchAuthority && _preMatchCountdownSeconds.Value > 0) {
                 yield return wait;
+                if(!HasMatchAuthority) yield break;
                 _preMatchCountdownSeconds.Value--;
             }
 
@@ -327,6 +329,8 @@ namespace Game.Match {
 
             while(HasMatchAuthority && !_isPreMatch.Value && _timeRemainingSeconds.Value > 0) {
                 yield return wait;
+                if(!HasMatchAuthority) yield break;
+                if(_isPreMatch.Value) yield break;
                 _timeRemainingSeconds.Value--;
             }
 
