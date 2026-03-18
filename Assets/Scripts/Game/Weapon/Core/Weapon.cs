@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Diagnostics;
 using Events;
 using Game.Audio.System;
-using Game.Player.Core;
 using Game.Weapon.Kinemation;
 using Game.Weapon.Manager;
 using Network.Core;
@@ -17,7 +16,7 @@ namespace Game.Weapon.Core {
         public const float MaxDamageMultiplier = 3f;
 
         [Header("References")]
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour ownerContextSource;
 
         private CinemachineCamera _fpCamera;
         private Animator _playerAnimator;
@@ -27,6 +26,7 @@ namespace Game.Weapon.Core {
         private WeaponEffects _effects;
 
         private int _currentMagCapacity = 1;
+        private IWeaponOwnerContext _ownerContext;
 
         [Header("Runtime State")]
         public int currentAmmo;
@@ -37,7 +37,7 @@ namespace Game.Weapon.Core {
         private static readonly NetworkVariable<float> MissingDamageMultiplierState = new(1f);
 
         public NetworkVariable<float> NetCurrentDamageMultiplier =>
-            playerController != null ? playerController.PlayerState != null ? playerController.PlayerState.replicatedDamageMultiplier ?? MissingDamageMultiplierState : MissingDamageMultiplierState : MissingDamageMultiplierState;
+            _ownerContext != null ? _ownerContext.ReplicatedDamageMultiplierState ?? MissingDamageMultiplierState : MissingDamageMultiplierState;
 
         private float CurrentDamageMultiplier {
             get => IsOwner ? _localDamageMultiplier : NetCurrentDamageMultiplier.Value;
@@ -100,7 +100,7 @@ namespace Game.Weapon.Core {
 
         #region Internal Facade Properties
 
-        internal PlayerController PlayerController => playerController;
+        internal IWeaponOwnerContext OwnerContext => _ownerContext;
         internal WeaponManager Manager { get; private set; }
 
         private WeaponDamageRelay DamageRelay { get; set; }
@@ -208,23 +208,35 @@ namespace Game.Weapon.Core {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
+            if(_ownerContext == null) {
+                if(ownerContextSource is IWeaponOwnerContext ownerContext) {
+                    _ownerContext = ownerContext;
+                } else {
+                    foreach(var candidate in GetComponentsInParent<MonoBehaviour>(true)) {
+                        if(candidate is IWeaponOwnerContext resolvedContext) {
+                            ownerContextSource = candidate;
+                            _ownerContext = resolvedContext;
+                            break;
+                        }
+                    }
+                }
             }
 
-            if(playerController == null) {
-                DevLog.LogError("[Weapon] PlayerController not found!");
+            if(_ownerContext == null) {
+                DevLog.LogError("[Weapon] IWeaponOwnerContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
-            if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
-            EnemyLayerMask = playerController.EnemyLayer;
-            WorldLayerMask = playerController.WorldLayer;
-            if(DamageRelay == null) DamageRelay = playerController.DamageRelay;
-            if(AudioRelay == null) AudioRelay = playerController.AudioRelay;
-            if(Manager == null) Manager = playerController.WeaponManager;
+            if(_fpCamera == null && _ownerContext.FpCameraTransform != null) {
+                _fpCamera = _ownerContext.FpCameraTransform.GetComponent<CinemachineCamera>();
+            }
+            if(_playerAnimator == null) _playerAnimator = _ownerContext.PlayerAnimator;
+            EnemyLayerMask = _ownerContext.EnemyLayer;
+            WorldLayerMask = _ownerContext.WorldLayer;
+            if(DamageRelay == null) DamageRelay = _ownerContext.DamageRelay;
+            if(AudioRelay == null) AudioRelay = _ownerContext.AudioRelay;
+            if(Manager == null) Manager = _ownerContext.WeaponManager;
 
             LastFireTime = Time.time;
 
@@ -328,7 +340,7 @@ namespace Game.Weapon.Core {
         }
 
         private void PublishOwnerAmmoToHud(int maxAmmoOverride = -1) {
-            if(playerController == null || !playerController.IsOwner) return;
+            if(_ownerContext == null || !_ownerContext.IsOwner) return;
             var maxAmmo = maxAmmoOverride > 0 ? maxAmmoOverride : GetCurrentMagCapacity();
             EventBus.Publish(new UpdateAmmoEvent(currentAmmo, maxAmmo));
         }
@@ -343,8 +355,8 @@ namespace Game.Weapon.Core {
                 AuthoritativePeakDamageMultiplier = 1f;
                 AuthoritativeLastPeakTime = 0f;
                 ResetMotionBaseline();
-                if(playerController != null && playerController.PlayerState != null) {
-                    playerController.PlayerState.replicatedDamageMultiplier.Value = 1f;
+                if(_ownerContext != null) {
+                    _ownerContext.ReplicatedDamageMultiplierState.Value = 1f;
                 }
             }
 

@@ -29,7 +29,8 @@ namespace Game.Player.Core {
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext,
         IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext,
-        IPlayerCombatContext, IPlayerMaterialCustomizationContext, IWeaponManagerOwnerContext {
+        IPlayerCombatContext, IPlayerMaterialCustomizationContext, IWeaponManagerOwnerContext, IWeaponOwnerContext,
+        IWeaponCombatParticipant {
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -1381,6 +1382,55 @@ namespace Game.Player.Core {
         NetworkVariable<bool> IWeaponManagerOwnerContext.NetIsDeadState => NetIsDead;
         bool IWeaponManagerOwnerContext.IsRagdoll => playerRagdoll != null && playerRagdoll.IsRagdoll;
         bool IWeaponManagerOwnerContext.IsHoldingHopball => IsHoldingHopball;
+
+        bool IWeaponOwnerContext.IsOwner => IsOwner;
+        bool IWeaponOwnerContext.IsDead => IsDead;
+        bool IWeaponOwnerContext.IsGrounded => IsGrounded;
+        bool IWeaponOwnerContext.IsSliding => movementController != null && movementController.IsSliding;
+        bool IWeaponOwnerContext.IsWallRunning => wallRunController != null && wallRunController.IsWallRunning;
+        bool IWeaponOwnerContext.IsSniperOverlayActive => playerInputController != null && playerInputController.IsSniperOverlayActive;
+        bool IWeaponOwnerContext.SprintInput => sprintInput;
+        Vector2 IWeaponOwnerContext.MoveInput => moveInput;
+        float IWeaponOwnerContext.CurrentPitch => CurrentPitch;
+        float IWeaponOwnerContext.MaxSpeed => GetMaxSpeed();
+        Vector3 IWeaponOwnerContext.HorizontalVelocity => GetHorizontalVelocity();
+        Vector3 IWeaponOwnerContext.FullVelocity => GetFullVelocity;
+        Vector3 IWeaponOwnerContext.Position => Position;
+        Vector3 IWeaponOwnerContext.SniperMuzzleCameraOffset =>
+            playerInputController != null ? playerInputController.SniperMuzzleCameraOffset : Vector3.zero;
+        Transform IWeaponOwnerContext.PlayerTransform => PlayerTransform;
+        Transform IWeaponOwnerContext.FpCameraTransform => FpCameraTransform;
+        Animator IWeaponOwnerContext.PlayerAnimator => playerAnimator;
+        LayerMask IWeaponOwnerContext.EnemyLayer => enemyLayer;
+        LayerMask IWeaponOwnerContext.WorldLayer => worldLayer;
+        NetworkObject IWeaponOwnerContext.NetworkObject => NetworkObject;
+        ulong IWeaponOwnerContext.OwnerClientId => OwnerClientId;
+        WeaponDamageRelay IWeaponOwnerContext.DamageRelay => damageRelay;
+        WeaponFxRelay IWeaponOwnerContext.FxRelay => fxRelay;
+        NetworkAudioRelay IWeaponOwnerContext.AudioRelay => audioRelay;
+        WeaponManager IWeaponOwnerContext.WeaponManager => weaponManager;
+        Game.Weapon.Core.Weapon IWeaponOwnerContext.CurrentWeapon => CurrentWeapon;
+        NetworkVariable<float> IWeaponOwnerContext.ReplicatedDamageMultiplierState =>
+            ResolvePlayerState() != null ? ResolvePlayerState().replicatedDamageMultiplier : MissingFloatState;
+
+        bool IWeaponCombatParticipant.IsOwner => IsOwner;
+        bool IWeaponCombatParticipant.IsDead => IsDead;
+        ulong IWeaponCombatParticipant.OwnerClientId => OwnerClientId;
+        NetworkObject IWeaponCombatParticipant.NetworkObject => NetworkObject;
+        WeaponManager IWeaponCombatParticipant.WeaponManager => weaponManager;
+        WeaponDamageRelay IWeaponCombatParticipant.DamageRelay => damageRelay;
+
+        bool IWeaponCombatParticipant.ApplyDamageServerAuth(float damage, Vector3 hitPoint, Vector3 hitDirection,
+            ulong attackerClientId, string bodyPartTag, bool isHeadshot, string weaponId) {
+            return ApplyDamageServer_Auth(damage, hitPoint, hitDirection, attackerClientId, bodyPartTag, isHeadshot,
+                weaponId);
+        }
+
+        void IWeaponCombatParticipant.ProcessRespawnAuthorityRequest() {
+            if(combatController != null) {
+                combatController.ProcessRespawnAuthorityRequest();
+            }
+        }
 
         #endregion
     }
