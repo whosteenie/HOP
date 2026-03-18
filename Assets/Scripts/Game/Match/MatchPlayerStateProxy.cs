@@ -22,8 +22,8 @@ namespace Game.Match {
             return proxy;
         }
 
-        public static System.Collections.Generic.IEnumerable<MatchPlayerStateProxy> GetAllStates() {
-            return StateByClientId.Values;
+        public static System.Collections.Generic.IReadOnlyList<MatchPlayerStateProxy> GetAllStates() {
+            return new System.Collections.Generic.List<MatchPlayerStateProxy>(StateByClientId.Values);
         }
 
         public NetworkVariable<ulong> representedClientId = new(ulong.MaxValue);

@@ -833,15 +833,13 @@ namespace Game.Match {
         }
 
         private static void TryDetachPlayerObjectFromParent(ulong ownerClientId) {
-            if(NetworkManager.Singleton == null) return;
-            var spawnManager = NetworkManager.Singleton.SpawnManager;
-            if(spawnManager == null) return;
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+            if(!networkManager.ConnectedClients.TryGetValue(ownerClientId, out var client)) return;
 
-            foreach(var netObj in spawnManager.SpawnedObjects.Values) {
-                if(netObj == null || !netObj.IsSpawned || netObj.OwnerClientId != ownerClientId) continue;
-                netObj.TrySetParent((Transform)null, false);
-                return;
-            }
+            var playerObject = client.PlayerObject;
+            if(playerObject == null || !playerObject.IsSpawned) return;
+            playerObject.TrySetParent((Transform)null, false);
         }
     }
 }

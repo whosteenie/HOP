@@ -43,10 +43,6 @@ namespace Game.Match {
 
             Instance = this;
             EventBus.Publish(new MatchTimerReadyEvent());
-            EventBus.Subscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
-            EventBus.Subscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
-            EventBus.Subscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
-            EventBus.Subscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
 
             if(MatchSettingsManager.Instance != null) {
                 matchDurationSeconds = MatchSettingsManager.Instance.GetMatchDurationSeconds();
@@ -62,6 +58,7 @@ namespace Game.Match {
             base.OnNetworkSpawn();
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
             RegisterSessionOwnerCallbacks();
+            SubscribeGameplayEvents();
 
             // Subscribe for UI updates on all clients
             _timeRemainingSeconds.OnValueChanged += OnTimeRemainingChanged;
@@ -85,6 +82,7 @@ namespace Game.Match {
             }
 
             base.OnNetworkDespawn();
+            UnsubscribeGameplayEvents();
             if(NetworkManager != null) {
                 NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
             }
@@ -94,10 +92,7 @@ namespace Game.Match {
 
         public override void OnDestroy() {
             base.OnDestroy();
-            EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
-            EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
-            EventBus.Unsubscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
-            EventBus.Unsubscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
+            UnsubscribeGameplayEvents();
             _timeRemainingSeconds.OnValueChanged -= OnTimeRemainingChanged;
             _preMatchCountdownSeconds.OnValueChanged -= OnPreMatchCountdownChanged;
             _isWaitingForPlayers.OnValueChanged -= OnPreMatchWaitingForPlayersChanged;
@@ -108,6 +103,25 @@ namespace Game.Match {
             UnregisterSessionOwnerCallbacks();
 
             ClearInstanceIfCurrent();
+        }
+
+        private void SubscribeGameplayEvents() {
+            EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
+            EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            EventBus.Unsubscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
+            EventBus.Unsubscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
+
+            EventBus.Subscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
+            EventBus.Subscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            EventBus.Subscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
+            EventBus.Subscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
+        }
+
+        private void UnsubscribeGameplayEvents() {
+            EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
+            EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            EventBus.Unsubscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
+            EventBus.Unsubscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
         }
 
         private void RegisterSessionOwnerCallbacks() {
