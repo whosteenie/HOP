@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Diagnostics;
 using UnityEditor;
 using UnityEngine;
 
@@ -91,12 +92,12 @@ namespace Editor {
             var akClipPath = $"{GrappleAnimFolder}/{AkClipName}.anim";
             var akClip = AssetDatabase.LoadAssetAtPath<AnimationClip>(akClipPath);
             if(akClip == null) {
-                Debug.LogError($"[GrappleBake] Missing AK reference clip: {akClipPath}");
+                DevLog.LogError($"[GrappleBake] Missing AK reference clip: {akClipPath}");
                 return;
             }
 
             if(!TryGetClaviclePath(akClip, out var akClaviclePath)) {
-                Debug.LogError($"[GrappleBake] Could not find {ClavicleBoneName} local position path in {akClipPath}");
+                DevLog.LogError($"[GrappleBake] Could not find {ClavicleBoneName} local position path in {akClipPath}");
                 return;
             }
 
@@ -104,7 +105,7 @@ namespace Editor {
             var akY = AnimationUtility.GetEditorCurve(akClip, MakeLocalPositionBinding(akClaviclePath, 'y'));
             var akZ = AnimationUtility.GetEditorCurve(akClip, MakeLocalPositionBinding(akClaviclePath, 'z'));
             if(akX == null || akY == null || akZ == null) {
-                Debug.LogError($"[GrappleBake] AK clip is missing one or more {ClavicleBoneName} position curves.");
+                DevLog.LogError($"[GrappleBake] AK clip is missing one or more {ClavicleBoneName} position curves.");
                 return;
             }
             var sampleTimes = CollectSampleTimes(akX, akY, akZ);
@@ -114,7 +115,7 @@ namespace Editor {
                 var targetPath = $"{GrappleAnimFolder}/{weapon.ClipName}.anim";
                 var targetClip = AssetDatabase.LoadAssetAtPath<AnimationClip>(targetPath);
                 if(targetClip == null) {
-                    Debug.LogWarning($"[GrappleBake] Missing target clip: {targetPath}");
+                    DevLog.LogWarning($"[GrappleBake] Missing target clip: {targetPath}");
                     continue;
                 }
 
@@ -158,7 +159,7 @@ namespace Editor {
                         bakedX.length > 0 ? bakedX.keys[bakedX.length - 1].value : 0f,
                         bakedY.length > 0 ? bakedY.keys[bakedY.length - 1].value : 0f,
                         bakedZ.length > 0 ? bakedZ.keys[bakedZ.length - 1].value : 0f);
-                    Debug.Log(
+                    DevLog.Log(
                         $"[GrappleBake] Baked {weapon.ClipName} path={targetClaviclePath} " +
                         $"weaponVM={Format(weapon.ViewmodelLocalPosition)} rootOffset={Format(rootOffset)} " +
                         $"firstLocalOffset={Format(firstLocalOffset)} midLocalOffset={Format(midLocalOffset)} " +
@@ -167,7 +168,7 @@ namespace Editor {
                         $"rig={usedRigPath} " +
                         $"first={Format(first)} last={Format(last)}");
                 } else {
-                    Debug.Log(
+                    DevLog.Log(
                         $"[GrappleBake] Baked {weapon.ClipName} rootOffset={Format(rootOffset)} " +
                         $"additionalLocalOffset={Format(weapon.AdditionalClavicleLocalOffset)} " +
                         $"armPoseCurvesApplied={armPoseCurvesApplied} " +
@@ -176,7 +177,7 @@ namespace Editor {
             }
 
             AssetDatabase.SaveAssets();
-            Debug.Log($"[GrappleBake] Done. Modified {modified}/{WeaponBindings.Length} clips using AK source \"{AkClipName}\".");
+            DevLog.Log($"[GrappleBake] Done. Modified {modified}/{WeaponBindings.Length} clips using AK source \"{AkClipName}\".");
         }
 
         private static bool TryGetClaviclePath(AnimationClip clip, out string path) {
@@ -280,14 +281,14 @@ namespace Editor {
             foreach(var boneName in ArmPoseBones) {
                 if(!TryGetBonePath(sourceAkClip, boneName, out var akBonePath)) {
                     if(verbose) {
-                        Debug.LogWarning($"[GrappleBake] Missing AK bone path for {boneName}.");
+                        DevLog.LogWarning($"[GrappleBake] Missing AK bone path for {boneName}.");
                     }
                     continue;
                 }
 
                 if(!TryGetBonePath(targetClip, boneName, out var targetBonePath)) {
                     if(verbose) {
-                        Debug.LogWarning($"[GrappleBake] Missing target bone path for {boneName} in {targetClip.name}.");
+                        DevLog.LogWarning($"[GrappleBake] Missing target bone path for {boneName} in {targetClip.name}.");
                     }
                     continue;
                 }
@@ -362,7 +363,7 @@ namespace Editor {
             applied += ApplyForcedLocalEulerRotation(targetClip, lowerarmPath, AkLowerarmLocalEuler, sampleTimes);
 
             if(verbose) {
-                Debug.Log(
+                DevLog.Log(
                     $"[GrappleBake] Forced AK arm baseline rotations on {targetClip.name}: " +
                     $"upperarmPath={upperarmPath} euler={Format(AkUpperarmLocalEuler)} " +
                     $"lowerarmPath={lowerarmPath} euler={Format(AkLowerarmLocalEuler)} curves={applied}");

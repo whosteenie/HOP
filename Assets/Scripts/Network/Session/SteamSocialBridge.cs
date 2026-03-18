@@ -35,7 +35,7 @@ namespace Network.Session {
                 lobbyPresenceNotifier(friendName, joined);
             } catch(Exception ex) {
                 if(Debug.isDebugBuild) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[SessionManager] LobbyPresenceNotifier threw an exception for friend='{friendName}' joined={joined}: {ex.Message}");
                 }
             }
@@ -47,7 +47,7 @@ namespace Network.Session {
                 updateLocalDisplayMetadata(ctx);
             } catch(Exception ex) {
                 if(Debug.isDebugBuild) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[SessionManager] UpdateLocalDisplayMetadata threw an exception for lobby='{ctx.CurrentLobby?.Id}': {ex.Message}");
                 }
             }
@@ -119,7 +119,7 @@ namespace Network.Session {
 
         private void OnLobbyMemberJoined(Lobby lobby, Friend friend) {
             if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Member Joined: {friend.Name}");
+                DevLog.Log($"[SessionManager] Member Joined: {friend.Name}");
             }
 
             if(_ctx is not { CurrentLobby: not null } || _ctx.CurrentLobby.Value.Id != lobby.Id) {
@@ -139,7 +139,7 @@ namespace Network.Session {
 
         private void OnLobbyMemberLeave(Lobby lobby, Friend friend) {
             if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Member Left: {friend.Name}");
+                DevLog.Log($"[SessionManager] Member Left: {friend.Name}");
             }
 
             if(_ctx is { CurrentLobby: not null } && _ctx.CurrentLobby.Value.Id == lobby.Id &&
@@ -161,7 +161,7 @@ namespace Network.Session {
 
             try {
                 if(Debug.isDebugBuild) {
-                    Debug.Log($"[SessionManager] Accepted Invite to Lobby {lobby.Id}");
+                    DevLog.Log($"[SessionManager] Accepted Invite to Lobby {lobby.Id}");
                 }
 
                 var joined = await JoinSteamSocialLobbyAsync(lobby);
@@ -172,7 +172,7 @@ namespace Network.Session {
 
                 await FollowSessionContextFromSteamLobbyAsync(lobby);
             } catch(Exception e) {
-                Debug.LogError($"[SessionManager] Failed to join invited lobby '{lobby.Id}': {e.Message}");
+                DevLog.LogError($"[SessionManager] Failed to join invited lobby '{lobby.Id}': {e.Message}");
                 ctx.SetFrontStatus(SessionPhase.Error, "Failed to join invited lobby.");
             }
         }
@@ -201,7 +201,7 @@ namespace Network.Session {
                     await _actions.JoinMatchLobbyByIdAsync(lobbyId);
                 }
             } catch(Exception ex) {
-                Debug.LogWarning($"[SessionManager] Failed to handle Steam connect string '{connect}': {ex.Message}");
+                DevLog.LogWarning($"[SessionManager] Failed to handle Steam connect string '{connect}': {ex.Message}");
             }
         }
 
@@ -235,7 +235,7 @@ namespace Network.Session {
 
             var result = await lobby.Join();
             if(result != RoomEnter.Success) {
-                Debug.LogWarning($"[SessionManager] Failed to join Steam social lobby '{lobby.Id}': {result}");
+                DevLog.LogWarning($"[SessionManager] Failed to join Steam social lobby '{lobby.Id}': {result}");
                 return false;
             }
 
@@ -301,7 +301,7 @@ namespace Network.Session {
                 ctx.CurrentLobby.Value.SetData(TargetModeKey, ctx.SelectedGameMode);
             } catch(Exception ex) {
                 if(Debug.isDebugBuild)
-                    Debug.LogWarning($"[SessionManager] Failed to publish UGS bridge metadata to Steam social lobby: {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed to publish UGS bridge metadata to Steam social lobby: {ex.Message}");
             }
         }
 
@@ -315,7 +315,7 @@ namespace Network.Session {
                 UpdateLocalDisplayNameInLobby(ctx);
             } catch(Exception ex) {
                 if(Debug.isDebugBuild)
-                    Debug.LogWarning($"[SessionManager] Failed to update Steam lobby party data: {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed to update Steam lobby party data: {ex.Message}");
             }
         }
 
@@ -362,7 +362,7 @@ namespace Network.Session {
                 ctx.NotifyPartyStateChanged();
                 return true;
             } catch(Exception ex) {
-                Debug.LogError($"[SessionManager] Failed to create Steam social lobby: {ex.Message}");
+                DevLog.LogError($"[SessionManager] Failed to create Steam social lobby: {ex.Message}");
                 ctx.SetFrontStatus(SessionPhase.Error, "Failed to create party lobby.");
                 return false;
             }

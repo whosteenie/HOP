@@ -1,4 +1,5 @@
 using System.Collections;
+using Diagnostics;
 using Events;
 using Game.Audio.System;
 using Game.Weapon.Core;
@@ -98,7 +99,7 @@ namespace Game.Weapon.Manager {
                 WeaponCombatAuthority.Instance.RequestWeaponSwitchServerRpc(
                     new NetworkObjectReference(_root.NetworkObject), newIndex);
             } else {
-                Debug.LogError(
+                DevLog.LogError(
                     "[WeaponManager] MatchCombatAuthority is missing in the active gameplay scene. Weapon switches cannot be authority-validated.");
             }
         }
@@ -197,7 +198,7 @@ namespace Game.Weapon.Manager {
 
             var fp = _root.ActivateFpWeaponInternal(_root.CurrentWeaponIndexInternal, data, true);
             if(fp == null) {
-                Debug.LogError($"[WeaponManager][KIN-Strict] Failed to activate FP weapon for '{data.weaponName}'.");
+                DevLog.LogError($"[WeaponManager][KIN-Strict] Failed to activate FP weapon for '{data.weaponName}'.");
                 _root.CurrentWeaponIndexInternal = previousWeaponIndex;
                 if(previousWeaponIndex >= 0 && previousWeaponIndex < _root.FpWeaponInstancesRef.Count) {
                     var previousFp = _root.FpWeaponInstancesRef[previousWeaponIndex];
@@ -272,14 +273,14 @@ namespace Game.Weapon.Manager {
                 var data = _root.WeaponDataListRef[_root.CurrentWeaponIndexInternal];
                 var fpWeapon = _root.FpWeaponInstancesRef[_root.CurrentWeaponIndexInternal];
                 if(fpWeapon == null || !WeaponManager.TryGetKinemationDriverInternal(fpWeapon, out var driver) || driver == null) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[WeaponManager][KIN-Strict] Missing KinemationFpWeaponDriver for '{data.weaponName}' in ShowTpWeapon.");
                     return;
                 }
 
                 var magCapacity = _root.ResolveWeaponCapacity(data);
                 if(magCapacity <= 0) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[WeaponManager][KIN-Strict] Invalid KIN ammo capacity for '{data.weaponName}' in ShowTpWeapon.");
                     return;
                 }

@@ -47,7 +47,7 @@ namespace Diagnostics {
         public static void Emit(string eventId, params (string Key, object Value)[] fields) {
             if(ShouldEmit() == false) return;
             if(string.IsNullOrWhiteSpace(eventId)) return;
-            Debug.Log(BuildLine(eventId, fields));
+            DevLog.Log(BuildLine(eventId, fields));
         }
 
         public static void Once(string eventId, string dedupeKey, params (string Key, object Value)[] fields) {
@@ -63,7 +63,7 @@ namespace Diagnostics {
                 if(OnceKeys.Add(key) == false) return;
             }
 
-            Debug.Log(BuildLine(eventId, fields));
+            DevLog.Log(BuildLine(eventId, fields));
         }
 
         public static void RateLimited(string eventId, string rateKey, float intervalSeconds,
@@ -87,7 +87,7 @@ namespace Diagnostics {
                 RateLimitedKeys[rateKey] = now;
             }
 
-            Debug.Log(BuildLine(eventId, fields));
+            DevLog.Log(BuildLine(eventId, fields));
         }
 
         private static bool ShouldEmit() {

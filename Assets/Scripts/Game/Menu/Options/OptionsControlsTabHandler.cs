@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Settings;
 using Game.Social;
 using UnityEngine;
@@ -65,7 +66,7 @@ namespace Game.Menu.Options {
 
         public void SetupKeybinds(IOptionsTabContext ctx) {
             if(KeybindManager.Instance == null) {
-                Debug.LogWarning("[OptionsControlsTabHandler] KeybindManager not found, keybinds will not work");
+                DevLog.LogWarning("[OptionsControlsTabHandler] KeybindManager not found, keybinds will not work");
                 return;
             }
             foreach(var keybindName in KeybindNames) {

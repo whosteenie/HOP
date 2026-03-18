@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Linq;
+using Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -22,7 +23,7 @@ namespace Network.Core {
         private static System.Func<ulong, NetworkObject, NetworkObject> spawnPlayerForClient;
         public static System.Func<string, bool> IsGameplayScenePredicate { get; set; }
 
-        public static bool IsGameplaySceneName(string sceneName) {
+        private static bool IsGameplaySceneName(string sceneName) {
             return IsGameplayScenePredicate != null && IsGameplayScenePredicate(sceneName);
         }
 
@@ -171,13 +172,13 @@ namespace Network.Core {
             _allowPlayerSpawns = true;
 
             if(!NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) {
-                Debug.LogWarning("[CustomNetworkManager] Not server, skipping spawn");
+                DevLog.LogWarning("[CustomNetworkManager] Not server, skipping spawn");
                 return;
             }
 
             var activeScene = SceneManager.GetActiveScene();
             if(!IsGameplaySceneName(activeScene.name)) {
-                Debug.LogWarning($"[CustomNetworkManager] Wrong scene: {activeScene.name} (expected gameplay scene)");
+                DevLog.LogWarning($"[CustomNetworkManager] Wrong scene: {activeScene.name} (expected gameplay scene)");
                 return;
             }
 
@@ -248,26 +249,26 @@ namespace Network.Core {
             }
 
             if(Debug.isDebugBuild && newlyShownCount > 0) {
-                Debug.Log(
+                DevLog.Log(
                     $"[CustomNetworkManager] Reconciled visibility for '{networkObject.name}' to {newlyShownCount} client(s) ({context}).");
             }
         }
 
         private void SpawnPlayerFor(ulong clientId) {
             if(spawnPlayerForClient == null) {
-                Debug.LogError("[CustomNetworkManager] No game spawn provider registered. Cannot spawn players.");
+                DevLog.LogError("[CustomNetworkManager] No game spawn provider registered. Cannot spawn players.");
                 return;
             }
 
             // Prevent double-spawn
             if(NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client) &&
                client.PlayerObject != null) {
-                Debug.LogWarning($"[CustomNetworkManager] Player already spawned for {clientId}");
+                DevLog.LogWarning($"[CustomNetworkManager] Player already spawned for {clientId}");
                 return;
             }
 
             if(playerPrefab == null) {
-                Debug.LogError("[CustomNetworkManager] Player prefab is not assigned. Cannot spawn players.");
+                DevLog.LogError("[CustomNetworkManager] Player prefab is not assigned. Cannot spawn players.");
                 return;
             }
 

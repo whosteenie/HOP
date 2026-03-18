@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Diagnostics;
 using Steamworks;
 using Steamworks.Data;
 using Unity.Netcode;
@@ -34,7 +35,7 @@ namespace Network.Steam {
             }
             _connectionManager = null;
             _connectedClients.Clear();
-            Debug.Log("[FacepunchTransport] Shutdown.");
+            DevLog.Log("[FacepunchTransport] Shutdown.");
         }
 
         // ================= SERVER =================
@@ -43,10 +44,10 @@ namespace Network.Steam {
             try {
                 _socketManager = SteamNetworkingSockets.CreateRelaySocket<FacepunchSocketManager>();
                 ((FacepunchSocketManager)_socketManager).Transport = this;
-                Debug.Log("[FacepunchTransport] Server started.");
+                DevLog.Log("[FacepunchTransport] Server started.");
                 return true;
             } catch(Exception e) {
-                Debug.LogError($"[FacepunchTransport] Failed to start server: {e.Message}");
+                DevLog.LogError($"[FacepunchTransport] Failed to start server: {e.Message}");
                 return false;
             }
         }
@@ -54,7 +55,7 @@ namespace Network.Steam {
         private void OnConnectionCreated(Connection connection, ConnectionInfo info) {
             // connection.ID is a uint handle. We can use it as ClientId.
             ulong clientId = connection.Id;
-            Debug.Log($"[FacepunchTransport] Client connecting: {info.Identity.SteamId} (Handle: {clientId})");
+            DevLog.Log($"[FacepunchTransport] Client connecting: {info.Identity.SteamId} (Handle: {clientId})");
             connection.Accept();
 
             // Just map handle
@@ -63,7 +64,7 @@ namespace Network.Steam {
 
         private void OnConnectionDisconnected(Connection connection, ConnectionInfo info) {
             ulong clientId = connection.Id;
-            Debug.Log($"[FacepunchTransport] Client disconnected: {info.Identity.SteamId} (Handle: {clientId})");
+            DevLog.Log($"[FacepunchTransport] Client disconnected: {info.Identity.SteamId} (Handle: {clientId})");
             _connectedClients.Remove(clientId);
 
             // Queue disconnect event for NGO
@@ -76,16 +77,16 @@ namespace Network.Steam {
         public override bool StartClient() {
             try {
                 if(targetSteamId == 0) {
-                    Debug.LogError("[FacepunchTransport] Target SteamID is 0!");
+                    DevLog.LogError("[FacepunchTransport] Target SteamID is 0!");
                     return false;
                 }
 
                 var identity = (SteamId)targetSteamId;
                 _connectionManager = SteamNetworkingSockets.ConnectRelay<FacepunchConnectionManager>(identity);
-                Debug.Log($"[FacepunchTransport] Connecting to {targetSteamId}...");
+                DevLog.Log($"[FacepunchTransport] Connecting to {targetSteamId}...");
                 return true;
             } catch(Exception e) {
-                Debug.LogError($"[FacepunchTransport] Failed to start client: {e.Message}");
+                DevLog.LogError($"[FacepunchTransport] Failed to start client: {e.Message}");
                 return false;
             }
         }
@@ -157,7 +158,7 @@ namespace Network.Steam {
             // Updated Facepunch API 2.4.0+:
             var res = connection.SendMessage(data, sendType);
             if(res != Result.OK) {
-                // Debug.LogWarning($"Send failed: {res}");
+                // DevLog.LogWarning($"Send failed: {res}");
             }
         }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Diagnostics;
 using Events;
 using Unity.Netcode;
 using UnityEngine;
@@ -33,7 +34,7 @@ namespace Game.Progression {
                 if (loaded is { Length: > 0 }) {
                     challengePool = new List<ChallengeDefinition>(loaded);
                 } else {
-                    Debug.LogWarning("[ProgressionManager] No challenges found in Resources/Challenges!");
+                    DevLog.LogWarning("[ProgressionManager] No challenges found in Resources/Challenges!");
                 }
             }
 
@@ -521,7 +522,7 @@ namespace Game.Progression {
             }
             
             if (leveledUp) {
-                Debug.Log($"[Progression] Leveled Up! New Level: {Data.level}");
+                DevLog.Log($"[Progression] Leveled Up! New Level: {Data.level}");
             }
         }
 
@@ -663,7 +664,7 @@ namespace Game.Progression {
             // Filter pool for Daily using explicit per-challenge inclusion flags.
             var dailyPool = challengePool.FindAll(c => c.includeInDaily);
             if (dailyPool.Count == 0) {
-                Debug.LogError("[Progression] Daily challenge pool is empty. Enable 'Include In Daily' on at least one challenge definition.");
+                DevLog.LogError("[Progression] Daily challenge pool is empty. Enable 'Include In Daily' on at least one challenge definition.");
                 return;
             }
 
@@ -767,7 +768,7 @@ namespace Game.Progression {
             }
             
             SaveData();
-            Debug.Log($"[Progression] Generated {addedCount} new Daily Challenges.");
+            DevLog.Log($"[Progression] Generated {addedCount} new Daily Challenges.");
             NotifyChallengesUpdated();
         }
         
@@ -780,7 +781,7 @@ namespace Game.Progression {
             // Filter pool for Weekly using explicit per-challenge inclusion flags.
             var weeklyPool = challengePool.FindAll(c => c.includeInWeekly);
             if (weeklyPool.Count == 0) {
-                Debug.LogError("[Progression] Weekly challenge pool is empty. Enable 'Include In Weekly' on at least one challenge definition.");
+                DevLog.LogError("[Progression] Weekly challenge pool is empty. Enable 'Include In Weekly' on at least one challenge definition.");
                 return;
             }
 
@@ -893,7 +894,7 @@ namespace Game.Progression {
             }
             
             SaveData();
-            Debug.Log($"[Progression] Generated {addedCount} new Weekly Challenges.");
+            DevLog.Log($"[Progression] Generated {addedCount} new Weekly Challenges.");
             NotifyChallengesUpdated();
         }
 

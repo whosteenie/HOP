@@ -87,7 +87,7 @@ namespace Game.Player.Combat {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[PlayerHealthController] IPlayerCombatContext not found!");
+                DevLog.LogError("[PlayerHealthController] IPlayerCombatContext not found!");
                 enabled = false;
                 return;
             }

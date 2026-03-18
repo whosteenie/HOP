@@ -1,4 +1,5 @@
 using System.Collections;
+using Diagnostics;
 using Game.Player.Contracts;
 using Game.Settings;
 using Unity.Netcode;
@@ -49,7 +50,7 @@ namespace Game.Player.Movement {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[SpeedTrail] IPlayerMovementContext not found!");
+                DevLog.LogError("[SpeedTrail] IPlayerMovementContext not found!");
                 enabled = false;
                 return;
             }
@@ -69,7 +70,7 @@ namespace Game.Player.Movement {
             if(trailObject != null) {
                 _trailParticleSystem = trailObject.GetComponent<ParticleSystem>();
                 if(_trailParticleSystem == null) {
-                    Debug.LogWarning($"[SpeedTrail] Trail object '{trailObject.name}' has no ParticleSystem component!");
+                    DevLog.LogWarning($"[SpeedTrail] Trail object '{trailObject.name}' has no ParticleSystem component!");
                 } else {
                     // Cache original emission rate
                     var emission = _trailParticleSystem.emission;
@@ -77,14 +78,14 @@ namespace Game.Player.Movement {
                 }
             } else {
                 _trailParticleSystem = null;
-                Debug.LogWarning("[SpeedTrail] Trail object is null! Make sure it's assigned in inspector.");
+                DevLog.LogWarning("[SpeedTrail] Trail object is null! Make sure it's assigned in inspector.");
             }
 
             // Cache electric particle system
             if(electricObject != null) {
                 _electricParticleSystem = electricObject.GetComponent<ParticleSystem>();
                 if(_electricParticleSystem == null) {
-                    Debug.LogWarning($"[SpeedTrail] Electric object '{electricObject.name}' has no ParticleSystem component!");
+                    DevLog.LogWarning($"[SpeedTrail] Electric object '{electricObject.name}' has no ParticleSystem component!");
                 } else {
                     // Cache original emission rate
                     var emission = _electricParticleSystem.emission;
@@ -92,14 +93,14 @@ namespace Game.Player.Movement {
                 }
             } else {
                 _electricParticleSystem = null;
-                Debug.LogWarning("[SpeedTrail] Electric object is null! Make sure it's assigned in inspector.");
+                DevLog.LogWarning("[SpeedTrail] Electric object is null! Make sure it's assigned in inspector.");
             }
 
             // Cache electric (1) particle system
             if(electricObject1 != null) {
                 _electricParticleSystem1 = electricObject1.GetComponent<ParticleSystem>();
                 if(_electricParticleSystem1 == null) {
-                    Debug.LogWarning($"[SpeedTrail] Electric (1) object '{electricObject1.name}' has no ParticleSystem component!");
+                    DevLog.LogWarning($"[SpeedTrail] Electric (1) object '{electricObject1.name}' has no ParticleSystem component!");
                 } else {
                     // Cache original emission rate
                     var emission = _electricParticleSystem1.emission;
@@ -107,7 +108,7 @@ namespace Game.Player.Movement {
                 }
             } else {
                 _electricParticleSystem1 = null;
-                Debug.LogWarning("[SpeedTrail] Electric (1) object is null! Make sure it's assigned in inspector.");
+                DevLog.LogWarning("[SpeedTrail] Electric (1) object is null! Make sure it's assigned in inspector.");
             }
         }
 

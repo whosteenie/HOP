@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Diagnostics;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.Build;
@@ -23,7 +24,7 @@ namespace Editor.Build {
             if(!File.Exists(settingsPath)) {
                 var missingSettingsMessage = $"[VivoxBuildValidator] Vivox settings file not found at '{settingsPath}'. Cannot validate Test Mode/token key.";
                 if(!isDevelopmentBuild) throw new BuildFailedException(missingSettingsMessage);
-                Debug.LogWarning(missingSettingsMessage);
+                DevLog.LogWarning(missingSettingsMessage);
                 return;
             }
 
@@ -31,7 +32,7 @@ namespace Editor.Build {
             if(string.IsNullOrEmpty(settingsText)) {
                 var emptySettingsMessage = $"[VivoxBuildValidator] Vivox settings file is empty at '{settingsPath}'. Cannot validate Test Mode/token key.";
                 if(!isDevelopmentBuild) throw new BuildFailedException(emptySettingsMessage);
-                Debug.LogWarning(emptySettingsMessage);
+                DevLog.LogWarning(emptySettingsMessage);
                 return;
             }
 
@@ -39,7 +40,7 @@ namespace Editor.Build {
             if(!parsed) {
                 const string parseFailedMessage = "[VivoxBuildValidator] Failed to parse Vivox settings; cannot validate Test Mode/token key.";
                 if(!isDevelopmentBuild) throw new BuildFailedException(parseFailedMessage);
-                Debug.LogWarning(parseFailedMessage);
+                DevLog.LogWarning(parseFailedMessage);
                 return;
             }
 
@@ -54,7 +55,7 @@ namespace Editor.Build {
                 $"\nDetected: isTestMode={isTestMode}, tokenKeyPresent={hasTokenKey}";
 
             if(!isDevelopmentBuild) throw new BuildFailedException(invalidConfigMessage);
-            Debug.LogWarning(invalidConfigMessage);
+            DevLog.LogWarning(invalidConfigMessage);
         }
 
         private static bool TryReadVivoxSettings(string settingsText, out bool isTestMode, out string tokenKey) {
@@ -89,7 +90,7 @@ namespace Editor.Build {
                 }
                 return true;
             } catch(Exception e) {
-                Debug.LogWarning($"[VivoxBuildValidator] Failed to parse Vivox settings. Exception: {e.Message}");
+                DevLog.LogWarning($"[VivoxBuildValidator] Failed to parse Vivox settings. Exception: {e.Message}");
                 return false;
             }
         }

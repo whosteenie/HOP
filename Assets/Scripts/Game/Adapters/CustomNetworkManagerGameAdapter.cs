@@ -132,7 +132,7 @@ namespace Game.Adapters {
                     _pendingTeamAssignments[clientId] = team;
                 }
                 PrivateMatchTeamAssignments.Clear();
-                Debug.Log(
+                DevLog.Log(
                     $"[CustomNetworkManagerGameAdapter] Applied private match draft team assignments for {_pendingTeamAssignments.Count} players.");
                 return;
             }
@@ -149,7 +149,7 @@ namespace Game.Adapters {
                     _pendingTeamAssignments[allClients[i]] = team;
                 }
 
-                Debug.Log(
+                DevLog.Log(
                     $"[CustomNetworkManagerGameAdapter] Distributed Private Match/Single Party of {clients.Count} players.");
                 return;
             }
@@ -183,7 +183,7 @@ namespace Game.Adapters {
                 }
             }
 
-            Debug.Log(
+            DevLog.Log(
                 $"[CustomNetworkManagerGameAdapter] Distributed Teams (Public): TeamA={teamAMembers.Count}, TeamB={teamBMembers.Count}");
         }
 
@@ -195,7 +195,7 @@ namespace Game.Adapters {
             var activeScene = SceneManager.GetActiveScene();
 
             if(playerPrefab == null) {
-                Debug.LogError("[CustomNetworkManagerGameAdapter] Player prefab is not assigned. Cannot spawn players.");
+                DevLog.LogError("[CustomNetworkManagerGameAdapter] Player prefab is not assigned. Cannot spawn players.");
                 return null;
             }
 
@@ -213,7 +213,7 @@ namespace Game.Adapters {
                 // 2. Choose spawn point
                 var spawnManager = SpawnManager.Instance;
                 if(spawnManager == null) {
-                    Debug.LogError("[CustomNetworkManagerGameAdapter] SpawnManager unavailable during player spawn.");
+                    DevLog.LogError("[CustomNetworkManagerGameAdapter] SpawnManager unavailable during player spawn.");
                     return null;
                 }
 
@@ -222,7 +222,7 @@ namespace Game.Adapters {
                     spawnManager.GetNextSpawnPoint();
 
                 if(spawnPoint == null) {
-                    Debug.LogError(
+                    DevLog.LogError(
                         $"[CustomNetworkManagerGameAdapter] No spawn points available in scene '{activeScene.name}'.");
                     return null;
                 }
@@ -235,7 +235,7 @@ namespace Game.Adapters {
                 var layerMask = LayerMask.GetMask("Player", "Enemy");
                 var hitCount = Physics.OverlapSphereNonAlloc(pos, 0.5f, _spawnValidationHits, layerMask);
                 if(hitCount > 0) {
-                    Debug.LogWarning("[CustomNetworkManagerGameAdapter] Spawn point occupied, retrying...");
+                    DevLog.LogWarning("[CustomNetworkManagerGameAdapter] Spawn point occupied, retrying...");
                     continue;
                 }
 
@@ -286,7 +286,7 @@ namespace Game.Adapters {
                 return instance;
             }
 
-            Debug.LogWarning(
+            DevLog.LogWarning(
                 $"[CustomNetworkManagerGameAdapter] Could not find a free spawn point after {maxSpawnAttempts} attempts for client {clientId}.");
             return null;
         }

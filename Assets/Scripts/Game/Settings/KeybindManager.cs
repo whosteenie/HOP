@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -58,7 +59,7 @@ namespace Game.Settings {
             DontDestroyOnLoad(gameObject);
 
             if(inputActionAsset == null) {
-                Debug.LogError("[KeybindManager] InputActionAsset not assigned!");
+                DevLog.LogError("[KeybindManager] InputActionAsset not assigned!");
                 return;
             }
 
@@ -74,7 +75,7 @@ namespace Game.Settings {
 
             var playerMap = inputActionAsset.FindActionMap("Player");
             if(playerMap == null) {
-                Debug.LogError("[KeybindManager] Player action map not found!");
+                DevLog.LogError("[KeybindManager] Player action map not found!");
                 return;
             }
 
@@ -84,7 +85,7 @@ namespace Game.Settings {
                 if(action != null) {
                     _actions[kvp.Key] = action;
                 } else {
-                    Debug.LogWarning($"[KeybindManager] Action '{actionName}' not found in Player map");
+                    DevLog.LogWarning($"[KeybindManager] Action '{actionName}' not found in Player map");
                 }
             }
         }
@@ -163,7 +164,7 @@ namespace Game.Settings {
 
         public void StartRebinding(string keybindName, int bindingIndex, Action<string> onComplete) {
             if(!_keybindMap.TryGetValue(keybindName, out var value)) {
-                Debug.LogError($"[KeybindManager] Unknown keybind: {keybindName}");
+                DevLog.LogError($"[KeybindManager] Unknown keybind: {keybindName}");
                 if(onComplete != null) {
                     onComplete.Invoke(null);
                 }
@@ -172,7 +173,7 @@ namespace Game.Settings {
             }
 
             if(!_actions.TryGetValue(keybindName, out var action)) {
-                Debug.LogError($"[KeybindManager] Action not found for keybind: {keybindName}");
+                DevLog.LogError($"[KeybindManager] Action not found for keybind: {keybindName}");
                 return;
             }
 
@@ -186,7 +187,7 @@ namespace Game.Settings {
             var actualBindingIndex = GetBindingIndex(action, bindingIndex, compositePart);
 
             if(actualBindingIndex < 0 || actualBindingIndex >= action.bindings.Count) {
-                Debug.LogError($"[KeybindManager] Invalid binding index for {keybindName}[{bindingIndex}]");
+                DevLog.LogError($"[KeybindManager] Invalid binding index for {keybindName}[{bindingIndex}]");
                 CleanupRebindingState();
                 if(onComplete != null) {
                     onComplete.Invoke(null);
@@ -449,7 +450,7 @@ namespace Game.Settings {
                         action.ApplyBindingOverride(bindingIndex, path);
                     }
                 } catch(Exception e) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[KeybindManager] Failed to apply binding for {keybindName}[{i}]: {e.Message}");
                 }
             }

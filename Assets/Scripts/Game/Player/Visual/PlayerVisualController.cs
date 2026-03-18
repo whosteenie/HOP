@@ -1,4 +1,5 @@
 using System.Collections;
+using Diagnostics;
 using Game.Player.Contracts;
 using Game.Weapon.Manager;
 using Unity.Netcode;
@@ -35,7 +36,7 @@ namespace Game.Player.Visual {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[PlayerVisualController] IPlayerVisualContext not found!");
+                DevLog.LogError("[PlayerVisualController] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
             }
@@ -140,13 +141,13 @@ namespace Game.Player.Visual {
             // Get packet from manager
             var packetManager = PlayerMaterialPacketManager.Instance;
             if(packetManager == null) {
-                Debug.LogWarning("[PlayerVisualController] PlayerMaterialPacketManager not found. Falling back to legacy system.");
+                DevLog.LogWarning("[PlayerVisualController] PlayerMaterialPacketManager not found. Falling back to legacy system.");
                 return;
             }
 
             var packet = packetManager.GetPacket(packetIndex);
             if(packet == null) {
-                Debug.LogWarning($"[PlayerVisualController] Invalid packet index {packetIndex}. Using None packet.");
+                DevLog.LogWarning($"[PlayerVisualController] Invalid packet index {packetIndex}. Using None packet.");
                 packet = packetManager.GetNonePacket();
             }
 
@@ -155,7 +156,7 @@ namespace Game.Player.Visual {
                 packet, baseColor, smoothness, metallic, specularColor, heightStrength, emissionEnabled, emissionColor);
 
             if(generatedMaterial == null) {
-                Debug.LogError("[PlayerVisualController] Failed to generate material from packet.");
+                DevLog.LogError("[PlayerVisualController] Failed to generate material from packet.");
                 return;
             }
 

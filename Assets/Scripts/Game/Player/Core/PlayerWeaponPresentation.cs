@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -31,7 +32,7 @@ namespace Game.Player.Core {
                     EnsureWeaponShadowVisibility(weaponInstance);
 
                     if(_player.PlayerRenderer == null) {
-                        Debug.LogError("[PlayerController] PlayerRenderer not found!");
+                        DevLog.LogError("[PlayerController] PlayerRenderer not found!");
                         return;
                     }
 
@@ -85,7 +86,7 @@ namespace Game.Player.Core {
             }
 
             if(_player.PlayerRenderer == null) {
-                Debug.LogError("[PlayerController] PlayerRenderer not found! Cannot enable world weapon renderers.");
+                DevLog.LogError("[PlayerController] PlayerRenderer not found! Cannot enable world weapon renderers.");
                 return;
             }
 

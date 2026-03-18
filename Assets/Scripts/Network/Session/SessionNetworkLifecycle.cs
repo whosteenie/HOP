@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Network.Contracts;
 using Network.Core;
 using Unity.Netcode;
@@ -58,11 +59,11 @@ namespace Network.Session {
             onHostChanged = newHostId => OnActiveSessionHostChanged(ctx, daActions, session, newHostId);
             onMigrated = () => OnActiveSessionMigrated(ctx, daActions, session, isInGameplayAndListening);
             onRemoved = () => {
-                if(Debug.isDebugBuild) Debug.LogWarning("[SessionManager] Removed from active DA session.");
+                if(Debug.isDebugBuild) DevLog.LogWarning("[SessionManager] Removed from active DA session.");
                 UnbindActiveSession();
             };
             onDeleted = () => {
-                if(Debug.isDebugBuild) Debug.LogWarning("[SessionManager] Active DA session was deleted.");
+                if(Debug.isDebugBuild) DevLog.LogWarning("[SessionManager] Active DA session was deleted.");
                 UnbindActiveSession();
             };
             session.SessionHostChanged += onHostChanged;
@@ -70,7 +71,7 @@ namespace Network.Session {
             session.RemovedFromSession += onRemoved;
             session.Deleted += onDeleted;
             if(Debug.isDebugBuild)
-                Debug.Log($"[SessionManager] Bound DA session id='{session.Id}' code='{session.Code}' host='{session.Host}'.");
+                DevLog.Log($"[SessionManager] Bound DA session id='{session.Id}' code='{session.Code}' host='{session.Host}'.");
         }
 
         /// <summary>Unbinds the current DA session and unsubscribes from its events.</summary>
@@ -92,7 +93,7 @@ namespace Network.Session {
             distributedAuthorityStartupDepth = Math.Max(0, distributedAuthorityStartupDepth) + 1;
             distributedAuthorityStartupUntilTime = Time.unscaledTime + DistributedAuthorityStartupDisconnectGraceSeconds;
             if(Debug.isDebugBuild)
-                Debug.Log($"[SessionManager] DA startup window begin ({contextLabel}). depth={distributedAuthorityStartupDepth}");
+                DevLog.Log($"[SessionManager] DA startup window begin ({contextLabel}). depth={distributedAuthorityStartupDepth}");
         }
 
         private static void EndDaStartupWindow(string contextLabel) {
@@ -100,7 +101,7 @@ namespace Network.Session {
             if(distributedAuthorityStartupDepth == 0)
                 distributedAuthorityStartupUntilTime = 0f;
             if(Debug.isDebugBuild)
-                Debug.Log($"[SessionManager] DA startup window end ({contextLabel}). depth={distributedAuthorityStartupDepth}");
+                DevLog.Log($"[SessionManager] DA startup window end ({contextLabel}). depth={distributedAuthorityStartupDepth}");
         }
 
         /// <summary>Applies connection payload and session metadata to the NetworkManager. Call after cleanup, before create/join.</summary>
@@ -144,7 +145,7 @@ namespace Network.Session {
                 }
 
                 if(networkManager != null && (networkManager.IsListening || networkManager.ShutdownInProgress)) {
-                    Debug.LogWarning("[SessionManager] CleanupNetworkAsync timed out waiting for NGO shutdown.");
+                    DevLog.LogWarning("[SessionManager] CleanupNetworkAsync timed out waiting for NGO shutdown.");
                 }
             }
 
@@ -176,11 +177,11 @@ namespace Network.Session {
                         daActions.BindActiveSession(hostSession);
                         return hostSession.Code;
                     } catch(Exception ex) when(attempt < maxAttempts && IsRetryableDaStartupException(ex)) {
-                        Debug.LogWarning(
+                        DevLog.LogWarning(
                             $"[SessionManager] DA create canceled during {contextLabel} (attempt {attempt}/{maxAttempts}). Retrying...");
                         await UniTask.Delay(350, cancellationToken: ctx.SessionLifetimeToken);
                     } catch(Exception ex) {
-                        Debug.LogError($"[SessionManager] Failed to create DA session during {contextLabel}: {ex}");
+                        DevLog.LogError($"[SessionManager] Failed to create DA session during {contextLabel}: {ex}");
                         daActions.UnbindActiveSession();
                         return null;
                     }
@@ -203,7 +204,7 @@ namespace Network.Session {
             INetworkLifecycleActions lifecycleActions,
             string contextLabel) {
             if(string.IsNullOrWhiteSpace(sessionCode)) {
-                Debug.LogError($"[SessionManager] Cannot join DA session during {contextLabel}: session code is empty.");
+                DevLog.LogError($"[SessionManager] Cannot join DA session during {contextLabel}: session code is empty.");
                 return DaSessionJoinResult.Failed;
             }
 
@@ -220,16 +221,16 @@ namespace Network.Session {
                         daActions.BindActiveSession(session);
                         return DaSessionJoinResult.Success;
                     } catch(SessionException ex) when(ex.Error == SessionError.RateLimitExceeded) {
-                        Debug.LogWarning(
+                        DevLog.LogWarning(
                             $"[SessionManager] Rate limited joining DA session '{sessionCode}' during {contextLabel}. Retrying...");
                         daActions.UnbindActiveSession();
                         return DaSessionJoinResult.RateLimited;
                     } catch(Exception ex) when(attempt < maxAttempts && IsRetryableDaStartupException(ex)) {
-                        Debug.LogWarning(
+                        DevLog.LogWarning(
                             $"[SessionManager] DA join canceled for code '{sessionCode}' during {contextLabel} (attempt {attempt}/{maxAttempts}). Retrying...");
                         await UniTask.Delay(350, cancellationToken: ctx.SessionLifetimeToken);
                     } catch(Exception ex) {
-                        Debug.LogError(
+                        DevLog.LogError(
                             $"[SessionManager] Failed to join DA session '{sessionCode}' during {contextLabel}: {ex}");
                         daActions.UnbindActiveSession();
                         return DaSessionJoinResult.Failed;
@@ -409,7 +410,7 @@ namespace Network.Session {
                     ctx.SetUgsMatchLobby(refreshedLobby);
 
                     if(Debug.isDebugBuild) {
-                        Debug.Log(
+                        DevLog.Log(
                             $"[SessionManager] Refreshed match lobby after DA {reason}. lobbyId='{targetLobbyId}' hostId='{refreshedLobby.HostId}' prevHostId='{previousHostId}' attempt={attempt}/{maxAttempts}");
                     }
 
@@ -418,7 +419,7 @@ namespace Network.Session {
                     if(daActions.IsLocalPlayerMatchLobbyHost(refreshedLobby)) {
                         daActions.OnPromotedToMatchHost();
                         if(Debug.isDebugBuild) {
-                            Debug.Log(
+                            DevLog.Log(
                                 $"[SessionManager] Local player now owns match lobby heartbeats after DA {reason}. lobbyId='{targetLobbyId}'.");
                         }
                     }
@@ -428,20 +429,20 @@ namespace Network.Session {
                     previousHostId = refreshedLobby.HostId;
                 } catch(LobbyServiceException ex) when(ex.Reason is LobbyExceptionReason.LobbyNotFound or LobbyExceptionReason.EntityNotFound) {
                     if(Debug.isDebugBuild) {
-                        Debug.LogWarning(
+                        DevLog.LogWarning(
                             $"[SessionManager] Match lobby '{targetLobbyId}' no longer exists while refreshing after DA {reason}.");
                     }
                     return;
                 } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
                     nextDelayMs = Mathf.Min(4000, nextDelayMs * 2);
                     if(Debug.isDebugBuild) {
-                        Debug.Log(
+                        DevLog.Log(
                             $"[SessionManager] Match lobby refresh after DA {reason} was rate-limited (attempt {attempt}/{maxAttempts}). Backing off for {nextDelayMs}ms.");
                     }
                 } catch(Exception ex) {
                     nextDelayMs = Mathf.Max(nextDelayMs, 500);
                     if(Debug.isDebugBuild) {
-                        Debug.LogWarning(
+                        DevLog.LogWarning(
                             $"[SessionManager] Failed to refresh match lobby after DA {reason} (attempt {attempt}/{maxAttempts}): {ex.Message}");
                     }
                 }
@@ -476,7 +477,7 @@ namespace Network.Session {
                 await session.RefreshAsync();
             } catch(Exception ex) {
                 if(Debug.isDebugBuild)
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[SessionManager] Failed to refresh active DA session after {reason}: {ex.Message}");
             }
         }
@@ -485,7 +486,7 @@ namespace Network.Session {
         private static void OnActiveSessionHostChanged(ISessionContext ctx, IDistributedAuthorityActions daActions,
             ISession session, string newHostId) {
             if(Debug.isDebugBuild)
-                Debug.Log($"[SessionManager] DA session host changed to '{newHostId}'.");
+                DevLog.Log($"[SessionManager] DA session host changed to '{newHostId}'.");
             ctx.LaunchSessionTask(RefreshActiveSessionAsync(ctx, session, "HostChanged"),
                 "DistributedAuthority/RefreshHostChanged");
             ctx.LaunchSessionTask(
@@ -498,7 +499,7 @@ namespace Network.Session {
         private static void OnActiveSessionMigrated(ISessionContext ctx, IDistributedAuthorityActions daActions,
             ISession session, Func<bool> isInGameplayAndListening) {
             if(Debug.isDebugBuild)
-                Debug.Log("[SessionManager] DA session migration completed.");
+                DevLog.Log("[SessionManager] DA session migration completed.");
             ctx.LaunchSessionTask(RefreshActiveSessionAsync(ctx, session, "Migrated"),
                 "DistributedAuthority/RefreshMigrated");
             ctx.LaunchSessionTask(
@@ -515,9 +516,9 @@ namespace Network.Session {
             try {
                 await session.LeaveAsync();
                 if(Debug.isDebugBuild)
-                    Debug.Log($"[SessionManager] Left DA session during {contextLabel}.");
+                    DevLog.Log($"[SessionManager] Left DA session during {contextLabel}.");
             } catch(Exception ex) {
-                Debug.LogWarning($"[SessionManager] Failed to leave DA session during {contextLabel}: {ex.Message}");
+                DevLog.LogWarning($"[SessionManager] Failed to leave DA session during {contextLabel}: {ex.Message}");
             }
         }
 
@@ -542,7 +543,7 @@ namespace Network.Session {
             if(ctx.IsExpectedDisconnect || ctx.IsLeaving) return;
             if(IsDaStartupInFlight) {
                 if(Debug.isDebugBuild)
-                    Debug.Log("[SessionManager] Ignoring client-stopped callback during DA startup window.");
+                    DevLog.Log("[SessionManager] Ignoring client-stopped callback during DA startup window.");
                 return;
             }
             if(networkManager != null && networkManager.IsListening) return;
@@ -553,7 +554,7 @@ namespace Network.Session {
                     "DistributedAuthority/VerifyClientStopped");
                 return;
             }
-            Debug.Log("[SessionManager] Client stopped unexpectedly. Sending to main menu.");
+            DevLog.Log("[SessionManager] Client stopped unexpectedly. Sending to main menu.");
             triggerUnexpectedDisconnect("OnClientStopped");
         }
 
@@ -586,12 +587,12 @@ namespace Network.Session {
                 }
                 if(IsDaStartupInFlight) {
                     if(Debug.isDebugBuild)
-                        Debug.Log("[SessionManager] Ignoring local disconnect during DA startup window.");
+                        DevLog.Log("[SessionManager] Ignoring local disconnect during DA startup window.");
                     ctx.NotifyPartyStateChanged();
                     return;
                 }
                 if(!ctx.IsExpectedDisconnect) {
-                    Debug.Log("[SessionManager] Unexpected local disconnect.");
+                    DevLog.Log("[SessionManager] Unexpected local disconnect.");
                     triggerUnexpectedDisconnect("OnClientDisconnected");
                 } else {
                     ctx.SetIsExpectedDisconnect(false);
@@ -604,7 +605,7 @@ namespace Network.Session {
             onSessionOwnerPromoted = sessionOwnerPromoted => {
                 if(networkManager == null || !networkManager.DistributedAuthorityMode) return;
                 if(Debug.isDebugBuild) {
-                    Debug.Log(
+                    DevLog.Log(
                         $"[SessionManager] Session owner promoted to client {sessionOwnerPromoted}. LocalSessionOwner={networkManager.LocalClient is { IsSessionOwner: true }}");
                 }
                 if(networkManager.IsListening && !ctx.IsLeaving && !ctx.IsShuttingDown &&
@@ -648,10 +649,10 @@ namespace Network.Session {
             if(ctx.IsExpectedDisconnect || ctx.IsLeaving || ctx.IsShuttingDown) return;
             if(networkManager != null && networkManager.IsListening) {
                 if(Debug.isDebugBuild)
-                    Debug.Log("[SessionManager] DA client stop recovered during grace period.");
+                    DevLog.Log("[SessionManager] DA client stop recovered during grace period.");
                 return;
             }
-            Debug.Log(
+            DevLog.Log(
                 "[SessionManager] DA client remained stopped after migration grace period. Sending to main menu.");
             triggerUnexpectedDisconnect();
         }

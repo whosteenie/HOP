@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using Game.Player.Visual;
 using Game.Progression;
@@ -562,7 +563,7 @@ namespace Game.Menu.Loadout {
                 };
                 _backLoadoutButton.RegisterCallback(_buttonHoverHandler ?? (_ => UISound.PlayButtonHover()));
             } else {
-                Debug.LogError("[LoadoutManager] Back button not found!");
+                DevLog.LogError("[LoadoutManager] Back button not found!");
             }
         }
 
@@ -633,7 +634,7 @@ namespace Game.Menu.Loadout {
             OnApplyCustomizationRequested?.Invoke();
 
             GameSettings.Save();
-            Debug.Log(
+            DevLog.Log(
                 $"[LoadoutManager] All loadout settings saved: Weapons={_selectedPrimaryIndex}/{_selectedSecondaryIndex}/{_selectedTertiaryIndex}");
 
             _savedPrimaryIndex = _selectedPrimaryIndex;
@@ -693,7 +694,7 @@ namespace Game.Menu.Loadout {
             }
 
             _missingWeaponOptionTemplateLogged = true;
-            Debug.LogError(
+            DevLog.LogError(
                 "[LoadoutManager] Missing `weaponOptionTemplate` assignment. " +
                 "Assign a weapon option VisualTreeAsset in the inspector.",
                 this);
@@ -724,7 +725,7 @@ namespace Game.Menu.Loadout {
                 if(weaponImage == null) {
                     if(_invalidWeaponOptionTemplateLogged) return;
                     _invalidWeaponOptionTemplateLogged = true;
-                    Debug.LogError(
+                    DevLog.LogError(
                         "[LoadoutManager] `weaponOptionTemplate` is missing required child `weapon-image`.",
                         this);
                     return;
@@ -894,7 +895,7 @@ namespace Game.Menu.Loadout {
 
         private void Setup3DPreview() {
             if(previewCamera == null) {
-                Debug.LogError("[LoadoutManager] Preview camera is null!");
+                DevLog.LogError("[LoadoutManager] Preview camera is null!");
                 return;
             }
 
@@ -953,7 +954,7 @@ namespace Game.Menu.Loadout {
                     _previewPlayerModel = previewPlayerRoot;
                     _previewPlayerModel.SetActive(true);
                 } else {
-                    Debug.LogWarning("[LoadoutManager] No preview player root or prefab assigned.");
+                    DevLog.LogWarning("[LoadoutManager] No preview player root or prefab assigned.");
                     return;
                 }
             }
@@ -1032,7 +1033,7 @@ namespace Game.Menu.Loadout {
                 // BRUTE FORCE: Force UI to update immediately
                 background.MarkDirtyRepaint();
             } else {
-                Debug.LogError(
+                DevLog.LogError(
                     $"[LoadoutManager] Background or RenderTexture is null! Background: {background != null}, RenderTexture: {_previewRenderTexture != null}");
             }
 
@@ -1068,7 +1069,7 @@ namespace Game.Menu.Loadout {
                     _viewportRootHandlersRegistered = true;
                 }
             } else {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[LoadoutManager] Viewport or RenderTexture is null! Viewport: {_viewport != null}, RenderTexture: {_previewRenderTexture != null}");
             }
 
@@ -1140,7 +1141,7 @@ namespace Game.Menu.Loadout {
             }
 
             if(packet == null) {
-                Debug.LogWarning("[LoadoutManager] Could not load material packet for preview model.");
+                DevLog.LogWarning("[LoadoutManager] Could not load material packet for preview model.");
                 return;
             }
 
@@ -1160,7 +1161,7 @@ namespace Game.Menu.Loadout {
                 materials[1] = generatedMaterial;
                 skinnedRenderer.sharedMaterials = materials;
             } else {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[LoadoutManager] Preview player model does not have enough material slots for customization.");
             }
         }
@@ -1193,7 +1194,7 @@ namespace Game.Menu.Loadout {
 
             var weaponSocket = FindChildRecursive(_previewPlayerModel.transform, "weaponsocket");
             if(weaponSocket == null) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[LoadoutManager] WeaponSocket not found on preview model, and no weapons assigned in inspector.");
                 return;
             }
@@ -1225,7 +1226,7 @@ namespace Game.Menu.Loadout {
                 : FindChildRecursive(_previewPlayerModel.transform, "hip");
 
             if(parent == null) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[LoadoutManager] Secondary weapon parent not found on preview model. Assign it in inspector for accurate holster previews.");
                 return;
             }
@@ -1312,7 +1313,7 @@ namespace Game.Menu.Loadout {
             }
 
             if(packet == null) {
-                Debug.LogWarning("[LoadoutManager] Could not load material packet for preview model.");
+                DevLog.LogWarning("[LoadoutManager] Could not load material packet for preview model.");
                 return;
             }
 
@@ -1332,7 +1333,7 @@ namespace Game.Menu.Loadout {
                 materials[1] = generatedMaterial;
                 skinnedRenderer.sharedMaterials = materials;
             } else {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     "[LoadoutManager] Preview player model does not have enough material slots for customization.");
             }
         }
@@ -1476,7 +1477,7 @@ namespace Game.Menu.Loadout {
         // Helper methods that don't rely on event target
         private void HandleViewportPointerDown(Vector2 position) {
             if(_previewPlayerModel == null) {
-                Debug.LogWarning("[LoadoutManager] HandleViewportPointerDown called but model is null!");
+                DevLog.LogWarning("[LoadoutManager] HandleViewportPointerDown called but model is null!");
                 return;
             }
 
@@ -2044,7 +2045,7 @@ namespace Game.Menu.Loadout {
 
         private void ToggleStats() {
             if(_statsContainer == null || _challengesContainer == null || _statsButton == null) {
-                Debug.LogError("[LoadoutManager] Career UI is not initialized correctly. Check loadout UXML assignments.", this);
+                DevLog.LogError("[LoadoutManager] Career UI is not initialized correctly. Check loadout UXML assignments.", this);
                 return;
             }
 

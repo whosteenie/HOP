@@ -78,14 +78,14 @@ namespace Game.Player.Core {
                 playerController = GetComponent<PlayerController>();
             
             if(playerController == null) {
-                Debug.LogError($"[PlayerTeamManager] PlayerController not found! GameObject: {gameObject.name}");
+                DevLog.LogError($"[PlayerTeamManager] PlayerController not found! GameObject: {gameObject.name}");
                 enabled = false;
                 return;
             }
 
             _skinned = playerController.PlayerMesh;
             if(_skinned == null) {
-                Debug.LogError($"[PlayerTeamManager] PlayerController.PlayerMesh is null! GameObject: {gameObject.name}");
+                DevLog.LogError($"[PlayerTeamManager] PlayerController.PlayerMesh is null! GameObject: {gameObject.name}");
                 enabled = false;
                 return;
             }

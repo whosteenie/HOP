@@ -1,3 +1,4 @@
+using Diagnostics;
 using Events;
 using Game.Audio.System;
 using Game.Match;
@@ -64,7 +65,7 @@ namespace Game.Player.Combat {
 
         private void ValidateComponents() {
             if(PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) return;
-            Debug.LogError("[PlayerTagController] IPlayerTagContext not found!");
+            DevLog.LogError("[PlayerTagController] IPlayerTagContext not found!");
             enabled = false;
         }
 

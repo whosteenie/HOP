@@ -72,7 +72,7 @@ namespace Network.Session {
                     if(!ctx.CurrentLobby.HasValue) {
                         var socialLobbyCreated = await actions.CreateSteamSocialLobbyAsync(maxPlayers);
                         if(!socialLobbyCreated && Debug.isDebugBuild) {
-                            Debug.LogWarning("[SessionManager] UGS party created, but Steam social lobby creation failed.");
+                            DevLog.LogWarning("[SessionManager] UGS party created, but Steam social lobby creation failed.");
                         }
                     } else {
                         actions.UpdateSteamLobbyWithPartyDataIfOwner();
@@ -199,12 +199,12 @@ namespace Network.Session {
                 var updated = await LobbyService.Instance.UpdateLobbyAsync(partyLobby.Id, update);
                 ctx.SetUgsPartyLobby(updated);
                 partyActions.ResetMatchLobbyFollowState();
-                if(Debug.isDebugBuild) Debug.Log("[SessionManager] Cleared stale followMatchLobbyId on party lobby.");
+                if(Debug.isDebugBuild) DevLog.Log("[SessionManager] Cleared stale followMatchLobbyId on party lobby.");
             } catch(LobbyServiceException ex) when(ex.Reason is LobbyExceptionReason.LobbyNotFound or LobbyExceptionReason.EntityNotFound) {
                 ctx.SetUgsPartyLobby(null);
                 await partyActions.UnsubscribePartyLobbyAsync("ResetPartyFollowStateIfHostAsync/LobbyMissing");
             } catch(Exception ex) {
-                Debug.LogWarning($"[SessionManager] Failed to clear followMatchLobbyId on party lobby: {ex.Message}");
+                DevLog.LogWarning($"[SessionManager] Failed to clear followMatchLobbyId on party lobby: {ex.Message}");
             }
         }
 
@@ -307,7 +307,7 @@ namespace Network.Session {
                 var loadingSceneSet = await hostActions.TrySetMatchLobbyStateAsync("LoadingScene",
                     DataObject.VisibilityOptions.Member, "StartPrivateMatchAsync");
                 if(!loadingSceneSet) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         "[SessionManager] Failed to set private match lobby state to LoadingScene. Clients may remain in sync state.");
                 }
 
@@ -344,7 +344,7 @@ namespace Network.Session {
             // Here we only propagate the team assignments to PrivateMatchTeamAssignments as before.
             PrivateMatchTeamAssignments.Set(teamAssignments);
             if(Debug.isDebugBuild) {
-                Debug.Log(
+                DevLog.Log(
                     $"[SessionManager] ApplyPrivateMatchSettings: mode='{mode}' mapId='{mapId}' timer={matchTimerSeconds} preMatchCountdown={usePreMatchCountdown} swapWeaponsOnDeath={swapWeaponsOnDeath} scoreToWin={scoreToWin} kothHillSpeed={kothHillSpeed} tagged={taggedPlayers} teams={teamAssignments?.Count ?? 0}");
             }
         }

@@ -1,4 +1,5 @@
 using System.Collections;
+using Diagnostics;
 using Game.Player.Contracts;
 using UnityEngine;
 
@@ -61,7 +62,7 @@ namespace Game.Player.Movement {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[MantleController] IPlayerMovementContext not found!");
+                DevLog.LogError("[MantleController] IPlayerMovementContext not found!");
                 enabled = false;
                 return;
             }

@@ -1,3 +1,4 @@
+using Diagnostics;
 using Network.Core;
 using Network.Session;
 using Unity.Collections;
@@ -57,7 +58,7 @@ namespace Game.Match {
             }
 
             if(playerStatePrefab == null) {
-                Debug.LogError("[MatchPlayerStateAuthority] Player state prefab is not assigned.", this);
+                DevLog.LogError("[MatchPlayerStateAuthority] Player state prefab is not assigned.", this);
                 return null;
             }
 

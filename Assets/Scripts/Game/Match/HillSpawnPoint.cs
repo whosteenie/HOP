@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Diagnostics;
 
 namespace Game.Match {
     /// <summary>
@@ -33,9 +34,9 @@ namespace Game.Match {
             if (Physics.Raycast(startPos, Vector3.down, out var hit, 100f)) {
                 // Snap to hit point + slight offset to avoid clipping
                 transform.position = hit.point;
-                Debug.Log($"[HillSpawnPoint] Snapped to {hit.collider.name} at Y={hit.point.y}");
+                DevLog.Log($"[HillSpawnPoint] Snapped to {hit.collider.name} at Y={hit.point.y}");
             } else {
-                Debug.LogWarning($"[HillSpawnPoint] Could not find ground below (or above) {name}");
+                DevLog.LogWarning($"[HillSpawnPoint] Could not find ground below (or above) {name}");
             }
         }
     }

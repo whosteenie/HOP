@@ -75,7 +75,7 @@ try {
     // Some code
 } catch(Exception e) {
     DebugHelpers.PublishCriticalError($"Operation failed: {e.Message}", "Context", e);
-    Debug.LogException(e);
+    DevLog.LogException(e);
 }
 ```
 

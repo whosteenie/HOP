@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
+using Diagnostics;
 using UnityEngine.UIElements;
 
 namespace Game.UI.Core {
@@ -42,7 +42,7 @@ namespace Game.UI.Core {
             string modalId = null
         ) {
             if(template == null) {
-                Debug.LogError("[UIModalHost] Cannot show confirmation modal: template is null");
+                DevLog.LogError("[UIModalHost] Cannot show confirmation modal: template is null");
                 return null;
             }
 
@@ -51,7 +51,7 @@ namespace Game.UI.Core {
             var modalContainer = modalRoot.Q<VisualElement>("modal-root");
             
             if(modalContainer == null) {
-                Debug.LogError("[UIModalHost] Modal template must contain 'modal-root' element");
+                DevLog.LogError("[UIModalHost] Modal template must contain 'modal-root' element");
                 return null;
             }
 

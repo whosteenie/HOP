@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Settings;
 using Game.Social;
 using Network.Contracts;
@@ -41,7 +42,7 @@ namespace Game.Adapters {
                 ctx.CurrentLobby.Value.SetMemberData(SteamSocialBridge.PlayerIconKey, iconId);
             } catch (System.Exception ex) {
                 if (Debug.isDebugBuild) {
-                    Debug.LogWarning($"[SessionManager] Failed to update local lobby display metadata: {ex.Message}");
+                    DevLog.LogWarning($"[SessionManager] Failed to update local lobby display metadata: {ex.Message}");
                 }
             }
         }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Diagnostics;
 using Events;
 using Network.Core;
 using Network.Session;
@@ -105,7 +106,7 @@ namespace Game.Social {
                 await EnsureLoggedInForIdentityAsync();
 
             } catch (Exception e) {
-                Debug.LogError($"[VoiceManager] Initialization Failed: {e.Message}");
+                DevLog.LogError($"[VoiceManager] Initialization Failed: {e.Message}");
             }
         }
 
@@ -180,11 +181,11 @@ namespace Game.Social {
             var channelToLeave = _currentChannelName;
             try {
                 if(VivoxService.Instance.ActiveChannels.ContainsKey(channelToLeave)) {
-                    Debug.Log($"[VoiceManager] Leaving channel '{channelToLeave}' ({reason})");
+                    DevLog.Log($"[VoiceManager] Leaving channel '{channelToLeave}' ({reason})");
                     await VivoxService.Instance.LeaveChannelAsync(channelToLeave);
                 }
             } catch(Exception ex) {
-                Debug.LogWarning($"[VoiceManager] Leave channel '{channelToLeave}' failed ({reason}): {ex.Message}");
+                DevLog.LogWarning($"[VoiceManager] Leave channel '{channelToLeave}' failed ({reason}): {ex.Message}");
             } finally {
                 PublishVoiceOverlayReset();
                 if(_currentChannelName == channelToLeave) {
@@ -218,7 +219,7 @@ namespace Game.Social {
                 }
 
             } catch (Exception e) {
-                Debug.LogError($"[VoiceManager] Login Failed! If Vivox Test Mode is disabled, ensure Cloud Code Vivox token minting is deployed and reachable. Exception: {e.Message}");
+                DevLog.LogError($"[VoiceManager] Login Failed! If Vivox Test Mode is disabled, ensure Cloud Code Vivox token minting is deployed and reachable. Exception: {e.Message}");
             }
         }
 
@@ -229,19 +230,19 @@ namespace Game.Social {
 
         private async Task<bool> RecoverFromClaimsMismatchAsync(string channelName, int attempt) {
             if(ShouldEmitThrottledLog(ref _nextClaimsMismatchLogTime, 10f)) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[VoiceManager] Vivox claims mismatch while joining '{channelName}' (attempt {attempt}/{MaxJoinAttempts}). Re-authenticating and retrying.");
             }
 
             try {
                 var reloggedIn = await EnsureLoggedInForIdentityAsync(forceRelogin: true);
                 if(reloggedIn == false && ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
-                    Debug.LogWarning("[VoiceManager] Vivox re-authentication failed after claims mismatch.");
+                    DevLog.LogWarning("[VoiceManager] Vivox re-authentication failed after claims mismatch.");
                 }
                 return reloggedIn;
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
-                    Debug.LogWarning($"[VoiceManager] Vivox re-authentication threw after claims mismatch: {ex.Message}");
+                    DevLog.LogWarning($"[VoiceManager] Vivox re-authentication threw after claims mismatch: {ex.Message}");
                 }
                 return false;
             }
@@ -255,7 +256,7 @@ namespace Game.Social {
             if(Time.unscaledTime < _claimsMismatchRetryCooldownUntil) {
                 if(!ShouldEmitThrottledLog(ref _nextClaimsMismatchLogTime, 2f)) return false;
                 var remaining = _claimsMismatchRetryCooldownUntil - Time.unscaledTime;
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[VoiceManager] Skipping Vivox rejoin for '{channelName}' during claims-mismatch cooldown ({remaining:0.0}s remaining).");
 
                 return false;
@@ -273,7 +274,7 @@ namespace Game.Social {
                 for(var attempt = 1; attempt <= MaxJoinAttempts; attempt++) {
                     if(await EnsureLoggedInForIdentityAsync() == false) {
                         if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
-                            Debug.LogWarning("[VoiceManager] JoinChannelAsync aborted because Vivox login is unavailable.");
+                            DevLog.LogWarning("[VoiceManager] JoinChannelAsync aborted because Vivox login is unavailable.");
                         }
                         return false;
                     }
@@ -285,7 +286,7 @@ namespace Game.Social {
 
                         if(!Application.isEditor && Debug.isDebugBuild &&
                            ShouldEmitThrottledLog(ref _nextRouteSyncLogTime, 1.5f)) {
-                            Debug.Log(
+                            DevLog.Log(
                                 $"[HOPFLOW][VIVOX] JOIN_BEGIN context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                         }
 
@@ -300,10 +301,10 @@ namespace Game.Social {
 
                         _currentChannelName = channelName;
                         if(!Debug.isDebugBuild) return true;
-                        Debug.Log(
+                        DevLog.Log(
                             $"[VoiceManager] Joined channel '{channelName}'. ActiveChannels={VivoxService.Instance.ActiveChannels.Count}");
                         if(!Application.isEditor) {
-                            Debug.Log(
+                            DevLog.Log(
                                 $"[HOPFLOW][VIVOX] JOIN_OK context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                         }
 
@@ -329,22 +330,22 @@ namespace Game.Social {
                 if(lastException == null || !ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) return false;
                 if(IsVivoxClaimsMismatch(lastException)) {
                     _claimsMismatchRetryCooldownUntil = Time.unscaledTime + ClaimsMismatchRetryCooldownSeconds;
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[VoiceManager] Join channel '{channelName}' failed after claims-mismatch recovery attempts.");
                 } else {
-                    Debug.LogError($"[VoiceManager] Join Channel Failed: {lastException.Message}");
+                    DevLog.LogError($"[VoiceManager] Join Channel Failed: {lastException.Message}");
                 }
                 if(!Application.isEditor && Debug.isDebugBuild) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[HOPFLOW][VIVOX] JOIN_FAIL context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                 }
                 return false;
             } catch(Exception e) {
                 if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
-                    Debug.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
+                    DevLog.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
                 }
                 if(!Application.isEditor && Debug.isDebugBuild) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[HOPFLOW][VIVOX] JOIN_FAIL context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                 }
 
@@ -359,7 +360,7 @@ namespace Game.Social {
             try {
                 if(!IsLoggedIn && string.IsNullOrEmpty(_currentChannelName)) return;
                 await LeaveCurrentChannelAsync("LeaveChannelAsync");
-                Debug.Log("[VoiceManager] Channel left.");
+                DevLog.Log("[VoiceManager] Channel left.");
             } finally {
                 _channelOperationGate.Release();
             }
@@ -395,7 +396,7 @@ namespace Game.Social {
             try {
                 if(!Application.isEditor && Debug.isDebugBuild &&
                    ShouldEmitThrottledLog(ref _nextRouteSyncLogTime, 1.5f)) {
-                    Debug.Log(
+                    DevLog.Log(
                         $"[HOPFLOW][VIVOX] ROUTE_RESOLVED channel={canonicalChannelName} current={_currentChannelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                 }
 
@@ -478,12 +479,12 @@ namespace Game.Social {
             if (target != null) {
                 await VivoxService.Instance.SetActiveInputDeviceAsync(target);
             } else if (deviceName == "Default") {
-                Debug.Log("[VoiceManager] Setting active mic to system default.");
+                DevLog.Log("[VoiceManager] Setting active mic to system default.");
                 // By default, Vivox uses the system default if no specific device is set.
                 // We can explicitly unset if needed, or just let it be. 
                 // However, most SDKs prefer we just don't call SetActive if we want system default.
             } else {
-                Debug.LogWarning($"[VoiceManager] Requested mic '{deviceName}' not found. Falling back to default.");
+                DevLog.LogWarning($"[VoiceManager] Requested mic '{deviceName}' not found. Falling back to default.");
             }
         }
 

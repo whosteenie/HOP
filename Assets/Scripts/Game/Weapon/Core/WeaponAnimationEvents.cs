@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Player.Core;
 using Game.Weapon.Manager;
 using UnityEngine;
@@ -22,7 +23,7 @@ namespace Game.Weapon.Core {
                 return playerController.WeaponManager;
             }
 
-            Debug.LogWarning(
+            DevLog.LogWarning(
                 "[WeaponAnimationEvents] Could not find PlayerController or WeaponManager to handle equip completion!");
             return null;
         }

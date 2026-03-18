@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Game.Menu.Loadout;
 using Game.Social;
 using Game.Match;
@@ -297,7 +298,7 @@ namespace Game.Menu.Main {
                     return;
                 }
                 if(sessionManager == null) {
-                    Debug.LogError("[MainMenuManager] MainMenuSessionManager is missing; cannot start private match.");
+                    DevLog.LogError("[MainMenuManager] MainMenuSessionManager is missing; cannot start private match.");
                     return;
                 }
 
@@ -340,7 +341,7 @@ namespace Game.Menu.Main {
                 var panel = GetPanelForState(state);
                 if(panel == null) {
                     if(state == MainMenuPanelState.MainMenu) return;
-                    Debug.LogWarning($"[MainMenuManager] Panel for state '{state}' is missing. Falling back to MainMenu.");
+                    DevLog.LogWarning($"[MainMenuManager] Panel for state '{state}' is missing. Falling back to MainMenu.");
                     state = MainMenuPanelState.MainMenu;
                     continue;
                 }
@@ -393,7 +394,7 @@ namespace Game.Menu.Main {
         private void ShowPanelInternal(VisualElement panel) {
             if(_navigator == null) {
                 if(_navigatorMissingLogged) return;
-                Debug.LogError(
+                DevLog.LogError(
                     "[MainMenuManager] UI navigator is not initialized; cannot show panel. " +
                     "Check OnInitialize/FindPanels/InitializeNavigator execution order.",
                     this);
@@ -536,7 +537,7 @@ namespace Game.Menu.Main {
         #region Quit Confirmation
 
         private static void OnQuitConfirmed() {
-            Debug.Log("Quitting game...");
+            DevLog.Log("Quitting game...");
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else

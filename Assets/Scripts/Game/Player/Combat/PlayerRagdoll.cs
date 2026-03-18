@@ -43,7 +43,7 @@ namespace Game.Player.Combat {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[PlayerRagdoll] IPlayerRagdollContext not found!");
+                DevLog.LogError("[PlayerRagdoll] IPlayerRagdollContext not found!");
                 enabled = false;
                 return;
             }
@@ -216,7 +216,7 @@ namespace Game.Player.Combat {
 
             var enemyLayer = LayerMask.NameToLayer("Enemy");
             if(enemyLayer == -1) {
-                Debug.LogWarning("[PlayerRagdoll] Enemy layer not found. Make sure 'Enemy' layer exists in project settings.");
+                DevLog.LogWarning("[PlayerRagdoll] Enemy layer not found. Make sure 'Enemy' layer exists in project settings.");
                 return;
             }
 

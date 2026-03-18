@@ -1,3 +1,4 @@
+using Diagnostics;
 using Game.Weapon.Manager;
 using UnityEngine;
 
@@ -23,7 +24,7 @@ namespace Game.Weapon.Core {
         public void StartReload() {
             if(_weapon.CurrentWeaponData && _weapon.Manager != null && !_weapon.Manager.IsPullingOut &&
                _weapon.KinDriver == null) {
-                Debug.LogError(
+                DevLog.LogError(
                     $"[Weapon][KIN-Strict] Reload blocked: missing KinFpWeaponDriver for '{(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}'.",
                     _weapon);
                 return;

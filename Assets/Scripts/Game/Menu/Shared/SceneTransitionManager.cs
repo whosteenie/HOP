@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Events;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -360,7 +361,7 @@ namespace Game.Menu.Shared {
             }
 
             // Default to black if parsing fails
-            Debug.LogWarning($"[SceneTransitionManager] Failed to parse color: {colorString}, using black");
+            DevLog.LogWarning($"[SceneTransitionManager] Failed to parse color: {colorString}, using black");
             return Color.black;
         }
 
@@ -398,7 +399,7 @@ namespace Game.Menu.Shared {
                 }
 
                 if(!fadeInSignaled) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         "[SceneTransitionManager] Respawn fade-in signal timed out or was canceled. Forcing overlay recovery.");
                     yield return FadeInRespawnOverlay();
                     ForceHideRespawnOverlay();

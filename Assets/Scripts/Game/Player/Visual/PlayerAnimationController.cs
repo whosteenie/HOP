@@ -1,4 +1,5 @@
 using Game.Audio.System;
+using Diagnostics;
 using Game.Player.Contracts;
 using Unity.Netcode;
 using UnityEngine;
@@ -55,7 +56,7 @@ namespace Game.Player.Visual {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[PlayerAnimationController] IPlayerVisualContext not found!");
+                DevLog.LogError("[PlayerAnimationController] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
             }

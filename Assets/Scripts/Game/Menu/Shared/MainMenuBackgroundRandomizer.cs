@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Diagnostics;
 using Game.Player.Visual;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -156,7 +157,7 @@ namespace Game.Menu.Shared {
             lastSelectedSetup = selectedSetup != null ? selectedSetup.name : "(none)";
 
             if(logSelection) {
-                Debug.Log($"[MainMenuBackgroundRandomizer] Selected map='{lastSelectedMap}', setup='{lastSelectedSetup}'.", this);
+                DevLog.Log($"[MainMenuBackgroundRandomizer] Selected map='{lastSelectedMap}', setup='{lastSelectedSetup}'.", this);
             }
 
             QueueFinalizeSelection(selectedSetup);
@@ -206,7 +207,7 @@ namespace Game.Menu.Shared {
             RestoreCachedDofStates();
             var activeMannequinSetup = ResolveActiveMannequinSetupForDof();
             if(activeMannequinSetup == null) {
-                Debug.LogWarning("[MainMenuBackgroundRandomizer][DoF] Unable to resolve active mannequin setup for suppression.", this);
+                DevLog.LogWarning("[MainMenuBackgroundRandomizer][DoF] Unable to resolve active mannequin setup for suppression.", this);
                 return;
             }
 
@@ -218,7 +219,7 @@ namespace Game.Menu.Shared {
 
             var volumes = root.GetComponentsInChildren<Volume>(true);
             if(volumes == null || volumes.Length == 0) {
-                Debug.LogWarning($"[MainMenuBackgroundRandomizer][DoF] No Volume components found under '{GetHierarchyPath(root.transform)}'.", this);
+                DevLog.LogWarning($"[MainMenuBackgroundRandomizer][DoF] No Volume components found under '{GetHierarchyPath(root.transform)}'.", this);
                 return;
             }
 
@@ -233,14 +234,14 @@ namespace Game.Menu.Shared {
                 suppressedCount++;
             }
 
-            Debug.Log(
+            DevLog.Log(
                 $"[MainMenuBackgroundRandomizer][DoF] Suppressed {suppressedCount} Volume component(s) under '{GetHierarchyPath(root.transform)}'.",
                 this);
         }
 
         private GameObject ResolveActiveMannequinSetupForDof() {
             if(_activeSetupRoot != null && _activeSetupRoot.activeInHierarchy) {
-                Debug.Log(
+                DevLog.Log(
                     $"[MainMenuBackgroundRandomizer][DoF] Using active setup root '{GetHierarchyPath(_activeSetupRoot.transform)}'.",
                     this);
                 return _activeSetupRoot;
@@ -256,7 +257,7 @@ namespace Game.Menu.Shared {
             }
 
             if(mannequinsRoot == null) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[MainMenuBackgroundRandomizer][DoF] Could not find MANNEQUINS root under '{GetHierarchyPath(_activeMapRoot.transform)}'.",
                     this);
                 return _activeSetupRoot;
@@ -271,7 +272,7 @@ namespace Game.Menu.Shared {
                 var childCameras = childObject.GetComponentsInChildren<Camera>(true);
                 foreach(var cam in childCameras) {
                     if(cam == null || !cam.enabled || !cam.gameObject.activeInHierarchy) continue;
-                    Debug.Log(
+                    DevLog.Log(
                         $"[MainMenuBackgroundRandomizer][DoF] Resolved setup via enabled camera: '{GetHierarchyPath(child)}'.",
                         this);
                     return childObject;
@@ -283,7 +284,7 @@ namespace Game.Menu.Shared {
             }
 
             if(activeByHierarchy != null) {
-                Debug.Log(
+                DevLog.Log(
                     $"[MainMenuBackgroundRandomizer][DoF] Resolved setup via active hierarchy: '{GetHierarchyPath(activeByHierarchy.transform)}'.",
                     this);
                 return activeByHierarchy;
@@ -293,13 +294,13 @@ namespace Game.Menu.Shared {
                 var child = mannequinsRoot.GetChild(i);
                 if(child == null) continue;
                 if(!child.gameObject.activeSelf) continue;
-                Debug.Log(
+                DevLog.Log(
                     $"[MainMenuBackgroundRandomizer][DoF] Resolved setup via activeSelf: '{GetHierarchyPath(child)}'.",
                     this);
                 return child.gameObject;
             }
 
-            Debug.LogWarning(
+            DevLog.LogWarning(
                 $"[MainMenuBackgroundRandomizer][DoF] No active mannequin child found under '{GetHierarchyPath(mannequinsRoot)}'.",
                 this);
 
@@ -314,7 +315,7 @@ namespace Game.Menu.Shared {
             }
 
             if(_cachedDepthOfFieldDefaultStates.Count > 0) {
-                Debug.Log(
+                DevLog.Log(
                     $"[MainMenuBackgroundRandomizer][DoF] Restored {_cachedDepthOfFieldDefaultStates.Count} cached Volume component state(s).",
                     this);
             }

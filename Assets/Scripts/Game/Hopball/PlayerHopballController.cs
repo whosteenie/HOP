@@ -641,7 +641,7 @@ namespace Game.Hopball {
                 SetGameObjectAndChildrenLayer(_fpHopballArmInstance, layer);
                 ApplyPlayerMaterialToArm();
             } else {
-                Debug.LogError("[HopballController] BobHolder not found! Cannot instantiate hopball arm.");
+                DevLog.LogError("[HopballController] BobHolder not found! Cannot instantiate hopball arm.");
             }
         }
 
@@ -760,7 +760,7 @@ namespace Game.Hopball {
                 }
             }
 
-            Debug.LogError("[HopballController] FindSwayHolder: SwayHolder not found in camera hierarchy!");
+            DevLog.LogError("[HopballController] FindSwayHolder: SwayHolder not found in camera hierarchy!");
             return null;
         }
 
@@ -783,7 +783,7 @@ namespace Game.Hopball {
         /// </summary>
         private void SetupWorldHopballVisual(bool isLocalClientHolder = false, float energyRatio = 1f) {
             if(_worldWeaponSocket == null || hopballVisualPrefab == null) {
-                Debug.LogError("[HopballController] SetupWorldHopballVisual: Missing required references");
+                DevLog.LogError("[HopballController] SetupWorldHopballVisual: Missing required references");
                 return;
             }
 
@@ -807,7 +807,7 @@ namespace Game.Hopball {
             // For non-holders viewing the holder: ensure mesh renderer is enabled and visible
             var worldVisual = _worldHopballVisualInstance.GetComponent<HopballVisual>();
             if(worldVisual == null) {
-                Debug.LogError(
+                DevLog.LogError(
                     "[HopballController] SetupWorldHopballVisual: HopballVisual component not found on prefab!");
                 return;
             }
@@ -1119,7 +1119,7 @@ namespace Game.Hopball {
 
             var animator = _fpHopballArmInstance.GetComponent<Animator>();
             if(animator == null) {
-                Debug.LogError("[HopballController] HandleArmPutAwayAnimation: Animator not found on arm instance");
+                DevLog.LogError("[HopballController] HandleArmPutAwayAnimation: Animator not found on arm instance");
                 return;
             }
 
@@ -1248,7 +1248,7 @@ namespace Game.Hopball {
             }
 
             if(playerController == null) {
-                Debug.LogError("[HopballController] PlayerController not found!");
+                DevLog.LogError("[HopballController] PlayerController not found!");
                 enabled = false;
                 return;
             }
@@ -1264,7 +1264,7 @@ namespace Game.Hopball {
             // Validate PlayerRenderer (required for material and renderer operations)
             if(_playerRenderer == null) _playerRenderer = playerController.PlayerRenderer;
             if(_playerRenderer == null) {
-                Debug.LogError("[HopballController] PlayerRenderer not found! Cannot perform renderer operations.");
+                DevLog.LogError("[HopballController] PlayerRenderer not found! Cannot perform renderer operations.");
                 enabled = false;
                 return;
             }
@@ -1288,11 +1288,11 @@ namespace Game.Hopball {
 
             // Log layer indices for debugging
             if(_weaponHoldLayerIndex < 0) {
-                Debug.LogWarning("[HopballController] Weapon Hold Layer not found!");
+                DevLog.LogWarning("[HopballController] Weapon Hold Layer not found!");
             }
 
             if(_rightHandHoldLayerIndex < 0) {
-                Debug.LogWarning("[HopballController] Right Hand Hold Layer not found!");
+                DevLog.LogWarning("[HopballController] Right Hand Hold Layer not found!");
             }
         }
 
@@ -1302,7 +1302,7 @@ namespace Game.Hopball {
         /// </summary>
         private void TransitionToHopballLayers() {
             if(_playerAnimator == null || _weaponHoldLayerIndex < 0 || _rightHandHoldLayerIndex < 0) {
-                Debug.LogWarning("[HopballController] Cannot transition layers: animator or layer indices not found");
+                DevLog.LogWarning("[HopballController] Cannot transition layers: animator or layer indices not found");
                 return;
             }
 
@@ -1323,7 +1323,7 @@ namespace Game.Hopball {
         /// </summary>
         private void TransitionToWeaponLayers() {
             if(_playerAnimator == null || _weaponHoldLayerIndex < 0 || _rightHandHoldLayerIndex < 0) {
-                Debug.LogWarning("[HopballController] Cannot transition layers: animator or layer indices not found");
+                DevLog.LogWarning("[HopballController] Cannot transition layers: animator or layer indices not found");
                 return;
             }
 

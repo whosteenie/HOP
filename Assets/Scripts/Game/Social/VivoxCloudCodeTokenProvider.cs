@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using Diagnostics;
 using Unity.Services.CloudCode;
 using Unity.Services.Vivox;
 using UnityEngine;
@@ -56,7 +57,7 @@ namespace Game.Social {
 
             if(Debug.isDebugBuild) {
                 var expSeconds = expiration.HasValue ? (int)expiration.Value.TotalSeconds : -1;
-                Debug.Log(
+                DevLog.Log(
                     "[VivoxToken] Requesting VAT via Cloud Code. " +
                     $"action='{action}' fromUserUri='{fromUserUri}' channelUri='{channelUri}' targetUserUri='{targetUserUri}' " +
                     $"expSeconds={expSeconds} realm='{realm}'"
@@ -71,7 +72,7 @@ namespace Game.Social {
 
                 return token;
             } catch(Exception e) {
-                Debug.LogError($"[VivoxCloudCodeTokenProvider] Failed to fetch token (action='{action}'). Exception: {e.Message}");
+                DevLog.LogError($"[VivoxCloudCodeTokenProvider] Failed to fetch token (action='{action}'). Exception: {e.Message}");
                 throw;
             }
         }

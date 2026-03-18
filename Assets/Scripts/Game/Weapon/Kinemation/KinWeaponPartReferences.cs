@@ -1,3 +1,4 @@
+using Diagnostics;
 using UnityEngine;
 
 namespace Game.Weapon.Kinemation {
@@ -34,7 +35,7 @@ namespace Game.Weapon.Kinemation {
             if(reference == null) return;
             if(reference == transform || reference.IsChildOf(transform)) return;
 
-            Debug.LogWarning(
+            DevLog.LogWarning(
                 $"[KINWeaponPartReferences] '{fieldName}' on '{name}' should point to this prefab hierarchy.",
                 this);
         }

@@ -29,7 +29,7 @@ namespace Network.Core {
                 if(IsClone()) {
                     var cloneName = GetCloneName();
                     options.SetProfile(cloneName);
-                    Debug.Log($"[UGS Auth] Initializing as clone profile: {cloneName}");
+                    DevLog.Log($"[UGS Auth] Initializing as clone profile: {cloneName}");
                 }
 #endif
                 await UnityServices.InitializeAsync(options);
@@ -58,7 +58,7 @@ namespace Network.Core {
                 var pid = AuthenticationService.Instance.PlayerId;
                 var profile = AuthenticationService.Instance.Profile;
                 var steamLoggedOn = SteamClient.IsValid && SteamClient.IsLoggedOn;
-                Debug.Log(
+                DevLog.Log(
                     $"[UGS Auth] signedIn={signedIn} authorized={authorized} playerId='{pid}' profile='{profile}' " +
                     $"steamLoggedOn={steamLoggedOn} steamAppId={SteamClient.AppId}"
                 );
@@ -72,7 +72,7 @@ namespace Network.Core {
                 // For MPPM clones, skip Steam auth entirely to get unique PlayerIDs
 #if UNITY_EDITOR
                 if(IsClone()) {
-                    Debug.Log("[UgsAuthService] Clone detected - using anonymous auth for unique PlayerID");
+                    DevLog.Log("[UgsAuthService] Clone detected - using anonymous auth for unique PlayerID");
                     try {
                         // Clear any cached session to force a fresh unique PlayerID
                         AuthenticationService.Instance.ClearSessionToken();
@@ -80,7 +80,7 @@ namespace Network.Core {
                         lastAuthProvider = "AnonymousClone";
                     } catch(System.Exception e) {
                         lastAuthProvider = "AnonymousCloneFailed";
-                        Debug.LogWarning(
+                        DevLog.LogWarning(
                             $"[UgsAuthService] Anonymous sign-in failed for clone. Exception: {e.Message}");
                     }
 
@@ -98,7 +98,7 @@ namespace Network.Core {
                     lastAuthProvider = "Anonymous";
                 } catch(System.Exception e) {
                     lastAuthProvider = "AnonymousFailed";
-                    Debug.LogWarning($"[UgsAuthService] Anonymous sign-in failed. Exception: {e.Message}");
+                    DevLog.LogWarning($"[UgsAuthService] Anonymous sign-in failed. Exception: {e.Message}");
                 }
             } finally {
                 lock(SignInGate) {
@@ -111,7 +111,7 @@ namespace Network.Core {
             try {
                 var ticket = await SteamUser.GetAuthTicketForWebApiAsync(SteamIdentity);
                 if(ticket == null) {
-                    Debug.LogWarning("[UgsAuthService] Steam auth ticket request timed out or failed.");
+                    DevLog.LogWarning("[UgsAuthService] Steam auth ticket request timed out or failed.");
                     return false;
                 }
 
@@ -119,13 +119,13 @@ namespace Network.Core {
                 ticket.Cancel();
 
                 if(data == null || data.Length == 0) {
-                    Debug.LogWarning("[UgsAuthService] Steam auth ticket was empty.");
+                    DevLog.LogWarning("[UgsAuthService] Steam auth ticket was empty.");
                     return false;
                 }
 
                 var hex = ToHexString(data);
                 if(string.IsNullOrEmpty(hex)) {
-                    Debug.LogWarning("[UgsAuthService] Failed to encode Steam auth ticket.");
+                    DevLog.LogWarning("[UgsAuthService] Failed to encode Steam auth ticket.");
                     return false;
                 }
 
@@ -135,7 +135,7 @@ namespace Network.Core {
 
                 var appId = SteamClient.AppId.ToString();
                 if(string.IsNullOrEmpty(appId)) {
-                    Debug.LogWarning("[UgsAuthService] Steam AppId was empty; cannot sign in with Steam.");
+                    DevLog.LogWarning("[UgsAuthService] Steam AppId was empty; cannot sign in with Steam.");
                     return false;
                 }
 
@@ -144,7 +144,7 @@ namespace Network.Core {
                 return AuthenticationService.Instance.IsSignedIn;
             } catch(System.Exception e) {
                 lastAuthProvider = "SteamFailed";
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[UgsAuthService] Steam sign-in failed (AppID: {SteamClient.AppId}). " +
                     $"Falling back to anonymous. Exception: {e.Message}"
                 );

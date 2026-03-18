@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Core;
@@ -428,7 +429,7 @@ namespace Game.Weapon.Manager {
             if(_hasLoggedStrictStartupValidation) return;
             _hasLoggedStrictStartupValidation = true;
             if(weaponDataList == null || weaponDataList.Count == 0) {
-                Debug.LogWarning("[WeaponManager] No equipped weapons configured during strict startup validation.");
+                DevLog.LogWarning("[WeaponManager] No equipped weapons configured during strict startup validation.");
             }
         }
 

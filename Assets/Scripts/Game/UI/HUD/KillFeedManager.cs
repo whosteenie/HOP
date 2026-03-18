@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Core;
@@ -196,7 +197,7 @@ namespace Game.UI.HUD {
             ulong actorClientId, ulong targetClientId, Sprite iconSprite) {
             if(killFeedEntryTemplate == null) {
                 if(_killFeedTemplateErrorLogged) return null;
-                Debug.LogError("[KillFeedManager] killFeedEntryTemplate is required. Assign KillFeedEntry.uxml in the inspector.");
+                DevLog.LogError("[KillFeedManager] killFeedEntryTemplate is required. Assign KillFeedEntry.uxml in the inspector.");
                 _killFeedTemplateErrorLogged = true;
                 return null;
             }
@@ -209,7 +210,7 @@ namespace Game.UI.HUD {
 
             if(killerLabel == null || victimLabel == null || iconElement == null) {
                 if(_killFeedTemplateErrorLogged) return null;
-                Debug.LogError("[KillFeedManager] KillFeedEntry template is missing required elements: killer-label, victim-label, or icon.");
+                DevLog.LogError("[KillFeedManager] KillFeedEntry template is missing required elements: killer-label, victim-label, or icon.");
                 _killFeedTemplateErrorLogged = true;
                 return null;
             }

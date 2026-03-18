@@ -201,7 +201,7 @@ namespace Game.Match {
 
             if(!IsSpawned) {
                 _queuedMatchStart = true;
-                Debug.Log($"[KOTH] Deferring round start from '{source}' until OnNetworkSpawn completes.");
+                DevLog.Log($"[KOTH] Deferring round start from '{source}' until OnNetworkSpawn completes.");
                 return;
             }
 
@@ -289,7 +289,7 @@ namespace Game.Match {
         }
 
         private void SpawnHill() {
-            Debug.Log($"[KOTH] Attempting to Spawn Hill. Prefab: {hillPrefab}, CurrentHill: {_currentHill}");
+            DevLog.Log($"[KOTH] Attempting to Spawn Hill. Prefab: {hillPrefab}, CurrentHill: {_currentHill}");
             if(!HasKothAuthority || hillPrefab == null) return;
 
             var settings = MatchSettingsManager.Instance;
@@ -309,7 +309,7 @@ namespace Game.Match {
                 if(hillSpawnPoints is { Count: > 0 }) {
                     spawnPos = hillSpawnPoints[Random.Range(0, hillSpawnPoints.Count)].position;
                 } else {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         "[KingOfTheHillManager] No spawn points found. Ensure HillSpawnPoint components are in the scene.");
                     spawnPos = new Vector3(0, 10, 0);
                 }
@@ -318,7 +318,7 @@ namespace Game.Match {
             // Apply vertical offset
             spawnPos.y += spawnVerticalOffset;
 
-            Debug.Log($"[KOTH] Spawning Hill at {spawnPos}");
+            DevLog.Log($"[KOTH] Spawning Hill at {spawnPos}");
             var hillObj = Instantiate(hillPrefab, spawnPos, Quaternion.identity);
             var netObj = hillObj.GetComponent<NetworkObject>();
             if(netObj != null) {
@@ -364,7 +364,7 @@ namespace Game.Match {
                 hillSpawnPoints.Add(point.transform);
             }
 
-            Debug.Log($"[KOTH] FindSpawnPoints found {hillSpawnPoints.Count} points.");
+            DevLog.Log($"[KOTH] FindSpawnPoints found {hillSpawnPoints.Count} points.");
         }
 
         private void ProcessScoring() {

@@ -1,3 +1,4 @@
+using Diagnostics;
 using UnityEngine;
 using UnityEngine.Audio;
 
@@ -24,7 +25,7 @@ namespace Game.Menu.Shared {
         private void OnEnable() {
             if(Instance == null || Instance == this) {
             } else {
-                Debug.LogWarning("[MenuMusicPlayer] Multiple instances detected. Using the most recently enabled instance.");
+                DevLog.LogWarning("[MenuMusicPlayer] Multiple instances detected. Using the most recently enabled instance.");
             }
 
             Instance = this;
@@ -45,7 +46,7 @@ namespace Game.Menu.Shared {
             if(musicMixerGroup != null) {
                 musicSource.outputAudioMixerGroup = musicMixerGroup;
             } else {
-                Debug.LogWarning("[MenuMusicPlayer] Music mixer group not assigned. Music volume sliders may not affect menu music.");
+                DevLog.LogWarning("[MenuMusicPlayer] Music mixer group not assigned. Music volume sliders may not affect menu music.");
             }
 
             PlayMenuMusic();

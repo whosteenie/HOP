@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using Game.Progression;
 using Game.UI.Core;
@@ -86,7 +87,7 @@ namespace Game.UI.Misc {
         private IEnumerator AnimateXp(int startLevel, int startXp, int endLevel, int endXp, int gained) {
             var progression = ProgressionManager.Instance;
             if(progression == null) {
-                Debug.LogWarning("[PostMatchXpDisplay] ProgressionManager is null; cannot animate XP display.");
+                DevLog.LogWarning("[PostMatchXpDisplay] ProgressionManager is null; cannot animate XP display.");
                 _xpAnimationRoutine = null;
                 yield break;
             }

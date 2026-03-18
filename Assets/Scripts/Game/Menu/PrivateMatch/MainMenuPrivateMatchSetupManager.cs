@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Social;
@@ -685,7 +686,7 @@ namespace Game.Menu.PrivateMatch {
                 var showSwitchTeam = MatchSettingsManager.IsTeamBasedMode(_draft.GamemodeId)
                     && (_isHostResolver?.Invoke() ?? false);
                 if(Debug.isDebugBuild) {
-                    Debug.Log($"[PrivateMatchSetup] Row right-click: steamId={steamId.Value} gamemode={_draft.GamemodeId} showSwitchTeam={showSwitchTeam}");
+                    DevLog.Log($"[PrivateMatchSetup] Row right-click: steamId={steamId.Value} gamemode={_draft.GamemodeId} showSwitchTeam={showSwitchTeam}");
                 }
 
                 _showContextMenuForPartyMember?.Invoke(evt.position, steamId, showSwitchTeam);

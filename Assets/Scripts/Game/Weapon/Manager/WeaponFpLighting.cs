@@ -1,3 +1,4 @@
+using Diagnostics;
 using UnityEngine;
 
 namespace Game.Weapon.Manager {
@@ -17,7 +18,7 @@ namespace Game.Weapon.Manager {
             var targetLayer = LayerMask.NameToLayer("Weapon");
             if(targetLayer < 0) {
                 if(!_root.LoggedMissingWeaponLayer) {
-                    Debug.LogWarning("[WeaponManager] FP light rig requires a 'Weapon' layer.");
+                    DevLog.LogWarning("[WeaponManager] FP light rig requires a 'Weapon' layer.");
                     _root.LoggedMissingWeaponLayer = true;
                 }
 

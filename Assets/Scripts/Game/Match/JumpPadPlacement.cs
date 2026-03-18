@@ -1,3 +1,4 @@
+using Diagnostics;
 using UnityEngine;
 
 namespace Game.Match {
@@ -21,12 +22,12 @@ namespace Game.Match {
 
             if(!Physics.Raycast(rayOrigin, Vector3.down, out var hit, Mathf.Max(1f, rayDistance), groundMask,
                    QueryTriggerInteraction.Ignore)) {
-                Debug.LogWarning($"[JumpPadPlacement] Could not find ground below {name}.");
+                DevLog.LogWarning($"[JumpPadPlacement] Could not find ground below {name}.");
                 return;
             }
 
             if(!TryGetProjectedBounds(axis, out var min, out var max)) {
-                Debug.LogWarning($"[JumpPadPlacement] No Renderer/Collider bounds found on {name}.");
+                DevLog.LogWarning($"[JumpPadPlacement] No Renderer/Collider bounds found on {name}.");
                 return;
             }
 
@@ -46,7 +47,7 @@ namespace Game.Match {
             UnityEditor.EditorUtility.SetDirty(transform);
 #endif
 
-            Debug.Log(
+            DevLog.Log(
                 $"[JumpPadPlacement] Snapped '{name}' to {hit.collider.name}. Buried={buriedFraction:0.00}, thickness={thickness:0.###}");
         }
 

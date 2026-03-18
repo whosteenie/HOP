@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using Diagnostics;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -70,7 +71,7 @@ namespace Game.Match {
             if(pool == null || pool.Maps == null || pool.Maps.Count == 0) {
                 if(missingPoolWarningLogged == false) {
                     missingPoolWarningLogged = true;
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[MatchMapService] Map pool not found or empty at Resources/{ResourcePath}. Using fallback gameplay scene.");
                 }
                 sceneName = DefaultGameplaySceneName;
@@ -93,7 +94,7 @@ namespace Game.Match {
             if(candidates.Count == 0) {
                 if(noCandidatesWarningLogged == false) {
                     noCandidatesWarningLogged = true;
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[MatchMapService] No enabled maps support gamemode '{gamemodeId}'. Using fallback gameplay scene.");
                 }
                 ListPool<MapDefinition>.Release(candidates);

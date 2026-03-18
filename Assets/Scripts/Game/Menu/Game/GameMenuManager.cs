@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Diagnostics;
 using Events;
 using Game.Social;
 using Game.Progression;
@@ -1007,7 +1008,7 @@ namespace Game.Menu.Game {
 
         private void ShowQuitConfirmation() {
             if(_modalHost == null) {
-                Debug.LogWarning("[GameMenuManager] Quit modal host is not initialized yet.");
+                DevLog.LogWarning("[GameMenuManager] Quit modal host is not initialized yet.");
                 return;
             }
 

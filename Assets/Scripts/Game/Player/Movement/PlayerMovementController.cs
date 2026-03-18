@@ -1,3 +1,4 @@
+using Diagnostics;
 using Events;
 using Game.Audio.System;
 using Game.Player.Contracts;
@@ -108,7 +109,7 @@ namespace Game.Player.Movement {
 
         private void ValidateComponents() {
             if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext)) {
-                Debug.LogError("[PlayerMovementController] IPlayerMovementContext not found!");
+                DevLog.LogError("[PlayerMovementController] IPlayerMovementContext not found!");
                 enabled = false;
                 return;
             }
@@ -614,7 +615,7 @@ namespace Game.Player.Movement {
                 if(weaponBob != null) {
                     weaponBob.OnJumpInitiated();
                 } else {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         "[PlayerMovementController] LaunchFromJumpPad: WeaponBob not found! " +
                         $"FpCamera={_playerContext.FpCamera != null} WeaponCamera={_playerContext.WeaponCamera != null}");
                 }
@@ -634,7 +635,7 @@ namespace Game.Player.Movement {
             var mantleWasActive = CancelMantleForJumpPad();
 
             if(_characterController == null) {
-                Debug.LogError("[PlayerMovementController] CharacterController not found!");
+                DevLog.LogError("[PlayerMovementController] CharacterController not found!");
                 return;
             }
 

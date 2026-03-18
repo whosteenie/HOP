@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Diagnostics;
 using Game.Audio.Authoring;
 using UnityEngine;
 
@@ -120,12 +121,12 @@ namespace Game.Audio.System {
 
             if(!catalog.TryGetCue(id, out var cue) || cue == null) {
                 // Dev-visible by design; content should be correct. Do not spam logs per frame.
-                Debug.LogWarning($"[AudioService] Missing SoundCue for id '{id}'.", catalog);
+                DevLog.LogWarning($"[AudioService] Missing SoundCue for id '{id}'.", catalog);
                 return;
             }
 
             if(!cue.HasValidVariants()) {
-                Debug.LogWarning($"[AudioService] SoundCue '{cue.name}' has no valid variants (id '{id}').", cue);
+                DevLog.LogWarning($"[AudioService] SoundCue '{cue.name}' has no valid variants (id '{id}').", cue);
                 return;
             }
 
@@ -193,7 +194,7 @@ namespace Game.Audio.System {
             try {
                 src.Play();
             } catch(Exception ex) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[AudioService] Failed to play id='{id}' bus='{cue.bus}' src='{GetSourceDebugId(src)}': {ex.Message}");
                 ReturnToPool(cue.bus, src);
                 return;
@@ -514,7 +515,7 @@ namespace Game.Audio.System {
             if(!src.enabled) {
                 src.enabled = true;
                 if(ShouldEmitSourceStateLog(src)) {
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[AudioService] Re-enabled disabled pooled source for id='{id}' bus='{bus}' src='{GetSourceDebugId(src)}'.");
                 }
             }
@@ -522,7 +523,7 @@ namespace Game.Audio.System {
             if(src.gameObject.activeSelf) return;
             src.gameObject.SetActive(true);
             if(ShouldEmitSourceStateLog(src)) {
-                Debug.LogWarning(
+                DevLog.LogWarning(
                     $"[AudioService] Reactivated pooled source GameObject for id='{id}' bus='{bus}' src='{GetSourceDebugId(src)}'.");
             }
         }
@@ -537,7 +538,7 @@ namespace Game.Audio.System {
             }
 
             _nextDropReasonLogTime[key] = now + intervalSeconds;
-            Debug.LogWarning($"[HOPFLOW][AUDIO] PLAY_DROP reason={reason} id={id} {details}");
+            DevLog.LogWarning($"[HOPFLOW][AUDIO] PLAY_DROP reason={reason} id={id} {details}");
         }
     }
 
