@@ -34,12 +34,6 @@ namespace Game.UI.Core {
             Initialize();
         }
 
-        protected virtual void OnEnable() {
-        }
-
-        protected virtual void OnDisable() {
-        }
-
         protected virtual void OnDestroy() {
             Cleanup();
         }

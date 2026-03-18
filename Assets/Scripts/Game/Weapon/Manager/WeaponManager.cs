@@ -462,7 +462,7 @@ namespace Game.Weapon.Manager {
 
         internal void RequestFpVisualRefreshInternal(GameObject fpWeaponInstance) {
             if(!IsOwner || OwnerContext?.NetworkObject == null || fpWeaponInstance == null) return;
-            EventBus.Publish(new PlayerFpWeaponVisualRefreshRequestedEvent(OwnerContext.NetworkObjectId, fpWeaponInstance));
+            EventBus.Publish(new PlayerFpWeaponRefreshRequestedEvent(OwnerContext.NetworkObjectId, fpWeaponInstance));
         }
 
         internal MatchPlayerStateProxy ResolvePlayerState() {

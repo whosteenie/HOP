@@ -404,7 +404,7 @@ namespace Game.Weapon.Manager {
             _root.EnsureWeaponHierarchyActiveInternal();
 
             if(_root.OwnerContext?.NetworkObject != null) {
-                EventBus.Publish(new PlayerWorldWeaponPresentationRefreshRequestedEvent(
+                EventBus.Publish(new PlayerWorldWeaponRefreshRequestedEvent(
                     _root.OwnerContext.NetworkObjectId, usePodiumShadowState: false));
             }
 
@@ -423,7 +423,7 @@ namespace Game.Weapon.Manager {
             }
 
             if(_root.OwnerContext?.NetworkObject != null) {
-                EventBus.Publish(new PlayerWorldWeaponPresentationRefreshRequestedEvent(
+                EventBus.Publish(new PlayerWorldWeaponRefreshRequestedEvent(
                     _root.OwnerContext.NetworkObjectId, usePodiumShadowState: true));
             }
 

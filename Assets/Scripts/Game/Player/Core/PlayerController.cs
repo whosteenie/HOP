@@ -836,7 +836,7 @@ namespace Game.Player.Core {
             if(!IsOwner) return;
             _weaponPresentation.HideFpVisualsForDisconnectTransition();
             if(NetworkObject != null) {
-                EventBus.Publish(new PlayerDisconnectFpVisualHideRequestedEvent(NetworkObjectId));
+                EventBus.Publish(new DisconnectFpVisualHideRequestedEvent(NetworkObjectId));
             }
         }
 

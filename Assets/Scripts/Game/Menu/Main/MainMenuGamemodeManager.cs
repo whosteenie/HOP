@@ -69,7 +69,7 @@ namespace Game.Menu.Main {
             Action clickHandler = () => {
                 if (!_isHost) return;
                 UISound.PlayButtonClick();
-                HandleGameModeSelected(modeName);
+                HandleGamemodeSelected(modeName);
             };
             btn.clicked += clickHandler;
             RegisterCleanup(() => btn.clicked -= clickHandler);
@@ -134,7 +134,7 @@ namespace Game.Menu.Main {
             }
         }
 
-        private void HandleGameModeSelected(string modeName) {
+        private void HandleGamemodeSelected(string modeName) {
             SelectedGameMode = modeName;
             FlowLog.Emit(FlowEventIds.ModeSelect,
                 ("selectedMode", modeName),

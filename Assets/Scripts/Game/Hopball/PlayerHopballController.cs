@@ -258,9 +258,9 @@ namespace Game.Hopball {
             EventBus.Subscribe<PlayerHopballDeathDropRequestedEvent>(OnDeathDropRequested);
             EventBus.Subscribe<PlayerHopballPickupRequestedEvent>(OnPickupRequested);
             EventBus.Subscribe<PlayerHopballManualDropRequestedEvent>(OnManualDropRequested);
-            EventBus.Subscribe<PlayerHopballPickupPromptEvaluationRequestedEvent>(
+            EventBus.Subscribe<HopballPickupPromptRequestEvent>(
                 OnPickupPromptEvaluationRequested);
-            EventBus.Subscribe<PlayerDisconnectFpVisualHideRequestedEvent>(OnPlayerDisconnectFpVisualHideRequested);
+            EventBus.Subscribe<DisconnectFpVisualHideRequestedEvent>(OnPlayerDisconnectFpVisualHideRequested);
             EventBus.Subscribe<HopballVisualPrewarmRequestedEvent>(OnVisualPrewarmRequested);
             EventBus.Subscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Subscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
@@ -294,9 +294,9 @@ namespace Game.Hopball {
             EventBus.Unsubscribe<PlayerHopballDeathDropRequestedEvent>(OnDeathDropRequested);
             EventBus.Unsubscribe<PlayerHopballPickupRequestedEvent>(OnPickupRequested);
             EventBus.Unsubscribe<PlayerHopballManualDropRequestedEvent>(OnManualDropRequested);
-            EventBus.Unsubscribe<PlayerHopballPickupPromptEvaluationRequestedEvent>(
+            EventBus.Unsubscribe<HopballPickupPromptRequestEvent>(
                 OnPickupPromptEvaluationRequested);
-            EventBus.Unsubscribe<PlayerDisconnectFpVisualHideRequestedEvent>(OnPlayerDisconnectFpVisualHideRequested);
+            EventBus.Unsubscribe<DisconnectFpVisualHideRequestedEvent>(OnPlayerDisconnectFpVisualHideRequested);
             EventBus.Unsubscribe<HopballVisualPrewarmRequestedEvent>(OnVisualPrewarmRequested);
             EventBus.Unsubscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Unsubscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
@@ -360,13 +360,13 @@ namespace Game.Hopball {
         }
 
         private void OnPickupPromptEvaluationRequested(
-            PlayerHopballPickupPromptEvaluationRequestedEvent evt) {
+            HopballPickupPromptRequestEvent evt) {
             if(evt == null || playerController == null || playerController.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
             evt.CanPickupNearbyHopball = CanPickupNearbyHopball();
         }
 
-        private void OnPlayerDisconnectFpVisualHideRequested(PlayerDisconnectFpVisualHideRequestedEvent evt) {
+        private void OnPlayerDisconnectFpVisualHideRequested(DisconnectFpVisualHideRequestedEvent evt) {
             if(evt == null || playerController == null || playerController.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
             HideFpVisualsForDisconnectTransition();

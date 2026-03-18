@@ -120,11 +120,11 @@ namespace Events {
     /// <summary>
     /// Synchronous event used to evaluate whether a player's hopball pickup prompt should be shown this frame.
     /// </summary>
-    public class PlayerHopballPickupPromptEvaluationRequestedEvent : GameEvent {
+    public class HopballPickupPromptRequestEvent : GameEvent {
         public readonly ulong PlayerNetworkObjectId;
         public bool CanPickupNearbyHopball;
 
-        public PlayerHopballPickupPromptEvaluationRequestedEvent(ulong playerNetworkObjectId) {
+        public HopballPickupPromptRequestEvent(ulong playerNetworkObjectId) {
             PlayerNetworkObjectId = playerNetworkObjectId;
         }
     }
@@ -132,10 +132,10 @@ namespace Events {
     /// <summary>
     /// Event published when player disconnect transitions need first-person hopball visuals hidden.
     /// </summary>
-    public class PlayerDisconnectFpVisualHideRequestedEvent : GameEvent {
+    public class DisconnectFpVisualHideRequestedEvent : GameEvent {
         public readonly ulong PlayerNetworkObjectId;
 
-        public PlayerDisconnectFpVisualHideRequestedEvent(ulong playerNetworkObjectId) {
+        public DisconnectFpVisualHideRequestedEvent(ulong playerNetworkObjectId) {
             PlayerNetworkObjectId = playerNetworkObjectId;
         }
     }
@@ -210,11 +210,11 @@ namespace Events {
     /// <summary>
     /// Event published when weapon systems need player-side world-weapon visuals to refresh after a switch/presentation change.
     /// </summary>
-    public class PlayerWorldWeaponPresentationRefreshRequestedEvent : GameEvent {
+    public class PlayerWorldWeaponRefreshRequestedEvent : GameEvent {
         public readonly ulong PlayerNetworkObjectId;
         public readonly bool UsePodiumShadowState;
 
-        public PlayerWorldWeaponPresentationRefreshRequestedEvent(ulong playerNetworkObjectId, bool usePodiumShadowState) {
+        public PlayerWorldWeaponRefreshRequestedEvent(ulong playerNetworkObjectId, bool usePodiumShadowState) {
             PlayerNetworkObjectId = playerNetworkObjectId;
             UsePodiumShadowState = usePodiumShadowState;
         }
@@ -234,11 +234,11 @@ namespace Events {
     /// <summary>
     /// Event published when a player's FP weapon visuals should refresh after weapon-side setup.
     /// </summary>
-    public class PlayerFpWeaponVisualRefreshRequestedEvent : GameEvent {
+    public class PlayerFpWeaponRefreshRequestedEvent : GameEvent {
         public readonly ulong PlayerNetworkObjectId;
         public readonly GameObject FpWeaponInstance;
 
-        public PlayerFpWeaponVisualRefreshRequestedEvent(ulong playerNetworkObjectId, GameObject fpWeaponInstance) {
+        public PlayerFpWeaponRefreshRequestedEvent(ulong playerNetworkObjectId, GameObject fpWeaponInstance) {
             PlayerNetworkObjectId = playerNetworkObjectId;
             FpWeaponInstance = fpWeaponInstance;
         }

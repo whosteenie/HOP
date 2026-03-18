@@ -93,15 +93,15 @@ namespace Game.Player.Core {
             EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnResetVelocityRequested);
             EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
             EventBus.Unsubscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
-            EventBus.Unsubscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
-            EventBus.Unsubscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
+            EventBus.Unsubscribe<PostMatchWorldModelVisibilityEvent>(OnPostMatchWorldModelVisibilityRequested);
+            EventBus.Unsubscribe<PostMatchGameplayCameraEvent>(OnPostMatchGameplayCameraStateRequested);
             EventBus.Unsubscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
             EventBus.Subscribe<PostMatchPodiumPrepareRequestedEvent>(OnPodiumPrepareRequested);
             EventBus.Subscribe<PostMatchResetVelocityRequestedEvent>(OnResetVelocityRequested);
             EventBus.Subscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
             EventBus.Subscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
-            EventBus.Subscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
-            EventBus.Subscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
+            EventBus.Subscribe<PostMatchWorldModelVisibilityEvent>(OnPostMatchWorldModelVisibilityRequested);
+            EventBus.Subscribe<PostMatchGameplayCameraEvent>(OnPostMatchGameplayCameraStateRequested);
             EventBus.Subscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
         }
 
@@ -110,8 +110,8 @@ namespace Game.Player.Core {
             EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnResetVelocityRequested);
             EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
             EventBus.Unsubscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
-            EventBus.Unsubscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
-            EventBus.Unsubscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
+            EventBus.Unsubscribe<PostMatchWorldModelVisibilityEvent>(OnPostMatchWorldModelVisibilityRequested);
+            EventBus.Unsubscribe<PostMatchGameplayCameraEvent>(OnPostMatchGameplayCameraStateRequested);
             EventBus.Unsubscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
         }
 
@@ -138,12 +138,12 @@ namespace Game.Player.Core {
             SnapPodiumVisualsClientRpc();
         }
 
-        private void OnPostMatchWorldModelVisibilityRequested(PostMatchWorldModelVisibilityRequestedEvent evt) {
+        private void OnPostMatchWorldModelVisibilityRequested(PostMatchWorldModelVisibilityEvent evt) {
             if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
             SetWorldModelVisibleRpc(evt.Visible);
         }
 
-        private void OnPostMatchGameplayCameraStateRequested(PostMatchGameplayCameraStateRequestedEvent evt) {
+        private void OnPostMatchGameplayCameraStateRequested(PostMatchGameplayCameraEvent evt) {
             if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
             SetGameplayCameraActive(evt.Active);
         }

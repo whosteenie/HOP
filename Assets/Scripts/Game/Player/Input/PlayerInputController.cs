@@ -154,13 +154,13 @@ namespace Game.Player.Input {
             EventBus.Unsubscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
             EventBus.Unsubscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
             EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
-            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnSniperOverlayDisableRequested);
+            EventBus.Unsubscribe<PostMatchSniperOverlayDisableEvent>(OnSniperOverlayDisableRequested);
             EventBus.Subscribe<BindingsAppliedEvent>(OnBindingsApplied);
             EventBus.Subscribe<PauseMenuStateChangedEvent>(OnPauseMenuStateChanged);
             EventBus.Subscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
             EventBus.Subscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
             EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
-            EventBus.Subscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnSniperOverlayDisableRequested);
+            EventBus.Subscribe<PostMatchSniperOverlayDisableEvent>(OnSniperOverlayDisableRequested);
             RefreshCachedScrollBindings();
         }
 
@@ -213,7 +213,7 @@ namespace Game.Player.Input {
 
         private void OnDisable() {
             this.UnsubscribeFromEventBus();
-            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnSniperOverlayDisableRequested);
+            EventBus.Unsubscribe<PostMatchSniperOverlayDisableEvent>(OnSniperOverlayDisableRequested);
             _queuedWeaponCycleOffset = 0;
             _jumpBtnDown = false;
             if(_deferredAmmoHudRefreshRoutine != null) {
@@ -233,7 +233,7 @@ namespace Game.Player.Input {
             ApplyHopballInteractPrompt(false, "PRESS INTERACT");
         }
 
-        private void OnSniperOverlayDisableRequested(PostMatchSniperOverlayDisableRequestedEvent evt) {
+        private void OnSniperOverlayDisableRequested(PostMatchSniperOverlayDisableEvent evt) {
             if(evt == null || !IsOwner || evt.PlayerClientId != OwnerClientId) return;
             ForceDisableSniperOverlay(evt.PlayZoomSound);
         }
@@ -401,7 +401,7 @@ namespace Game.Player.Input {
                                  NetworkObject != null &&
                                  _playerContext is { IsHoldingHopball: false };
             if(canCheckPickup) {
-                var promptRequest = new PlayerHopballPickupPromptEvaluationRequestedEvent(NetworkObjectId);
+                var promptRequest = new HopballPickupPromptRequestEvent(NetworkObjectId);
                 EventBus.Publish(promptRequest);
                 canShowPrompt = promptRequest.CanPickupNearbyHopball;
                 if(canShowPrompt) {

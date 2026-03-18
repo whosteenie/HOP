@@ -395,7 +395,7 @@ namespace Game.Match {
             // Hide non-top3 player models (world models only, not cameras)
             foreach(var p in allPlayers) {
                 var isOnPodium = topThree.Contains(p);
-                EventBus.Publish(new PostMatchWorldModelVisibilityRequestedEvent(p.representedClientId.Value,
+                EventBus.Publish(new PostMatchWorldModelVisibilityEvent(p.representedClientId.Value,
                     isOnPodium));
             }
 
@@ -436,7 +436,7 @@ namespace Game.Match {
 
                 // Find local controller and disable sniper overlay (do NOT lock movement yet - wait for fade to complete)
                 if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) return;
-                EventBus.Publish(new PostMatchSniperOverlayDisableRequestedEvent(NetworkManager.Singleton.LocalClientId,
+                EventBus.Publish(new PostMatchSniperOverlayDisableEvent(NetworkManager.Singleton.LocalClientId,
                     false));
 
             } catch(Exception e) {
@@ -818,7 +818,7 @@ namespace Game.Match {
 
             foreach(var state in ResolveActivePlayerStates()) {
                 if(state == null) continue;
-                EventBus.Publish(new PostMatchGameplayCameraStateRequestedEvent(state.representedClientId.Value, false));
+                EventBus.Publish(new PostMatchGameplayCameraEvent(state.representedClientId.Value, false));
             }
 
             // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)

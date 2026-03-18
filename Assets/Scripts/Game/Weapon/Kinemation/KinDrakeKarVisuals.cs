@@ -19,13 +19,13 @@ namespace Game.Weapon.Kinemation {
         private bool[] _suppressedDrakeTopShellRendererEnabledStates;
 
         // Drake bottom shell
-        private Transform _suppressedDrakeBottomShellTransform;
-        private Vector3 _suppressedDrakeBottomShellOriginalLocalPosition;
-        private bool _hasSuppressedDrakeBottomShellOriginalLocalPosition;
-        private Vector3 _suppressedDrakeBottomShellOriginalLocalScale;
-        private bool _hasSuppressedDrakeBottomShellOriginalLocalScale;
-        private Renderer[] _suppressedDrakeBottomShellRenderers;
-        private bool[] _suppressedDrakeBottomShellRendererEnabledStates;
+        private Transform _bottomShellTransform;
+        private Vector3 _bottomShellOriginalLocalPosition;
+        private bool _hasBottomShellOriginalLocalPosition;
+        private Vector3 _bottomShellOriginalLocalScale;
+        private bool _hasBottomShellOriginalLocalScale;
+        private Renderer[] _bottomShellRenderers;
+        private bool[] _bottomShellRendererEnabledStates;
 
         // Kar loop bullet
         private Transform _karLoopBulletTransform;
@@ -77,12 +77,12 @@ namespace Game.Weapon.Kinemation {
         }
 
         public void ApplySuppressedBottomShellPose() {
-            if(!IsDrakeBottomShellSuppressionApplied || _suppressedDrakeBottomShellTransform == null) return;
-            if(_hasSuppressedDrakeBottomShellOriginalLocalPosition)
-                _suppressedDrakeBottomShellTransform.localPosition = _suppressedDrakeBottomShellOriginalLocalPosition + Vector3.down * DrakeTopShellHideOffset;
-            if(_hasSuppressedDrakeBottomShellOriginalLocalScale) _suppressedDrakeBottomShellTransform.localScale = Vector3.zero;
-            if(_suppressedDrakeBottomShellRenderers == null) return;
-            foreach(var r in _suppressedDrakeBottomShellRenderers) { if(r != null && r.enabled) r.enabled = false; }
+            if(!IsDrakeBottomShellSuppressionApplied || _bottomShellTransform == null) return;
+            if(_hasBottomShellOriginalLocalPosition)
+                _bottomShellTransform.localPosition = _bottomShellOriginalLocalPosition + Vector3.down * DrakeTopShellHideOffset;
+            if(_hasBottomShellOriginalLocalScale) _bottomShellTransform.localScale = Vector3.zero;
+            if(_bottomShellRenderers == null) return;
+            foreach(var r in _bottomShellRenderers) { if(r != null && r.enabled) r.enabled = false; }
         }
 
         public void ApplyHiddenKarLoopPose() {
@@ -110,16 +110,16 @@ namespace Game.Weapon.Kinemation {
         }
 
         public void RestoreBottomShellImmediate() {
-            if(_suppressedDrakeBottomShellRenderers != null && _suppressedDrakeBottomShellRendererEnabledStates != null) {
-                var limit = Mathf.Min(_suppressedDrakeBottomShellRenderers.Length, _suppressedDrakeBottomShellRendererEnabledStates.Length);
+            if(_bottomShellRenderers != null && _bottomShellRendererEnabledStates != null) {
+                var limit = Mathf.Min(_bottomShellRenderers.Length, _bottomShellRendererEnabledStates.Length);
                 for(var i = 0; i < limit; i++) {
-                    if(_suppressedDrakeBottomShellRenderers[i] != null)
-                        _suppressedDrakeBottomShellRenderers[i].enabled = _suppressedDrakeBottomShellRendererEnabledStates[i];
+                    if(_bottomShellRenderers[i] != null)
+                        _bottomShellRenderers[i].enabled = _bottomShellRendererEnabledStates[i];
                 }
             }
-            if(_suppressedDrakeBottomShellTransform != null) {
-                if(_hasSuppressedDrakeBottomShellOriginalLocalPosition) _suppressedDrakeBottomShellTransform.localPosition = _suppressedDrakeBottomShellOriginalLocalPosition;
-                if(_hasSuppressedDrakeBottomShellOriginalLocalScale) _suppressedDrakeBottomShellTransform.localScale = _suppressedDrakeBottomShellOriginalLocalScale;
+            if(_bottomShellTransform != null) {
+                if(_hasBottomShellOriginalLocalPosition) _bottomShellTransform.localPosition = _bottomShellOriginalLocalPosition;
+                if(_hasBottomShellOriginalLocalScale) _bottomShellTransform.localScale = _bottomShellOriginalLocalScale;
             }
             ClearDrakeBottomShellState();
         }
@@ -200,41 +200,41 @@ namespace Game.Weapon.Kinemation {
         }
 
         private bool EnsureBottomShellTarget() {
-            if(_suppressedDrakeBottomShellTransform != null) return true;
+            if(_bottomShellTransform != null) return true;
             if(!_resolver.TryResolveDrakeBottomShell(out var t) || t == null) return false;
-            _suppressedDrakeBottomShellTransform = t;
-            _suppressedDrakeBottomShellOriginalLocalPosition = t.localPosition;
-            _hasSuppressedDrakeBottomShellOriginalLocalPosition = true;
-            _suppressedDrakeBottomShellOriginalLocalScale = t.localScale;
-            _hasSuppressedDrakeBottomShellOriginalLocalScale = true;
+            _bottomShellTransform = t;
+            _bottomShellOriginalLocalPosition = t.localPosition;
+            _hasBottomShellOriginalLocalPosition = true;
+            _bottomShellOriginalLocalScale = t.localScale;
+            _hasBottomShellOriginalLocalScale = true;
             IsDrakeBottomShellSuppressionApplied = false;
             var renderers = t.GetComponentsInChildren<Renderer>(true);
             if(renderers is not { Length: > 0 }) return true;
-            _suppressedDrakeBottomShellRenderers = renderers;
-            _suppressedDrakeBottomShellRendererEnabledStates = new bool[renderers.Length];
+            _bottomShellRenderers = renderers;
+            _bottomShellRendererEnabledStates = new bool[renderers.Length];
             for(var i = 0; i < renderers.Length; i++)
-                if(renderers[i] != null) _suppressedDrakeBottomShellRendererEnabledStates[i] = renderers[i].enabled;
+                if(renderers[i] != null) _bottomShellRendererEnabledStates[i] = renderers[i].enabled;
             return true;
         }
 
         private void ApplyBottomShellSuppressionNow() {
-            if(_suppressedDrakeBottomShellTransform == null) return;
-            if(_hasSuppressedDrakeBottomShellOriginalLocalPosition)
-                _suppressedDrakeBottomShellTransform.localPosition = _suppressedDrakeBottomShellOriginalLocalPosition + Vector3.down * DrakeTopShellHideOffset;
-            if(_hasSuppressedDrakeBottomShellOriginalLocalScale) _suppressedDrakeBottomShellTransform.localScale = Vector3.zero;
-            if(_suppressedDrakeBottomShellRenderers != null)
-                foreach(var r in _suppressedDrakeBottomShellRenderers) { if(r != null) r.enabled = false; }
+            if(_bottomShellTransform == null) return;
+            if(_hasBottomShellOriginalLocalPosition)
+                _bottomShellTransform.localPosition = _bottomShellOriginalLocalPosition + Vector3.down * DrakeTopShellHideOffset;
+            if(_hasBottomShellOriginalLocalScale) _bottomShellTransform.localScale = Vector3.zero;
+            if(_bottomShellRenderers != null)
+                foreach(var r in _bottomShellRenderers) { if(r != null) r.enabled = false; }
             IsDrakeBottomShellSuppressionApplied = true;
         }
 
         private void ClearDrakeBottomShellState() {
-            _suppressedDrakeBottomShellTransform = null;
-            _suppressedDrakeBottomShellRenderers = null;
-            _suppressedDrakeBottomShellRendererEnabledStates = null;
-            _suppressedDrakeBottomShellOriginalLocalPosition = Vector3.zero;
-            _hasSuppressedDrakeBottomShellOriginalLocalPosition = false;
-            _suppressedDrakeBottomShellOriginalLocalScale = Vector3.one;
-            _hasSuppressedDrakeBottomShellOriginalLocalScale = false;
+            _bottomShellTransform = null;
+            _bottomShellRenderers = null;
+            _bottomShellRendererEnabledStates = null;
+            _bottomShellOriginalLocalPosition = Vector3.zero;
+            _hasBottomShellOriginalLocalPosition = false;
+            _bottomShellOriginalLocalScale = Vector3.one;
+            _hasBottomShellOriginalLocalScale = false;
             IsDrakeBottomShellSuppressionApplied = false;
         }
 

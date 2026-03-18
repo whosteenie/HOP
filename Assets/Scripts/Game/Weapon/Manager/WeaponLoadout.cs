@@ -133,7 +133,7 @@ namespace Game.Weapon.Manager {
                 _root.EnsureWeaponHierarchyActiveInternal();
                 _root.EnsureWorldWeaponShadowStateInternal();
                 if(_root.IsOwner && _root.OwnerContext?.NetworkObject != null) {
-                    EventBus.Publish(new PlayerWorldWeaponPresentationRefreshRequestedEvent(
+                    EventBus.Publish(new PlayerWorldWeaponRefreshRequestedEvent(
                         _root.OwnerContext.NetworkObjectId, usePodiumShadowState: false));
                 }
             }

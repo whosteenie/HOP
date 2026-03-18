@@ -136,21 +136,21 @@ namespace Events {
         }
     }
 
-    public class PostMatchWorldModelVisibilityRequestedEvent : GameEvent {
+    public class PostMatchWorldModelVisibilityEvent : GameEvent {
         public readonly ulong PlayerClientId;
         public readonly bool Visible;
 
-        public PostMatchWorldModelVisibilityRequestedEvent(ulong playerClientId, bool visible) {
+        public PostMatchWorldModelVisibilityEvent(ulong playerClientId, bool visible) {
             PlayerClientId = playerClientId;
             Visible = visible;
         }
     }
 
-    public class PostMatchGameplayCameraStateRequestedEvent : GameEvent {
+    public class PostMatchGameplayCameraEvent : GameEvent {
         public readonly ulong PlayerClientId;
         public readonly bool Active;
 
-        public PostMatchGameplayCameraStateRequestedEvent(ulong playerClientId, bool active) {
+        public PostMatchGameplayCameraEvent(ulong playerClientId, bool active) {
             PlayerClientId = playerClientId;
             Active = active;
         }
@@ -171,11 +171,11 @@ namespace Events {
         }
     }
 
-    public class PostMatchSniperOverlayDisableRequestedEvent : GameEvent {
+    public class PostMatchSniperOverlayDisableEvent : GameEvent {
         public readonly ulong PlayerClientId;
         public readonly bool PlayZoomSound;
 
-        public PostMatchSniperOverlayDisableRequestedEvent(ulong playerClientId, bool playZoomSound) {
+        public PostMatchSniperOverlayDisableEvent(ulong playerClientId, bool playZoomSound) {
             PlayerClientId = playerClientId;
             PlayZoomSound = playZoomSound;
         }

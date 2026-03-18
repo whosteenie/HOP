@@ -56,7 +56,7 @@ namespace Game.Player.Visual {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            EventBus.Subscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnWorldWeaponRefreshRequested);
+            EventBus.Subscribe<PlayerWorldWeaponRefreshRequestedEvent>(OnWorldWeaponRefreshRequested);
             EventBus.Subscribe<PlayerHolsterShadowRefreshRequestedEvent>(OnHolsterShadowRefreshRequested);
 
             // Network-dependent initialization
@@ -66,12 +66,12 @@ namespace Game.Player.Visual {
         }
 
         public override void OnNetworkDespawn() {
-            EventBus.Unsubscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnWorldWeaponRefreshRequested);
+            EventBus.Unsubscribe<PlayerWorldWeaponRefreshRequestedEvent>(OnWorldWeaponRefreshRequested);
             EventBus.Unsubscribe<PlayerHolsterShadowRefreshRequestedEvent>(OnHolsterShadowRefreshRequested);
             base.OnNetworkDespawn();
         }
 
-        private void OnWorldWeaponRefreshRequested(PlayerWorldWeaponPresentationRefreshRequestedEvent evt) {
+        private void OnWorldWeaponRefreshRequested(PlayerWorldWeaponRefreshRequestedEvent evt) {
             if(evt == null || _playerContext?.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != _playerContext.NetworkObjectId) return;
 
