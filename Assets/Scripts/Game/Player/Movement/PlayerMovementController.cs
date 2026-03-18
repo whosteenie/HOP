@@ -2,7 +2,6 @@ using Diagnostics;
 using Events;
 using Game.Audio.System;
 using Game.Player.Contracts;
-using Game.Player.Weapon;
 using Game.Weapon.Presentation;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -13,7 +12,7 @@ namespace Game.Player.Movement {
     /// Handles all movement-related logic for the player.
     /// </summary>
     [DefaultExecutionOrder(-90)]
-    public class PlayerMovementController : NetworkBehaviour {
+    public class PlayerMovementController : NetworkBehaviour, IWeaponBobContext {
         [Header("References")]
         [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
@@ -707,6 +706,15 @@ namespace Game.Player.Movement {
         public float CachedHorizontalSpeedSqr { get; private set; }
 
         public bool IsSliding { get; private set; }
+
+        Transform IWeaponBobContext.PlayerTransform => _playerTransform != null ? _playerTransform : _playerContext?.PlayerTransform;
+        Vector3 IWeaponBobContext.FullVelocity => FullVelocity;
+        float IWeaponBobContext.VerticalVelocity => VerticalVelocity;
+        bool IWeaponBobContext.IsGrounded => IsGrounded;
+        bool IWeaponBobContext.IsMantling => _mantleController != null && _mantleController.IsMantling;
+        bool IWeaponBobContext.IsSliding => IsSliding;
+        bool IWeaponBobContext.IsWallRunning => _wallRunController != null && _wallRunController.IsWallRunning;
+        bool IWeaponBobContext.IsJumpHeld => _playerContext is { IsJumpHeld: true };
 
         // Used by grapple/jump-pad interactions to identify an active pad-launch phase.
         public bool IsInJumpPadLaunch { get; private set; }

@@ -1,7 +1,17 @@
-using Game.Player.Core;
 using UnityEngine;
 
 namespace Game.Weapon.Presentation {
+    public interface IWeaponBobContext {
+        Transform PlayerTransform { get; }
+        Vector3 FullVelocity { get; }
+        float VerticalVelocity { get; }
+        bool IsGrounded { get; }
+        bool IsMantling { get; }
+        bool IsSliding { get; }
+        bool IsWallRunning { get; }
+        bool IsJumpHeld { get; }
+    }
+
     [DisallowMultipleComponent]
     public class WeaponBob : MonoBehaviour {
         [Header("Bob Settings")]
@@ -72,8 +82,7 @@ namespace Game.Weapon.Presentation {
         private float _targetBobIntensity;
         private float _landingBobTimer;
         private bool _wasGrounded = true;
-        private CharacterController _characterController;
-        private PlayerController _playerController;
+        private IWeaponBobContext _context;
         private bool _initialized;
         private bool _hierarchyReferencesResolved;
         private float _jumpFallOffset;
@@ -119,8 +128,7 @@ namespace Game.Weapon.Presentation {
 
         private void OnTransformParentChanged() {
             _initialized = false;
-            _playerController = null;
-            _characterController = null;
+            _context = null;
             _hierarchyReferencesResolved = false;
             ResolveReferencesFromHierarchy();
             TryInitialize();
@@ -135,19 +143,11 @@ namespace Game.Weapon.Presentation {
             const int maxDepth = 6;
 
             while(current != null && depth < maxDepth) {
-                if(_playerController == null) {
-                    _playerController = current.GetComponent<PlayerController>();
-                }
-
-                if(_characterController == null) {
-                    _characterController = current.GetComponent<CharacterController>();
-                }
-
-                if(_characterController == null && _playerController != null) {
-                    _characterController = _playerController.CharacterController;
-                }
-
-                if(_playerController != null || _characterController != null) {
+                var behaviours = current.GetComponents<MonoBehaviour>();
+                foreach(var behaviour in behaviours) {
+                    var bobContext = behaviour as IWeaponBobContext;
+                    if(bobContext == null) continue;
+                    _context = bobContext;
                     return;
                 }
 
@@ -158,12 +158,7 @@ namespace Game.Weapon.Presentation {
 
         private void TryInitialize() {
             if(_initialized) return;
-
-            if(_characterController == null && _playerController != null) {
-                _characterController = _playerController.CharacterController;
-            }
-
-            _initialized = _playerController != null || _characterController != null;
+            _initialized = _context != null;
         }
 
         private void LateUpdate() {
@@ -175,11 +170,8 @@ namespace Game.Weapon.Presentation {
 
             var deltaTime = Time.deltaTime;
             
-            // Use PlayerController's IsGrounded if available (accounts for -3f constant), otherwise fallback to CharacterController
-            var isGrounded = _playerController != null ? _playerController.IsGrounded : _characterController.isGrounded;
-            var isMantling = _playerController != null &&
-                             _playerController.MantleController != null &&
-                             _playerController.MantleController.IsMantling;
+            var isGrounded = _context.IsGrounded;
+            var isMantling = _context.IsMantling;
 
             switch(isMantling) {
                 case true when !_wasMantling:
@@ -238,12 +230,11 @@ namespace Game.Weapon.Presentation {
             }
 
             // Calculate movement speed
-            var velocity = _characterController.velocity;
-            velocity.y = 0;
+            var velocity = _context.FullVelocity;
+            velocity.y = 0f;
             var speed = velocity.magnitude;
 
-            // Use PlayerController's VerticalVelocity if available (accounts for -3f constant), otherwise use CharacterController velocity.y
-            var verticalVelocity = _playerController != null ? _playerController.GetVerticalVelocity() : _characterController.velocity.y;
+            var verticalVelocity = _context.VerticalVelocity;
             
             // Reset jump flag when we start falling (at apex) - this allows normal landings to play landing bob
             // If we're falling and the flag is still set, it means we're past the jump phase and can allow landing bob
@@ -282,8 +273,8 @@ namespace Game.Weapon.Presentation {
             // Determine target bob intensity based on speed
             // Disable bob when not grounded OR when sliding
             // Allow bob when wall running (treat like grounded for bobbing purposes)
-            var isSliding = _playerController != null && _playerController.MovementController != null && _playerController.MovementController.IsSliding;
-            var isWallRunning = _playerController != null && _playerController.WallRunController != null && _playerController.WallRunController.IsWallRunning;
+            var isSliding = _context.IsSliding;
+            var isWallRunning = _context.IsWallRunning;
             var canBob = isGrounded || isWallRunning;
             
             if(!enableMovementBob || !canBob || isSliding) {
@@ -327,8 +318,8 @@ namespace Game.Weapon.Presentation {
 
             // Use local movement direction so bob reflects actual motion (e.g. wall slide -> strafe bias)
             var localVelocity = velocity;
-            if(_playerController != null && _playerController.PlayerTransform != null) {
-                localVelocity = _playerController.PlayerTransform.InverseTransformDirection(velocity);
+            if(_context.PlayerTransform != null) {
+                localVelocity = _context.PlayerTransform.InverseTransformDirection(velocity);
             }
             _smoothedLocalVelocity = Vector3.Lerp(_smoothedLocalVelocity, localVelocity, directionSmoothing * deltaTime);
 
@@ -455,11 +446,11 @@ namespace Game.Weapon.Presentation {
             if(!enableLandingBob) return false;
             if(Time.time - _lastLandingBobTime < minimumLandingBobInterval) return false;
 
-            if(ignoreJumpHeld || _playerController == null || _playerController.PlayerInputController == null) {
+            if(ignoreJumpHeld) {
                 return true;
             }
 
-            return !_playerController.PlayerInputController.IsJumpHeld;
+            return !_context.IsJumpHeld;
         }
 
         private void StartLandingBob() {
