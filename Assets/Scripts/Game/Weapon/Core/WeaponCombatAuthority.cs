@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Diagnostics;
-using Game.Player.Core;
 using Game.Weapon.Manager;
 using Network.AntiCheat;
 using Network.Core;
@@ -101,7 +100,7 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            var victim = targetObject.GetComponent<PlayerController>();
+            var victim = targetObject.GetComponent<IWeaponCombatParticipant>();
             if(victim == null) {
                 return;
             }
@@ -124,11 +123,11 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            var shooterController = attackerClient.PlayerObject != null
-                ? attackerClient.PlayerObject.GetComponent<PlayerController>()
+            var shooterParticipant = attackerClient.PlayerObject != null
+                ? attackerClient.PlayerObject.GetComponent<IWeaponCombatParticipant>()
                 : null;
-            var shooterWeaponManager = shooterController != null ? shooterController.WeaponManager : null;
-            if(shooterController == null) {
+            var shooterWeaponManager = shooterParticipant != null ? shooterParticipant.WeaponManager : null;
+            if(shooterParticipant == null) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, "shooter controller missing");
                 return;
             }
@@ -161,7 +160,7 @@ namespace Game.Weapon.Core {
                 }
             }
 
-            if(WeaponManager.IsFriendlyFireServer(shooterController, victim)) {
+            if(WeaponManager.IsFriendlyFireServer(shooterParticipant.OwnerClientId, victim.OwnerClientId)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, "friendly fire rejected");
                 return;
             }
@@ -173,10 +172,10 @@ namespace Game.Weapon.Core {
 
             var weaponId = shooterWeaponManager.GetWeaponIdByIndex(weaponIndex);
 
-            var wasKill = victim.ApplyDamageServer_Auth(serverDamage, hitPoint, hitDirection, shooterId, bodyPartTag,
+            var wasKill = victim.ApplyDamageServerAuth(serverDamage, hitPoint, hitDirection, shooterId, bodyPartTag,
                 isHeadshot, weaponId);
 
-            var shooterRelay = shooterController.DamageRelay;
+            var shooterRelay = shooterParticipant.DamageRelay;
             if(shooterRelay != null) {
                 shooterRelay.SendHitConfirmToOwner(wasKill);
             }
@@ -194,7 +193,7 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            var player = playerObject.GetComponent<PlayerController>();
+            var player = playerObject.GetComponent<IWeaponCombatParticipant>();
             var weaponManager = player != null ? player.WeaponManager : null;
             if(player == null || weaponManager == null) {
                 return;
@@ -221,7 +220,7 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            var player = playerObject.GetComponent<PlayerController>();
+            var player = playerObject.GetComponent<IWeaponCombatParticipant>();
             var weaponManager = player != null ? player.WeaponManager : null;
             if(player == null || weaponManager == null) {
                 return;
@@ -248,7 +247,7 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            var player = playerObject.GetComponent<PlayerController>();
+            var player = playerObject.GetComponent<IWeaponCombatParticipant>();
             var weaponManager = player != null ? player.WeaponManager : null;
             if(player == null || weaponManager == null) {
                 return;
@@ -275,7 +274,7 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            var player = playerObject.GetComponent<PlayerController>();
+            var player = playerObject.GetComponent<IWeaponCombatParticipant>();
             var weaponManager = player != null ? player.WeaponManager : null;
             if(player == null || weaponManager == null) {
                 return;
@@ -302,9 +301,8 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            var player = playerObject.GetComponent<PlayerController>();
-            var healthController = player != null ? player.CombatController : null;
-            if(healthController == null) {
+            var player = playerObject.GetComponent<IWeaponCombatParticipant>();
+            if(player == null) {
                 return;
             }
 
@@ -314,7 +312,7 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            healthController.ProcessRespawnAuthorityRequest();
+            player.ProcessRespawnAuthorityRequest();
         }
     }
 }

@@ -59,8 +59,8 @@ namespace Game.Weapon.Manager {
             var isHoldingHopball = false;
             var isRestoringAfterDissolve = false;
             if(_root.IsOwner) {
-                if(_root.PlayerControllerRef == null) return;
-                var playerNetworkObject = _root.PlayerControllerRef.NetworkObject;
+                if(_root.OwnerContext == null) return;
+                var playerNetworkObject = _root.OwnerContext.NetworkObject;
                 if(playerNetworkObject != null) {
                     var switchRequestedEvent =
                         new WeaponSwitchRequestedEvent(playerNetworkObject.NetworkObjectId, newIndex);
@@ -404,9 +404,9 @@ namespace Game.Weapon.Manager {
 
             _root.EnsureWeaponHierarchyActiveInternal();
 
-            if(_root.PlayerControllerRef != null && _root.PlayerControllerRef.NetworkObject != null) {
+            if(_root.OwnerContext?.NetworkObject != null) {
                 EventBus.Publish(new PlayerWorldWeaponPresentationRefreshRequestedEvent(
-                    _root.PlayerControllerRef.NetworkObjectId, usePodiumShadowState: false));
+                    _root.OwnerContext.NetworkObjectId, usePodiumShadowState: false));
             }
 
             _root.RefreshHolsterVisibility();
@@ -423,9 +423,9 @@ namespace Game.Weapon.Manager {
                 _root.CurrentWorldWeaponInstanceInternal.SetActive(true);
             }
 
-            if(_root.PlayerControllerRef != null && _root.PlayerControllerRef.NetworkObject != null) {
+            if(_root.OwnerContext?.NetworkObject != null) {
                 EventBus.Publish(new PlayerWorldWeaponPresentationRefreshRequestedEvent(
-                    _root.PlayerControllerRef.NetworkObjectId, usePodiumShadowState: true));
+                    _root.OwnerContext.NetworkObjectId, usePodiumShadowState: true));
             }
 
             _root.EnsureWorldWeaponShadowStateInternal();
@@ -512,10 +512,10 @@ namespace Game.Weapon.Manager {
 
         private void ReconcileStableTpWeaponState() {
             if(_root.DeferTpRevealUntilRespawn || _root.IsPullingOutInternal) return;
-            if(_root.PlayerControllerRef == null) return;
-            if(_root.PlayerControllerRef.NetIsDead is { Value: true }) return;
-            if(_root.PlayerControllerRef.PlayerRagdoll != null && _root.PlayerControllerRef.PlayerRagdoll.IsRagdoll) return;
-            if(_root.PlayerControllerRef.IsHoldingHopball) return;
+            if(_root.OwnerContext == null) return;
+            if(_root.OwnerContext.NetIsDeadState is { Value: true }) return;
+            if(_root.OwnerContext.IsRagdoll) return;
+            if(_root.OwnerContext.IsHoldingHopball) return;
             if(_root.CurrentWeaponIndexInternal < 0 || _root.CurrentWeaponIndexInternal >= _root.WeaponDataListRef.Count) return;
 
             var expectedWeapon = _root.ResolveWorldWeaponObject(_root.WeaponDataListRef[_root.CurrentWeaponIndexInternal]);
@@ -617,15 +617,9 @@ namespace Game.Weapon.Manager {
                 _root.CurrentWorldWeaponInstanceInternal.SetActive(true);
             }
 
-            var isOwner = _root.PlayerControllerRef != null && _root.PlayerControllerRef.IsOwner;
+            var isOwner = _root.OwnerContext is { IsOwner: true };
             var isPostMatch = _root.IsPostMatchFlowActive;
             var targetMode = isOwner && !isPostMatch ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
-
-            var playerShadow = _root.PlayerControllerRef != null ? _root.PlayerControllerRef.PlayerShadow : null;
-            if(playerShadow != null) {
-                playerShadow.SetWorldWeaponShadowMode(targetMode);
-                return;
-            }
 
             var renderers = _root.CurrentWorldWeaponInstanceInternal.GetComponentsInChildren<MeshRenderer>(true);
             foreach(var meshRenderer in renderers) {

@@ -1,4 +1,5 @@
 using UnityEngine;
+// ReSharper disable UnusedMember.Global
 
 namespace Game.Weapon.Kinemation {
     [DisallowMultipleComponent]
@@ -13,10 +14,6 @@ namespace Game.Weapon.Kinemation {
             if(driver != null) return driver;
             driver = GetComponentInParent<KinFpWeaponDriver>();
             return driver;
-        }
-
-        private string BuildSourceTag(string eventName) {
-            return $"{eventName}@{name}#{GetInstanceID()}";
         }
 
         public void ReloadSingle() {

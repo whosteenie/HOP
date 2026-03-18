@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Diagnostics;
+using Events;
 using Game.Weapon.Core;
 using UnityEngine;
 
@@ -22,7 +23,7 @@ namespace Game.Weapon.Manager {
         #region Public Loadout Selection
 
         public bool ApplyOwnerLoadoutSelection(int primaryIndex, int secondaryIndex, bool deferTpRevealUntilRespawn = true) {
-            if(!_root.IsOwner || _root.PlayerControllerRef == null) return false;
+            if(!_root.IsOwner || _root.OwnerContext == null) return false;
             if(_root.CatalogRef.IsEmpty) {
                 _root.BuildKinemationWeaponLookup();
             }
@@ -30,8 +31,8 @@ namespace Game.Weapon.Manager {
             if(!IsValidSelectionIndex(_root.CatalogRef.PrimaryWeaponOptions, primaryIndex, "Primary")) return false;
             if(!IsValidSelectionIndex(_root.CatalogRef.SecondaryWeaponOptions, secondaryIndex, "Secondary")) return false;
 
-            var primaryChanged = _root.PlayerControllerRef.primaryWeaponIndex.Value != primaryIndex;
-            var secondaryChanged = _root.PlayerControllerRef.secondaryWeaponIndex.Value != secondaryIndex;
+            var primaryChanged = _root.OwnerContext.PrimaryWeaponIndexState.Value != primaryIndex;
+            var secondaryChanged = _root.OwnerContext.SecondaryWeaponIndexState.Value != secondaryIndex;
             if(!primaryChanged && !secondaryChanged) {
                 return false;
             }
@@ -39,11 +40,11 @@ namespace Game.Weapon.Manager {
             _root.SuppressLoadoutRebuildCallbacks = true;
             try {
                 if(primaryChanged) {
-                    _root.PlayerControllerRef.primaryWeaponIndex.Value = primaryIndex;
+                    _root.OwnerContext.PrimaryWeaponIndexState.Value = primaryIndex;
                 }
 
                 if(secondaryChanged) {
-                    _root.PlayerControllerRef.secondaryWeaponIndex.Value = secondaryIndex;
+                    _root.OwnerContext.SecondaryWeaponIndexState.Value = secondaryIndex;
                 }
             } finally {
                 _root.SuppressLoadoutRebuildCallbacks = false;
@@ -63,11 +64,11 @@ namespace Game.Weapon.Manager {
                 return;
             }
 
-            if(_root.PlayerControllerRef != null) {
-                _root.PlayerControllerRef.primaryWeaponIndex.OnValueChanged -= _root.OnWeaponIndexChangedInternal;
-                _root.PlayerControllerRef.primaryWeaponIndex.OnValueChanged += _root.OnWeaponIndexChangedInternal;
-                _root.PlayerControllerRef.secondaryWeaponIndex.OnValueChanged -= _root.OnWeaponIndexChangedInternal;
-                _root.PlayerControllerRef.secondaryWeaponIndex.OnValueChanged += _root.OnWeaponIndexChangedInternal;
+            if(_root.OwnerContext != null) {
+                _root.OwnerContext.PrimaryWeaponIndexState.OnValueChanged -= _root.OnWeaponIndexChangedInternal;
+                _root.OwnerContext.PrimaryWeaponIndexState.OnValueChanged += _root.OnWeaponIndexChangedInternal;
+                _root.OwnerContext.SecondaryWeaponIndexState.OnValueChanged -= _root.OnWeaponIndexChangedInternal;
+                _root.OwnerContext.SecondaryWeaponIndexState.OnValueChanged += _root.OnWeaponIndexChangedInternal;
             }
 
             BuildEquippedWeaponList();
@@ -131,9 +132,9 @@ namespace Game.Weapon.Manager {
             if(_root.CurrentWorldWeaponInstanceInternal != null) {
                 _root.EnsureWeaponHierarchyActiveInternal();
                 _root.EnsureWorldWeaponShadowStateInternal();
-
-                if(_root.IsOwner && _root.PlayerRendererRef != null) {
-                    _root.PlayerRendererRef.SetWorldWeaponRenderersEnabled(true);
+                if(_root.IsOwner && _root.OwnerContext?.NetworkObject != null) {
+                    EventBus.Publish(new PlayerWorldWeaponPresentationRefreshRequestedEvent(
+                        _root.OwnerContext.NetworkObjectId, usePodiumShadowState: false));
                 }
             }
 
@@ -151,10 +152,6 @@ namespace Game.Weapon.Manager {
                     currentFpWeapon.SetActive(true);
 
                     _root.SetupFpWeaponSkinnedMeshRenderersInternal(currentFpWeapon);
-                    if(_root.PlayerRendererRef != null) {
-                        _root.PlayerRendererRef.SetFpWeaponRenderersEnabled(true, currentFpWeapon);
-                        _root.PlayerRendererRef.SetFpWeaponSkinnedRenderersEnabled(true, currentFpWeapon);
-                    }
                 }
             }
 
@@ -165,10 +162,9 @@ namespace Game.Weapon.Manager {
         public void OnWeaponIndexChanged() {
             if(_root.SuppressLoadoutRebuildCallbacks) return;
 
-            var shouldDeferTpReveal = _root.PlayerControllerRef != null &&
-                                      (_root.PlayerControllerRef.NetIsDead is { Value: true } ||
-                                       (_root.PlayerControllerRef.PlayerRagdoll != null &&
-                                        _root.PlayerControllerRef.PlayerRagdoll.IsRagdoll));
+            var shouldDeferTpReveal = _root.OwnerContext != null &&
+                                      (_root.OwnerContext.NetIsDeadState is { Value: true } ||
+                                       _root.OwnerContext.IsRagdoll);
 
             RebuildEquippedWeapons(!shouldDeferTpReveal, shouldDeferTpReveal);
         }
@@ -197,13 +193,13 @@ namespace Game.Weapon.Manager {
             _root.BuildKinemationWeaponLookup();
             _root.WeaponDataListRef.Clear();
 
-            if(_root.PlayerControllerRef == null) {
+            if(_root.OwnerContext == null) {
                 DevLog.LogError("[WeaponManager] Missing PlayerController while building equipped weapon list.");
                 return;
             }
 
-            var primaryIndex = _root.PlayerControllerRef.primaryWeaponIndex.Value;
-            var secondaryIndex = _root.PlayerControllerRef.secondaryWeaponIndex.Value;
+            var primaryIndex = _root.OwnerContext.PrimaryWeaponIndexState.Value;
+            var secondaryIndex = _root.OwnerContext.SecondaryWeaponIndexState.Value;
 
             var primary = GetWeaponFromOptions(_root.CatalogRef.PrimaryWeaponOptions, primaryIndex, "Primary");
             if(primary != null) {

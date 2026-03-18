@@ -11,7 +11,6 @@ using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
-using Game.Weapon.Presentation;
 using Network.Components;
 using Network.Core;
 using OSI;
@@ -29,7 +28,8 @@ namespace Game.Player.Core {
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext,
         IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext,
-        IPlayerCombatContext, IPlayerMaterialCustomizationContext {
+        IPlayerCombatContext, IPlayerMaterialCustomizationContext, IWeaponManagerOwnerContext, IWeaponOwnerContext,
+        IWeaponCombatParticipant {
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -93,7 +93,7 @@ namespace Game.Player.Core {
         [Header("Weapon System")]
         [SerializeField] private WeaponManager weaponManager;
 
-        [SerializeField] private Weapon.Core.Weapon weaponComponent;
+        [SerializeField] private Game.Weapon.Core.Weapon weaponComponent;
 
         // [SerializeField] private MeshRenderer worldWeapon;
         [SerializeField] private Transform worldWeaponSocket;
@@ -269,7 +269,7 @@ namespace Game.Player.Core {
 
         #region Public Properties
 
-        public float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
+        private float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
         private float BaseFov => lookController != null ? lookController.BaseFov : 80f;
         public bool IsJumpHeld => playerInputController != null && playerInputController.IsJumpHeld;
         public WallRunController WallRunController => wallRunController;
@@ -363,7 +363,7 @@ namespace Game.Player.Core {
             deathCameraController =
                 deathCameraController ? deathCameraController : GetComponent<DeathCameraController>();
             weaponManager = weaponManager ? weaponManager : GetComponent<WeaponManager>();
-            weaponComponent = weaponComponent ? weaponComponent : GetComponent<Weapon.Core.Weapon>();
+            weaponComponent = weaponComponent ? weaponComponent : GetComponent<Game.Weapon.Core.Weapon>();
             audioRelay = audioRelay ? audioRelay : GetComponent<NetworkAudioRelay>();
             audioListener = audioListener ? audioListener : GetComponentInChildren<AudioListener>(true);
             impulseSource = impulseSource ? impulseSource : GetComponentInChildren<CinemachineImpulseSource>(true);
@@ -814,7 +814,7 @@ namespace Game.Player.Core {
 
         #region Damage & Death Methods
 
-        public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
+        private bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
             string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
             if(combatController != null) {
                 return combatController.ApplyDamageServer_Auth(amount, hitPoint, hitDirection, attackerId, bodyPartTag,
@@ -856,7 +856,7 @@ namespace Game.Player.Core {
 
         public void HideFpVisualsForDisconnectTransition() {
             if(!IsOwner) return;
-            if(weaponManager != null) weaponManager.HideFpVisualsForDisconnectTransition();
+            _weaponPresentation.HideFpVisualsForDisconnectTransition();
             if(NetworkObject != null) {
                 EventBus.Publish(new PlayerDisconnectFpVisualHideRequestedEvent(NetworkObjectId));
             }
@@ -951,14 +951,14 @@ namespace Game.Player.Core {
         #region Weapons
 
         public WeaponManager WeaponManager => weaponManager;
-        public Weapon.Core.Weapon CurrentWeapon => weaponManager != null ? weaponManager.CurrentWeapon : null;
+        public Game.Weapon.Core.Weapon CurrentWeapon => weaponManager != null ? weaponManager.CurrentWeapon : null;
         public GrappleController GrappleController => grappleController;
         public WeaponDamageRelay DamageRelay => damageRelay;
         public WeaponFxRelay FxRelay => fxRelay;
         public NetworkAudioRelay AudioRelay => audioRelay;
         public CinemachineImpulseSource ImpulseSource => impulseSource;
         public GameObject[] WorldWeaponPrefabs => worldWeaponPrefabs;
-        public Weapon.Core.Weapon WeaponComponent => weaponComponent;
+        public Game.Weapon.Core.Weapon WeaponComponent => weaponComponent;
         public Animator PlayerAnimator => playerAnimator;
         public Transform WorldWeaponSocket => worldWeaponSocket;
 
@@ -1061,7 +1061,7 @@ namespace Game.Player.Core {
 
         #region Velocity Helpers
 
-        public Vector3 GetHorizontalVelocity() {
+        private Vector3 GetHorizontalVelocity() {
             return movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
         }
 
@@ -1071,7 +1071,7 @@ namespace Game.Player.Core {
 
         public Vector3 GetFullVelocity => movementController != null ? movementController.FullVelocity : Vector3.zero;
 
-        public float GetMaxSpeed() {
+        private float GetMaxSpeed() {
             return movementController != null ? movementController.MaxSpeed : 5f;
         }
 
@@ -1186,6 +1186,11 @@ namespace Game.Player.Core {
             if(lookController != null) lookController.SetSniperZoomActive(active, zoomFov);
         }
 
+        void IPlayerInputContext.SetCurrentFpWeaponVisible(bool visible) => _weaponPresentation.SetCurrentFpWeaponVisible(visible);
+        GameObject IPlayerInputContext.GetCurrentFpWeapon() => _weaponPresentation.GetCurrentFpWeapon();
+        void IPlayerInputContext.OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) =>
+            _weaponPresentation.OffsetCurrentFpWeapon(localPosition, localEulerAngles);
+
         CharacterController IPlayerRagdollContext.CharacterController => characterController;
         Animator IPlayerRagdollContext.PlayerAnimator => playerAnimator;
 
@@ -1206,7 +1211,7 @@ namespace Game.Player.Core {
         }
 
         void IPlayerTagContext.UpdateFpArmTagGlow(bool isTagged) {
-            if(weaponManager != null) weaponManager.UpdateAllFpArmTagGlow(isTagged);
+            _weaponPresentation.UpdateAllFpArmTagGlow(isTagged);
         }
 
         void IPlayerTagContext.DrainCurrentWeaponAmmoForTag() {
@@ -1221,7 +1226,6 @@ namespace Game.Player.Core {
         Transform IPlayerCombatContext.WorldWeaponSocket => worldWeaponSocket;
         Animator IPlayerCombatContext.PlayerAnimator => playerAnimator;
         CinemachineCamera IPlayerCombatContext.FpCamera => fpCamera;
-        WeaponCameraController IPlayerCombatContext.WeaponCameraController => weaponCameraController;
         CinemachineImpulseSource IPlayerCombatContext.ImpulseSource => impulseSource;
 
         Vector3 IPlayerCombatContext.FullVelocity =>
@@ -1245,6 +1249,11 @@ namespace Game.Player.Core {
         void IPlayerCombatContext.SetOutOfBoundsGraceWindow(float seconds) => SetOutOfBoundsGraceWindow(seconds);
         void IPlayerCombatContext.ResetLookPitchFromRespawn() => ResetLookPitchFromRespawn();
         void IPlayerCombatContext.ClearLookInput() => lookInput = Vector2.zero;
+        void IPlayerCombatContext.SetWeaponCameraEnabled(bool cameraEnabled) {
+            if(weaponCameraController != null) {
+                weaponCameraController.SetWeaponCameraEnabled(cameraEnabled);
+            }
+        }
 
         Vector2 IPlayerCombatContext.ResampleHeldMovementInputFromRespawn(string reason) =>
             ResampleHeldMovementInputFromRespawn(reason);
@@ -1330,6 +1339,7 @@ namespace Game.Player.Core {
         bool IPlayerLookContext.IsRagdoll => playerRagdoll != null && playerRagdoll.IsRagdoll;
         void IPlayerLookContext.UpdateTurnAnimationFromLook(float yawDelta) => UpdateTurnAnimationFromLook(yawDelta);
         bool IPlayerVisualContext.IsPostMatchFlowStarted => PlayerMatchRules.IsPostMatchFlowStarted;
+        bool IPlayerVisualContext.IsTagged => tagController != null && tagController.IsTagged.Value;
 
         Color IPlayerVisualContext.TaggedGlowColor =>
             playerTeamManager != null ? playerTeamManager.TaggedGlow : Color.white;
@@ -1361,6 +1371,68 @@ namespace Game.Player.Core {
 
         GameObject IPlayerMovementContext.GetCurrentFpWeapon() {
             return weaponManager != null ? weaponManager.GetCurrentFpWeapon() : null;
+        }
+
+        Transform IWeaponManagerOwnerContext.Transform => transform;
+        Transform IWeaponManagerOwnerContext.FpCameraTransform => FpCameraTransform;
+        CinemachineCamera IWeaponManagerOwnerContext.FpCamera => fpCamera;
+        Camera IWeaponManagerOwnerContext.WeaponCamera => weaponCamera;
+        Transform IWeaponManagerOwnerContext.WorldWeaponSocket => worldWeaponSocket;
+        Animator IWeaponManagerOwnerContext.PlayerAnimator => playerAnimator;
+        Game.Weapon.Core.Weapon IWeaponManagerOwnerContext.WeaponComponent => weaponComponent;
+        NetworkVariable<int> IWeaponManagerOwnerContext.PrimaryWeaponIndexState => primaryWeaponIndex;
+        NetworkVariable<int> IWeaponManagerOwnerContext.SecondaryWeaponIndexState => secondaryWeaponIndex;
+        NetworkVariable<bool> IWeaponManagerOwnerContext.NetIsDeadState => NetIsDead;
+        bool IWeaponManagerOwnerContext.IsRagdoll => playerRagdoll != null && playerRagdoll.IsRagdoll;
+        bool IWeaponManagerOwnerContext.IsHoldingHopball => IsHoldingHopball;
+
+        bool IWeaponOwnerContext.IsOwner => IsOwner;
+        bool IWeaponOwnerContext.IsDead => IsDead;
+        bool IWeaponOwnerContext.IsGrounded => IsGrounded;
+        bool IWeaponOwnerContext.IsSliding => movementController != null && movementController.IsSliding;
+        bool IWeaponOwnerContext.IsWallRunning => wallRunController != null && wallRunController.IsWallRunning;
+        bool IWeaponOwnerContext.IsSniperOverlayActive => playerInputController != null && playerInputController.IsSniperOverlayActive;
+        bool IWeaponOwnerContext.SprintInput => sprintInput;
+        Vector2 IWeaponOwnerContext.MoveInput => moveInput;
+        float IWeaponOwnerContext.CurrentPitch => CurrentPitch;
+        float IWeaponOwnerContext.MaxSpeed => GetMaxSpeed();
+        Vector3 IWeaponOwnerContext.HorizontalVelocity => GetHorizontalVelocity();
+        Vector3 IWeaponOwnerContext.FullVelocity => GetFullVelocity;
+        Vector3 IWeaponOwnerContext.Position => Position;
+        Vector3 IWeaponOwnerContext.SniperMuzzleCameraOffset =>
+            playerInputController != null ? playerInputController.SniperMuzzleCameraOffset : Vector3.zero;
+        Transform IWeaponOwnerContext.PlayerTransform => PlayerTransform;
+        Transform IWeaponOwnerContext.FpCameraTransform => FpCameraTransform;
+        Animator IWeaponOwnerContext.PlayerAnimator => playerAnimator;
+        LayerMask IWeaponOwnerContext.EnemyLayer => enemyLayer;
+        LayerMask IWeaponOwnerContext.WorldLayer => worldLayer;
+        NetworkObject IWeaponOwnerContext.NetworkObject => NetworkObject;
+        ulong IWeaponOwnerContext.OwnerClientId => OwnerClientId;
+        WeaponDamageRelay IWeaponOwnerContext.DamageRelay => damageRelay;
+        WeaponFxRelay IWeaponOwnerContext.FxRelay => fxRelay;
+        NetworkAudioRelay IWeaponOwnerContext.AudioRelay => audioRelay;
+        WeaponManager IWeaponOwnerContext.WeaponManager => weaponManager;
+        Game.Weapon.Core.Weapon IWeaponOwnerContext.CurrentWeapon => CurrentWeapon;
+        NetworkVariable<float> IWeaponOwnerContext.ReplicatedDamageMultiplierState =>
+            ResolvePlayerState() != null ? ResolvePlayerState().replicatedDamageMultiplier : MissingFloatState;
+
+        bool IWeaponCombatParticipant.IsOwner => IsOwner;
+        bool IWeaponCombatParticipant.IsDead => IsDead;
+        ulong IWeaponCombatParticipant.OwnerClientId => OwnerClientId;
+        NetworkObject IWeaponCombatParticipant.NetworkObject => NetworkObject;
+        WeaponManager IWeaponCombatParticipant.WeaponManager => weaponManager;
+        WeaponDamageRelay IWeaponCombatParticipant.DamageRelay => damageRelay;
+
+        bool IWeaponCombatParticipant.ApplyDamageServerAuth(float damage, Vector3 hitPoint, Vector3 hitDirection,
+            ulong attackerClientId, string bodyPartTag, bool isHeadshot, string weaponId) {
+            return ApplyDamageServer_Auth(damage, hitPoint, hitDirection, attackerClientId, bodyPartTag, isHeadshot,
+                weaponId);
+        }
+
+        void IWeaponCombatParticipant.ProcessRespawnAuthorityRequest() {
+            if(combatController != null) {
+                combatController.ProcessRespawnAuthorityRequest();
+            }
         }
 
         #endregion

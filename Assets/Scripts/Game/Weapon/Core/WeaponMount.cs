@@ -2,10 +2,12 @@ using Diagnostics;
 using Game.Match;
 using Game.Weapon.Kinemation;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace Game.Weapon.Core {
     internal sealed class WeaponMount {
         private readonly Weapon _weapon;
+        private Camera _cachedMainSceneCamera;
 
         public WeaponMount(Weapon weapon) {
             _weapon = weapon;
@@ -13,25 +15,23 @@ namespace Game.Weapon.Core {
 
         public void SyncKinemationLocomotion() {
             var kinemationDriver = _weapon.KinDriver;
-            var playerController = _weapon.PlayerController;
-            if(kinemationDriver == null || playerController == null || !playerController.IsOwner) {
+            var ownerContext = _weapon.OwnerContext;
+            if(kinemationDriver == null || ownerContext is not { IsOwner: true }) {
                 return;
             }
 
-            var movementController = playerController.MovementController;
-            var wallRunController = playerController.WallRunController;
-            var isSliding = movementController != null && movementController.IsSliding;
-            var isWallRunning = wallRunController != null && wallRunController.IsWallRunning;
+            var isSliding = ownerContext.IsSliding;
+            var isWallRunning = ownerContext.IsWallRunning;
             var isPreMatch = MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
             var isPostMatch = _weapon.Manager != null && _weapon.Manager.IsPostMatchFlowActive;
 
-            var moveInput = playerController.moveInput;
-            var sprintInput = playerController.sprintInput;
-            var treatedGrounded = playerController.IsGrounded || isWallRunning;
+            var moveInput = ownerContext.MoveInput;
+            var sprintInput = ownerContext.SprintInput;
+            var treatedGrounded = ownerContext.IsGrounded || isWallRunning;
 
             if(isWallRunning) {
-                var horizontalSpeed = playerController.GetHorizontalVelocity().magnitude;
-                var maxSpeed = Mathf.Max(playerController.GetMaxSpeed(), 0.01f);
+                var horizontalSpeed = ownerContext.HorizontalVelocity.magnitude;
+                var maxSpeed = Mathf.Max(ownerContext.MaxSpeed, 0.01f);
                 var normalizedWallRunSpeed = Mathf.Clamp01(horizontalSpeed / maxSpeed);
                 moveInput = new Vector2(0f, Mathf.Max(0.35f, normalizedWallRunSpeed));
                 sprintInput = horizontalSpeed >= 8f;
@@ -48,7 +48,7 @@ namespace Game.Weapon.Core {
                 treatedGrounded = true;
             }
 
-            var lookPitch = playerController.CurrentPitch;
+            var lookPitch = ownerContext.CurrentPitch;
 
             kinemationDriver.SyncLocomotion(
                 moveInput,
@@ -62,7 +62,7 @@ namespace Game.Weapon.Core {
         public void TryPrewarmKinemationMuzzleIfNeeded() {
             if(_weapon.HasPrewarmedKinemationMuzzleForCurrentWeapon) return;
             if(_weapon.KinDriver == null) return;
-            if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             _weapon.PrewarmKinemationMuzzleFxInternal();
         }
 
@@ -86,7 +86,7 @@ namespace Game.Weapon.Core {
                 : null;
 
             if(_weapon.KinDriver != null) {
-                var fpLayer = _weapon.PlayerController != null && _weapon.PlayerController.IsOwner
+                var fpLayer = _weapon.OwnerContext is { IsOwner: true }
                     ? LayerMask.NameToLayer("Weapon")
                     : LayerMask.NameToLayer("Masked");
                 _weapon.KinDriver.InitializeIfNeeded(fpLayer);
@@ -157,26 +157,23 @@ namespace Game.Weapon.Core {
             muzzlePosition = default;
             if(_weapon.CurrentWeaponData == null) return false;
 
-            var playerController = _weapon.PlayerController;
-            if(playerController != null &&
-               playerController.IsOwner &&
-               playerController.PlayerInputController != null &&
-               playerController.PlayerInputController.IsSniperOverlayActive) {
-                var fpCameraTransform = playerController.FpCameraTransform;
-                if(fpCameraTransform == null) return false;
+            var ownerContext = _weapon.OwnerContext;
+            switch(ownerContext) {
+                case { IsOwner: true, IsSniperOverlayActive: true }: {
+                    var fpCameraTransform = ownerContext.FpCameraTransform;
+                    if(fpCameraTransform == null) return false;
 
-                muzzlePosition =
-                    fpCameraTransform.TransformPoint(playerController.PlayerInputController.SniperMuzzleCameraOffset);
-                return true;
-            }
-
-            if(playerController != null && playerController.IsOwner) {
-                if(!TryGetRequiredOwnerMuzzleTransform(out var ownerMuzzleTransform, "TryGetMuzzlePosition")) {
-                    return false;
+                    muzzlePosition = fpCameraTransform.TransformPoint(ownerContext.SniperMuzzleCameraOffset);
+                    return true;
                 }
+                case { IsOwner: true }: {
+                    if(!TryGetRequiredOwnerMuzzleTransform(out var ownerMuzzleTransform, "TryGetMuzzlePosition")) {
+                        return false;
+                    }
 
-                muzzlePosition = ownerMuzzleTransform.position;
-                return true;
+                    muzzlePosition = ownerMuzzleTransform.position;
+                    return true;
+                }
             }
 
             if(!TryGetStrictWorldMuzzleTransform(out var remoteWorldMuzzleTransform, "TryGetMuzzlePosition")) {
@@ -189,12 +186,12 @@ namespace Game.Weapon.Core {
 
         private bool TryGetMuzzlePositionFromCamera(out Vector3 muzzlePosition) {
             muzzlePosition = default;
-            var playerController = _weapon.PlayerController;
-            if(playerController == null || !playerController.IsOwner || _weapon.CurrentWeaponData == null) {
+            var ownerContext = _weapon.OwnerContext;
+            if(ownerContext is not { IsOwner: true } || _weapon.CurrentWeaponData == null) {
                 return TryGetMuzzlePosition(out muzzlePosition);
             }
 
-            if(playerController.PlayerInputController == null || !playerController.PlayerInputController.IsSniperOverlayActive) {
+            if(!ownerContext.IsSniperOverlayActive) {
                 if(!TryGetRequiredOwnerMuzzleTransform(out var muzzleTransform, "TryGetMuzzlePositionFromCamera")) {
                     return false;
                 }
@@ -203,12 +200,12 @@ namespace Game.Weapon.Core {
                 return true;
             }
 
-            var fpCameraTransform = playerController.FpCameraTransform;
+            var fpCameraTransform = ownerContext.FpCameraTransform;
             if(fpCameraTransform == null) {
                 return false;
             }
 
-            muzzlePosition = fpCameraTransform.TransformPoint(playerController.PlayerInputController.SniperMuzzleCameraOffset);
+            muzzlePosition = fpCameraTransform.TransformPoint(ownerContext.SniperMuzzleCameraOffset);
             return true;
         }
 
@@ -226,8 +223,8 @@ namespace Game.Weapon.Core {
         public bool TryGetRequiredOwnerMuzzleTransform(out Transform muzzleTransform, string context, bool logErrors = true) {
             muzzleTransform = null;
 
-            var playerController = _weapon.PlayerController;
-            if(playerController == null || !playerController.IsOwner) {
+            var ownerContext = _weapon.OwnerContext;
+            if(ownerContext is not { IsOwner: true }) {
                 if(logErrors) {
                     DevLog.LogError(
                         $"[Weapon][MuzzleStrict][{context}] Owner-only muzzle query called on non-owner.",
@@ -247,8 +244,8 @@ namespace Game.Weapon.Core {
             bool allowOwnerInstance = false, bool logErrors = true) {
             muzzleTransform = null;
 
-            var playerController = _weapon.PlayerController;
-            if(playerController != null && playerController.IsOwner && !allowOwnerInstance) {
+            var ownerContext = _weapon.OwnerContext;
+            if(ownerContext is { IsOwner: true } && !allowOwnerInstance) {
                 if(logErrors) {
                     DevLog.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Called on owner instance. " +
@@ -333,8 +330,8 @@ namespace Game.Weapon.Core {
         private bool TryGetStrictFpMuzzleTransform(out Transform muzzleTransform, string context, bool logErrors = true) {
             muzzleTransform = null;
 
-            var playerController = _weapon.PlayerController;
-            if(playerController == null || !playerController.IsOwner) {
+            var ownerContext = _weapon.OwnerContext;
+            if(ownerContext is not { IsOwner: true }) {
                 if(logErrors) {
                     DevLog.LogError($"[Weapon][MuzzleStrict][{context}] FP muzzle requested by non-owner.", _weapon);
                 }
@@ -379,13 +376,13 @@ namespace Game.Weapon.Core {
 
         private void TryRemapOwnerWeaponCameraPointToMainCamera(Vector3 sourcePoint, out Vector3 remappedPoint) {
             remappedPoint = sourcePoint;
-            var playerController = _weapon.PlayerController;
-            if(playerController == null) return;
-            if(!playerController.IsOwner) return;
+            var ownerContext = _weapon.OwnerContext;
+            if(ownerContext == null) return;
+            if(!ownerContext.IsOwner) return;
             if(_weapon.Manager != null && _weapon.Manager.IsPostMatchFlowActive) return;
-            if(playerController.PlayerInputController != null && playerController.PlayerInputController.IsSniperOverlayActive) return;
+            if(ownerContext.IsSniperOverlayActive) return;
 
-            var weaponCamera = playerController.WeaponCamera;
+            var weaponCamera = _weapon.Manager != null ? _weapon.Manager.WeaponCameraRef : null;
             if(weaponCamera == null) return;
             if(!TryResolveMainSceneCamera(weaponCamera, out var mainSceneCamera)) return;
             if(weaponCamera == mainSceneCamera) return;
@@ -405,21 +402,58 @@ namespace Game.Weapon.Core {
         private bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
             mainSceneCamera = null;
 
-            var playerController = _weapon.PlayerController;
-            var weaponCameraController = playerController != null ? playerController.WeaponCameraController : null;
-            if(weaponCameraController == null) {
-                return false;
+            if(IsUsableMainSceneCamera(_cachedMainSceneCamera, weaponCamera)) {
+                mainSceneCamera = _cachedMainSceneCamera;
+                return true;
             }
 
-            if(!weaponCameraController.TryGetMainSceneCamera(out mainSceneCamera)) {
-                return false;
-            }
+            _cachedMainSceneCamera = FindCandidateMainSceneCamera(weaponCamera);
+            mainSceneCamera = _cachedMainSceneCamera;
 
-            if(mainSceneCamera == weaponCamera) {
-                mainSceneCamera = null;
-            }
+            if(mainSceneCamera != weaponCamera) return mainSceneCamera != null;
+            _cachedMainSceneCamera = null;
+            mainSceneCamera = null;
 
             return mainSceneCamera != null;
+        }
+
+        private static bool IsUsableMainSceneCamera(Camera camera, Camera weaponCamera) {
+            if(camera == null || camera == weaponCamera || !camera.isActiveAndEnabled) {
+                return false;
+            }
+
+            if(camera.CompareTag("MainCamera")) {
+                return true;
+            }
+
+            var cameraData = camera.GetUniversalAdditionalCameraData();
+            return cameraData != null && cameraData.renderType == CameraRenderType.Base;
+        }
+
+        private static Camera FindCandidateMainSceneCamera(Camera weaponCamera) {
+            var cameraCount = Camera.allCamerasCount;
+            if(cameraCount <= 0) {
+                return null;
+            }
+
+            var cameras = new Camera[cameraCount];
+            Camera.GetAllCameras(cameras);
+
+            Camera fallback = null;
+            foreach(var sceneCamera in cameras) {
+                if(sceneCamera == null || sceneCamera == weaponCamera || !sceneCamera.isActiveAndEnabled) continue;
+
+                if(sceneCamera.CompareTag("MainCamera")) {
+                    return sceneCamera;
+                }
+
+                var cameraData = sceneCamera.GetUniversalAdditionalCameraData();
+                if(cameraData != null && cameraData.renderType == CameraRenderType.Base && fallback == null) {
+                    fallback = sceneCamera;
+                }
+            }
+
+            return fallback;
         }
 
         private static string GetTransformPath(Transform transform) {

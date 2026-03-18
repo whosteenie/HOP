@@ -62,8 +62,7 @@ namespace Game.Weapon.Core {
 
             if(!_weapon.UseKinemationInternalSoundsInternal() &&
                !_weapon.ShouldSuppressLegacyReloadSoundInternal() &&
-               _weapon.PlayerController != null &&
-               _weapon.PlayerController.IsOwner &&
+               _weapon.OwnerContext is { IsOwner: true } &&
                _weapon.AudioRelay != null) {
                 var soundId = _weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.reloadSoundId : "";
                 if(!string.IsNullOrWhiteSpace(soundId)) {

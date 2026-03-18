@@ -143,7 +143,7 @@ namespace Game.Weapon.Manager {
                 return false;
             }
 
-            var shooter = _root.PlayerControllerRef;
+            var shooter = _root.OwnerContext;
             if(shooter == null) {
                 reason = "shooter controller missing";
                 return false;
@@ -151,7 +151,7 @@ namespace Game.Weapon.Manager {
 
             var origin = shooter.FpCameraTransform != null
                 ? shooter.FpCameraTransform.position
-                : shooter.transform.position;
+                : shooter.Transform.position;
             var distance = Vector3.Distance(origin, hitPoint);
 
             var baseDamage = data.baseDamage;

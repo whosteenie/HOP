@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using Diagnostics;
-using Game.Player.Core;
 using Network.AntiCheat;
 using Network.Core;
 using Unity.Netcode;
@@ -9,7 +7,8 @@ using UnityEngine;
 namespace Game.Weapon.Core {
     [DefaultExecutionOrder(7005)] // Run after UpperBodyPitch + SpineProxy LateUpdate passes.
     public class WeaponFxRelay : NetworkBehaviour {
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour ownerContextSource;
+        private IWeaponOwnerContext _ownerContext;
         private NetworkObject _playerNetworkObject;
         private readonly List<PendingRemoteShotFx> _pendingRemoteShotFx = new();
 
@@ -29,17 +28,33 @@ namespace Game.Weapon.Core {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = this.GetComponentSafe<PlayerController>("NetworkFxRelay.ValidateComponents");
+            if(_ownerContext == null) {
+                if(ownerContextSource != null) {
+                    // ReSharper disable once UsePatternMatching
+                    var ownerContext = ownerContextSource as IWeaponOwnerContext;
+                    if(ownerContext != null) {
+                        _ownerContext = ownerContext;
+                    }
+                } else {
+                    foreach(var candidate in GetComponentsInParent<MonoBehaviour>(true)) {
+                        if(candidate == null) continue;
+                        // ReSharper disable once UseNegatedPatternMatching
+                        var resolvedContext = candidate as IWeaponOwnerContext;
+                        if(resolvedContext == null) continue;
+                        ownerContextSource = candidate;
+                        _ownerContext = resolvedContext;
+                        break;
+                    }
+                }
             }
 
-            if(playerController == null) {
+            if(_ownerContext == null) {
                 enabled = false;
                 return;
             }
 
             if(_playerNetworkObject == null) {
-                _playerNetworkObject = playerController.NetworkObject;
+                _playerNetworkObject = _ownerContext.NetworkObject;
             }
         }
 
@@ -67,7 +82,7 @@ namespace Game.Weapon.Core {
         public void RequestShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact,
             bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash = true,
             Vector3 shooterVelocity = default) {
-            if(!playerController.IsOwner || !_playerNetworkObject.IsSpawned) return;
+            if(_ownerContext is not { IsOwner: true } || !_playerNetworkObject.IsSpawned) return;
 
             RequestShotFxServerRpc(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
                 shooterVelocity);
@@ -78,7 +93,7 @@ namespace Game.Weapon.Core {
             ValidateComponents();
             if(_playerNetworkObject == null) return;
             if(_playerNetworkObject.IsOwner) return;
-            var weapon = playerController.CurrentWeapon;
+            var weapon = _ownerContext != null ? _ownerContext.CurrentWeapon : null;
             if(weapon == null) return;
 
             _pendingRemoteShotFx.Add(new PendingRemoteShotFx {
@@ -102,12 +117,12 @@ namespace Game.Weapon.Core {
             }
 
             ValidateComponents();
-            if(playerController == null || _playerNetworkObject == null) {
+            if(_ownerContext == null || _playerNetworkObject == null) {
                 return;
             }
 
             var senderClientId = rpcParams.Receive.SenderClientId;
-            if(playerController.OwnerClientId != senderClientId) {
+            if(_ownerContext.OwnerClientId != senderClientId) {
                 AntiCheatLogger.LogAuthorityViolate("WeaponFxRelay.RequestShotFxServerRpc", senderClientId);
                 return;
             }

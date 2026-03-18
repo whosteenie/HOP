@@ -2,8 +2,6 @@ using System.Collections.Generic;
 using Diagnostics;
 using Events;
 using Game.Match;
-using Game.Player.Core;
-using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Kinemation;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
@@ -24,7 +22,7 @@ namespace Game.Weapon.Manager {
 
         #region Serialized Fields
 
-        [SerializeField] private PlayerController playerController;
+        [SerializeField] private MonoBehaviour ownerContextSource;
 
         [Header("Weapon System")]
         [SerializeField, HideInInspector] private List<WeaponData> weaponDataList = new();
@@ -96,8 +94,6 @@ namespace Game.Weapon.Manager {
         internal Camera WeaponCameraRef { get; private set; }
         internal Transform WorldWeaponSocketRef { get; private set; }
         internal Animator PlayerAnimatorRef { get; private set; }
-        internal PlayerRenderer PlayerRendererRef { get; private set; }
-
         internal GameObject PendingTpWeapon { get; set; }
         internal GameObject CurrentWorldWeaponInstanceInternal { get; set; }
         internal GameObject PrimaryHolsterInternal { get; set; }
@@ -142,7 +138,8 @@ namespace Game.Weapon.Manager {
 
         #region Internal Properties
 
-        internal PlayerController PlayerControllerRef => playerController;
+        internal IWeaponManagerOwnerContext OwnerContext { get; private set; }
+
         internal List<WeaponData> WeaponDataListRef => weaponDataList;
         internal GameObject KinemationFpsPlayerPrefabRef => kinemationFpsPlayerPrefab;
         internal float KinemationSprintWalkGaitValue => kinemationSprintWalkGaitValue;
@@ -252,18 +249,13 @@ namespace Game.Weapon.Manager {
         public GameObject GetCurrentFpWeapon() => _fpPresentation != null ? _fpPresentation.GetCurrentFpWeapon() : null;
         public GameObject GetFpWeaponHolderRootForDisconnect() =>
             _fpPresentation.GetFpWeaponHolderRootForDisconnect();
-        public void UpdateAllFpArmTagGlow(bool isTagged) => _fpPresentation.UpdateAllFpArmTagGlow(isTagged);
-        public void SetCurrentFpWeaponVisible(bool visible) => _fpPresentation.SetCurrentFpWeaponVisible(visible);
-        public void HideFpVisualsForDisconnectTransition() => _fpPresentation.HideFpVisualsForDisconnectTransition();
-        public void OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) =>
-            _fpPresentation.OffsetCurrentFpWeapon(localPosition, localEulerAngles);
 
-        public static bool IsFriendlyFireServer(PlayerController shooter, PlayerController victim) {
-            if(shooter == null || victim == null) return false;
+        public static bool IsFriendlyFireServer(ulong shooterClientId, ulong victimClientId) {
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings == null || !matchSettings.IsCurrentModeTeamBased()) return false;
-            if(shooter.TeamManager == null || victim.TeamManager == null) return false;
-            return shooter.TeamManager.netTeam.Value == victim.TeamManager.netTeam.Value;
+            if(!MatchPlayerStateProxy.TryGetForPlayer(shooterClientId, out var shooterState)) return false;
+            if(!MatchPlayerStateProxy.TryGetForPlayer(victimClientId, out var victimState)) return false;
+            return shooterState.teamId.Value == victimState.teamId.Value;
         }
 
         #endregion
@@ -314,8 +306,8 @@ namespace Game.Weapon.Manager {
         }
 
         private void OnPodiumVisualsSnapped(PodiumVisualsSnappedEvent evt) {
-            if(evt == null || playerController == null || playerController.NetworkObject == null) return;
-            if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
+            if(evt == null || OwnerContext?.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != OwnerContext.NetworkObjectId) return;
             _switch.SetTpWeaponIndexForPodium();
         }
 
@@ -367,33 +359,46 @@ namespace Game.Weapon.Manager {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponentInParent<PlayerController>();
+            if(OwnerContext == null) {
+                if(ownerContextSource != null) {
+                    // ReSharper disable once UsePatternMatching
+                    var ownerContext = ownerContextSource as IWeaponManagerOwnerContext;
+                    if(ownerContext != null) {
+                        OwnerContext = ownerContext;
+                    }
+                } else {
+                    foreach(var candidate in GetComponentsInParent<MonoBehaviour>(true)) {
+                        if(candidate == null) continue;
+                        // ReSharper disable once UseNegatedPatternMatching
+                        var resolvedContext = candidate as IWeaponManagerOwnerContext;
+                        if(resolvedContext == null) continue;
+                        ownerContextSource = candidate;
+                        OwnerContext = resolvedContext;
+                        break;
+                    }
+                }
             }
 
-            if(CurrentWeaponInternal == null && playerController != null) {
-                CurrentWeaponInternal = playerController.WeaponComponent;
+            if(CurrentWeaponInternal == null && OwnerContext != null) {
+                CurrentWeaponInternal = OwnerContext.WeaponComponent;
             }
 
-            if(FpCameraRef == null && playerController != null) {
-                FpCameraRef = playerController.FpCamera;
+            if(FpCameraRef == null && OwnerContext != null) {
+                FpCameraRef = OwnerContext.FpCamera;
             }
 
-            if(WeaponCameraRef == null && playerController != null) {
-                WeaponCameraRef = playerController.WeaponCamera;
+            if(WeaponCameraRef == null && OwnerContext != null) {
+                WeaponCameraRef = OwnerContext.WeaponCamera;
             }
 
-            if(WorldWeaponSocketRef == null && playerController != null) {
-                WorldWeaponSocketRef = playerController.WorldWeaponSocket;
+            if(WorldWeaponSocketRef == null && OwnerContext != null) {
+                WorldWeaponSocketRef = OwnerContext.WorldWeaponSocket;
             }
 
-            if(PlayerAnimatorRef == null && playerController != null) {
-                PlayerAnimatorRef = playerController.PlayerAnimator;
+            if(PlayerAnimatorRef == null && OwnerContext != null) {
+                PlayerAnimatorRef = OwnerContext.PlayerAnimator;
             }
 
-            if(PlayerRendererRef == null && playerController != null) {
-                PlayerRendererRef = playerController.PlayerRenderer;
-            }
         }
 
         internal void BuildKinemationWeaponLookup() {
@@ -443,8 +448,13 @@ namespace Game.Weapon.Manager {
             AmmoAuthorityRef.ResolveRestoredAmmo(weaponIndex, magCapacity, seedWhenMissing);
 
         internal void RefreshHolsterShadowState() {
-            if(!IsOwner || playerController == null || playerController.NetworkObject == null) return;
-            EventBus.Publish(new PlayerHolsterShadowRefreshRequestedEvent(playerController.NetworkObjectId));
+            if(!IsOwner || OwnerContext?.NetworkObject == null) return;
+            EventBus.Publish(new PlayerHolsterShadowRefreshRequestedEvent(OwnerContext.NetworkObjectId));
+        }
+
+        internal void RequestOwnerFpWeaponVisualRefreshInternal(GameObject fpWeaponInstance) {
+            if(!IsOwner || OwnerContext?.NetworkObject == null || fpWeaponInstance == null) return;
+            EventBus.Publish(new PlayerFpWeaponVisualRefreshRequestedEvent(OwnerContext.NetworkObjectId, fpWeaponInstance));
         }
 
         internal MatchPlayerStateProxy ResolvePlayerState() {
@@ -452,27 +462,27 @@ namespace Game.Weapon.Manager {
                 return _cachedPlayerState;
             }
 
-            if(playerController == null || playerController.NetworkObject == null || !playerController.NetworkObject.IsSpawned) {
+            if(OwnerContext?.NetworkObject == null || !OwnerContext.NetworkObject.IsSpawned) {
                 return null;
             }
 
-            var ownerClientId = playerController.OwnerClientId;
+            var ownerClientId = OwnerContext.OwnerClientId;
             if(!MatchPlayerStateProxy.TryGetForPlayer(ownerClientId, out var playerState)) return null;
             _cachedPlayerState = playerState;
             return playerState;
         }
 
         private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
-            if(playerController == null || playerController.NetworkObject == null || !playerController.NetworkObject.IsSpawned) return;
-            if(playerClientId != playerController.OwnerClientId) return;
+            if(OwnerContext?.NetworkObject == null || !OwnerContext.NetworkObject.IsSpawned) return;
+            if(playerClientId != OwnerContext.OwnerClientId) return;
             _cachedPlayerState = proxy;
             TryBindPlayerStateSubscriptions();
         }
 
         private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
             if(_boundPlayerState != proxy) return;
-            if(playerController != null && playerController.NetworkObject != null && playerController.NetworkObject.IsSpawned &&
-               playerClientId != playerController.OwnerClientId) {
+            if(OwnerContext?.NetworkObject != null && OwnerContext.NetworkObject.IsSpawned &&
+               playerClientId != OwnerContext.OwnerClientId) {
                 return;
             }
 

@@ -50,6 +50,7 @@ namespace Events {
             typeof(HopballCollisionIgnoreStateChangedEvent),
             typeof(PlayerWorldWeaponPresentationRefreshRequestedEvent),
             typeof(PlayerHolsterShadowRefreshRequestedEvent),
+            typeof(PlayerFpWeaponVisualRefreshRequestedEvent),
             typeof(PlayerHillOccupancyChangedEvent),
             typeof(PlayerTeamChangedEvent),
             typeof(HillOccupancySnapshotRequestedEvent),

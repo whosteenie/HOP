@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Diagnostics;
 using Game.Match;
-using Game.Player.Core;
 using Game.Progression;
 using Unity.Netcode;
 using UnityEngine;
@@ -38,12 +37,12 @@ namespace Game.Weapon.Core {
         }
 
         public void PerformShot() {
-            var playerController = _weapon.PlayerController;
-            if(playerController == null || _weapon.CurrentWeaponData == null) return;
+            var ownerContext = _weapon.OwnerContext;
+            if(ownerContext == null || _weapon.CurrentWeaponData == null) return;
             var manager = _weapon.Manager;
             if(manager == null) return;
 
-            var fpCameraTransform = playerController.FpCameraTransform;
+            var fpCameraTransform = ownerContext.FpCameraTransform;
             if(fpCameraTransform == null) return;
             var weaponIndex = manager.CurrentWeaponIndex;
             if(weaponIndex < 0) return;
@@ -72,7 +71,7 @@ namespace Game.Weapon.Core {
             var localMuzzlePosition = _weapon.HasLocalMuzzleFlashSpawnPositionForShot
                 ? _weapon.LocalMuzzleFlashSpawnPositionForShot
                 : startPosition;
-            var shooterVelocityAtShot = playerController.GetFullVelocity;
+            var shooterVelocityAtShot = ownerContext.FullVelocity;
 
             var pelletCount = 1;
             if(_weapon.CurrentWeaponData.usePelletSpread) {
@@ -83,8 +82,7 @@ namespace Game.Weapon.Core {
             var shouldApplySpread = spreadDegrees > 0f;
 
             if(_weapon.CurrentWeaponData.useSniperOverlay &&
-               playerController.PlayerInputController != null &&
-               playerController.PlayerInputController.IsSniperOverlayActive) {
+               ownerContext.IsSniperOverlayActive) {
                 shouldApplySpread = false;
             }
 
@@ -110,8 +108,8 @@ namespace Game.Weapon.Core {
             if(!_weapon.IsOwner) return;
             if(!_weapon.CurrentWeaponData) return;
 
-            var isDead = _weapon.PlayerController != null && _weapon.PlayerController.IsDead;
-            var currentSpeed = _weapon.PlayerController != null ? _weapon.PlayerController.GetFullVelocity.magnitude : 0f;
+            var isDead = _weapon.OwnerContext is { IsDead: true };
+            var currentSpeed = _weapon.OwnerContext != null ? _weapon.OwnerContext.FullVelocity.magnitude : 0f;
             var peakMultiplier = _weapon.PeakDamageMultiplier;
             var lastPeakTime = _weapon.LastPeakTime;
             _weapon.CurrentDamageMultiplierValue = AdvanceDamageMultiplier(
@@ -128,7 +126,7 @@ namespace Game.Weapon.Core {
             if(!Network.Core.NetworkAuthority.HasGlobalAuthority(_weapon)) return;
             if(!_weapon.CurrentWeaponData) return;
 
-            var isDead = _weapon.PlayerController != null && _weapon.PlayerController.IsDead;
+            var isDead = _weapon.OwnerContext is { IsDead: true };
             var observedSpeed = SampleObservedSpeed();
             var authoritativePeakMultiplier = _weapon.AuthoritativePeakDamageMultiplier;
             var authoritativeLastPeakTime = _weapon.AuthoritativeLastPeakTime;
@@ -141,14 +139,13 @@ namespace Game.Weapon.Core {
             _weapon.AuthoritativePeakDamageMultiplier = authoritativePeakMultiplier;
             _weapon.AuthoritativeLastPeakTime = authoritativeLastPeakTime;
 
-            if(_weapon.PlayerController != null && _weapon.PlayerController.PlayerState != null) {
-                _weapon.PlayerController.PlayerState.replicatedDamageMultiplier.Value =
-                    _weapon.GetDamageMultiplier();
+            if(_weapon.OwnerContext != null) {
+                _weapon.OwnerContext.ReplicatedDamageMultiplierState.Value = _weapon.GetDamageMultiplier();
             }
         }
 
         public void ResetMotionBaseline() {
-            var sampleTransform = _weapon.PlayerController != null ? _weapon.PlayerController.PlayerTransform : _weapon.transform;
+            var sampleTransform = _weapon.OwnerContext != null ? _weapon.OwnerContext.PlayerTransform : _weapon.transform;
             _weapon.LastAuthorityObservedPosition = sampleTransform != null ? sampleTransform.position : _weapon.transform.position;
             _weapon.LastAuthorityObservedTime = Time.time;
             _weapon.HasAuthorityObservedPosition = false;
@@ -161,21 +158,18 @@ namespace Game.Weapon.Core {
             var isTeamBased = MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
             if(!isTeamBased) return false;
 
-            var playerController = _weapon.PlayerController;
-            if(playerController == null) return false;
-            var shooterTeamMgr = playerController.TeamManager;
-            if(shooterTeamMgr == null) return false;
+            if(_weapon.OwnerContext == null) return false;
+            if(!MatchPlayerStateProxy.TryGetForPlayer(_weapon.OwnerContext.OwnerClientId, out var shooterState)) return false;
 
-            var targetController = target.GetComponent<PlayerController>();
-            if(targetController == null) {
-                targetController = target.GetComponentInParent<PlayerController>();
+            var targetParticipant = target.GetComponent<IWeaponCombatParticipant>();
+            if(targetParticipant == null) {
+                targetParticipant = target.GetComponentInParent<IWeaponCombatParticipant>();
             }
 
-            if(targetController == null) return false;
-            var targetTeamMgr = targetController.TeamManager;
-            if(targetTeamMgr == null) return false;
+            if(targetParticipant == null) return false;
+            if(!MatchPlayerStateProxy.TryGetForPlayer(targetParticipant.OwnerClientId, out var targetState)) return false;
 
-            return shooterTeamMgr.netTeam.Value == targetTeamMgr.netTeam.Value;
+            return shooterState.teamId.Value == targetState.teamId.Value;
         }
 
         private bool FirePellet(Vector3 origin, Vector3 tracerStartPosition, Vector3 direction, Vector3 shooterVelocityAtShot,
@@ -193,8 +187,7 @@ namespace Game.Weapon.Core {
             RaycastHit hit = default;
             var useHybridSystem = _weapon.CurrentWeaponData != null && _weapon.CurrentWeaponData.useSphereCast
                                   || _weapon.CurrentWeaponData != null && _weapon.CurrentWeaponData.useSniperOverlay &&
-                                  _weapon.PlayerController != null && _weapon.PlayerController.PlayerInputController != null &&
-                                  _weapon.PlayerController.PlayerInputController.IsSniperOverlayActive;
+                                  _weapon.OwnerContext is { IsSniperOverlayActive: true };
 
             if(useHybridSystem) {
                 var hasWorldHit = Physics.Raycast(origin, direction, out var worldHit, maxDist, _weapon.WorldLayerMask);
@@ -243,7 +236,7 @@ namespace Game.Weapon.Core {
                     }
                 }
 #if UNITY_EDITOR
-                if(_weapon.PlayerController != null && _weapon.PlayerController.IsOwner) {
+                if(_weapon.OwnerContext is { IsOwner: true }) {
                     var debugPoint = shotHit ? hit.point : Vector3.zero;
                     DrawHitRegistrationDebug(origin, direction, maxDist, debugPoint, shotHit, baseRadius, maxRadius,
                         growthStart, growthEnd);
@@ -258,17 +251,17 @@ namespace Game.Weapon.Core {
                 hitNormal = hit.normal;
                 madeImpact = true;
 
-                var hitPlayerController = hit.collider.GetComponentInParent<PlayerController>();
-                hitPlayer = hitPlayerController != null;
-                if(hitPlayer && hitPlayerController.NetworkObject != null) {
-                    hitPlayerRef = new NetworkObjectReference(hitPlayerController.NetworkObject);
+                var hitParticipant = hit.collider.GetComponentInParent<IWeaponCombatParticipant>();
+                hitPlayer = hitParticipant != null;
+                if(hitPlayer && hitParticipant.NetworkObject != null) {
+                    hitPlayerRef = new NetworkObjectReference(hitParticipant.NetworkObject);
                 }
 
                 var registeredDamage = ApplyDamageToHit(hit, origin, weaponIndex, shotId);
                 hitPlayer = hitPlayer && registeredDamage;
             }
 
-            if(_weapon.PlayerController != null && _weapon.PlayerController.IsOwner) {
+            if(_weapon.OwnerContext is { IsOwner: true }) {
                 _weapon.StartCoroutine(_weapon.SpawnOwnerTracerAfterViewUpdateInternal(
                     tracerStartPosition,
                     endPoint,
@@ -288,10 +281,9 @@ namespace Game.Weapon.Core {
                     shooterVelocityAtShot);
             }
 
-            if(_weapon.PlayerController != null &&
-               _weapon.PlayerController.IsOwner &&
-               _weapon.PlayerController.FxRelay != null) {
-                _weapon.PlayerController.FxRelay.RequestShotFx(
+            if(_weapon.OwnerContext is { IsOwner: true } &&
+               _weapon.OwnerContext.FxRelay != null) {
+                _weapon.OwnerContext.FxRelay.RequestShotFx(
                     endPoint,
                     hitNormal,
                     madeImpact,
@@ -305,7 +297,7 @@ namespace Game.Weapon.Core {
         }
 
         private bool ApplyDamageToHit(RaycastHit hit, Vector3 origin, int weaponIndex, ulong shotId) {
-            var shooterPosition = _weapon.PlayerController != null ? _weapon.PlayerController.transform.position : origin;
+            var shooterPosition = _weapon.OwnerContext != null ? _weapon.OwnerContext.Position : origin;
             var hitDirection = (hit.point - shooterPosition).normalized;
 
             var hitRigidbody = hit.collider.attachedRigidbody;
@@ -347,19 +339,19 @@ namespace Game.Weapon.Core {
         }
 
         private void RecordShotFiredProgression() {
-            if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(ProgressionManager.Instance == null) return;
             ProgressionManager.Instance.RecordShotFired();
         }
 
         private void RecordShotHitProgression() {
-            if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
+            if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(ProgressionManager.Instance == null) return;
             ProgressionManager.Instance.RecordShotHit();
         }
 
         private Vector3 ApplySpread(Vector3 forward, float spreadDegrees) {
-            var fpCameraTransform = _weapon.PlayerController != null ? _weapon.PlayerController.FpCameraTransform : null;
+            var fpCameraTransform = _weapon.OwnerContext != null ? _weapon.OwnerContext.FpCameraTransform : null;
             if(fpCameraTransform == null || spreadDegrees <= 0f) {
                 return forward;
             }
@@ -373,7 +365,7 @@ namespace Game.Weapon.Core {
         }
 
         private float SampleObservedSpeed() {
-            var sampleTransform = _weapon.PlayerController != null ? _weapon.PlayerController.PlayerTransform : _weapon.transform;
+            var sampleTransform = _weapon.OwnerContext != null ? _weapon.OwnerContext.PlayerTransform : _weapon.transform;
             var currentPosition = sampleTransform != null ? sampleTransform.position : _weapon.transform.position;
             var now = Time.time;
 
