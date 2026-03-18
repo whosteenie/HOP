@@ -69,11 +69,11 @@ namespace Game.Hopball {
             base.OnNetworkSpawn();
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
             RegisterSessionOwnerCallbacks();
-            EventBus.Subscribe<HopballPickedUpEvent>(OnHopballPickedUpEvent);
-            EventBus.Subscribe<HopballDroppedEvent>(OnHopballDroppedEvent);
-            EventBus.Subscribe<HopballEnergyDepletedEvent>(OnHopballEnergyDepletedEvent);
-            EventBus.Subscribe<HopballRespawnRequestedEvent>(OnHopballRespawnRequestedEvent);
-            EventBus.Subscribe<HopballCollisionIgnoreStateChangedEvent>(OnHopballCollisionIgnoreStateChangedEvent);
+            EventBus.Subscribe<HopballPickedUpEvent>(OnPickedUp);
+            EventBus.Subscribe<HopballDroppedEvent>(OnDropped);
+            EventBus.Subscribe<HopballEnergyDepletedEvent>(OnEnergyDepleted);
+            EventBus.Subscribe<HopballRespawnRequestedEvent>(OnRespawnRequested);
+            EventBus.Subscribe<HopballCollisionIgnoreStateChangedEvent>(OnCollisionIgnoreStateChanged);
             EventBus.Subscribe<ObjectiveTeamScoresRequestedEvent>(OnObjectiveTeamScoresRequested);
 
             if(HasHopballAuthority) {
@@ -103,11 +103,11 @@ namespace Game.Hopball {
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
-            EventBus.Unsubscribe<HopballPickedUpEvent>(OnHopballPickedUpEvent);
-            EventBus.Unsubscribe<HopballDroppedEvent>(OnHopballDroppedEvent);
-            EventBus.Unsubscribe<HopballEnergyDepletedEvent>(OnHopballEnergyDepletedEvent);
-            EventBus.Unsubscribe<HopballRespawnRequestedEvent>(OnHopballRespawnRequestedEvent);
-            EventBus.Unsubscribe<HopballCollisionIgnoreStateChangedEvent>(OnHopballCollisionIgnoreStateChangedEvent);
+            EventBus.Unsubscribe<HopballPickedUpEvent>(OnPickedUp);
+            EventBus.Unsubscribe<HopballDroppedEvent>(OnDropped);
+            EventBus.Unsubscribe<HopballEnergyDepletedEvent>(OnEnergyDepleted);
+            EventBus.Unsubscribe<HopballRespawnRequestedEvent>(OnRespawnRequested);
+            EventBus.Unsubscribe<HopballCollisionIgnoreStateChangedEvent>(OnCollisionIgnoreStateChanged);
             EventBus.Unsubscribe<ObjectiveTeamScoresRequestedEvent>(OnObjectiveTeamScoresRequested);
             _teamAScore.OnValueChanged -= OnTeamAScoreChanged;
             _teamBScore.OnValueChanged -= OnTeamBScoreChanged;
@@ -477,28 +477,28 @@ namespace Game.Hopball {
             }
         }
 
-        private void OnHopballPickedUpEvent(HopballPickedUpEvent evt) {
+        private void OnPickedUp(HopballPickedUpEvent evt) {
             if(evt == null) return;
             OnPlayerPickedUp(evt.PlayerId);
         }
 
-        private void OnHopballDroppedEvent(HopballDroppedEvent evt) {
+        private void OnDropped(HopballDroppedEvent evt) {
             if(evt == null) return;
             OnHopballDropped();
         }
 
-        private void OnHopballEnergyDepletedEvent(HopballEnergyDepletedEvent evt) {
+        private void OnEnergyDepleted(HopballEnergyDepletedEvent evt) {
             if(evt == null) return;
             OnEnergyDepleted(evt.PlayerId, evt.EnergyDepleted);
         }
 
-        private void OnHopballRespawnRequestedEvent(HopballRespawnRequestedEvent evt) {
+        private void OnRespawnRequested(HopballRespawnRequestedEvent evt) {
             if(evt == null || !HasHopballAuthority || CurrentHopballController == null) return;
             if(CurrentHopballController.NetworkObjectId != evt.HopballNetworkObjectId) return;
             RespawnAtNewLocation();
         }
 
-        private void OnHopballCollisionIgnoreStateChangedEvent(HopballCollisionIgnoreStateChangedEvent evt) {
+        private void OnCollisionIgnoreStateChanged(HopballCollisionIgnoreStateChangedEvent evt) {
             if(evt == null || CurrentHopballController == null) return;
             if(CurrentHopballController.NetworkObjectId != evt.HopballNetworkObjectId) return;
             if(!evt.IgnorePlayerCollisions) return;

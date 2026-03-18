@@ -255,17 +255,17 @@ namespace Game.Hopball {
             EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
             EventBus.Subscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
             EventBus.Subscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
-            EventBus.Subscribe<PlayerHopballDeathDropRequestedEvent>(OnPlayerHopballDeathDropRequested);
-            EventBus.Subscribe<PlayerHopballPickupRequestedEvent>(OnPlayerHopballPickupRequested);
-            EventBus.Subscribe<PlayerHopballManualDropRequestedEvent>(OnPlayerHopballManualDropRequested);
+            EventBus.Subscribe<PlayerHopballDeathDropRequestedEvent>(OnDeathDropRequested);
+            EventBus.Subscribe<PlayerHopballPickupRequestedEvent>(OnPickupRequested);
+            EventBus.Subscribe<PlayerHopballManualDropRequestedEvent>(OnManualDropRequested);
             EventBus.Subscribe<PlayerHopballPickupPromptEvaluationRequestedEvent>(
-                OnPlayerHopballPickupPromptEvaluationRequested);
+                OnPickupPromptEvaluationRequested);
             EventBus.Subscribe<PlayerDisconnectFpVisualHideRequestedEvent>(OnPlayerDisconnectFpVisualHideRequested);
-            EventBus.Subscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
+            EventBus.Subscribe<HopballVisualPrewarmRequestedEvent>(OnVisualPrewarmRequested);
             EventBus.Subscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Subscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
-            EventBus.Subscribe<HopballVisualCleanupRequestedEvent>(OnHopballVisualCleanupRequested);
-            EventBus.Subscribe<HopballHolderCleanupRequestedEvent>(OnHopballHolderCleanupRequested);
+            EventBus.Subscribe<HopballVisualCleanupRequestedEvent>(OnVisualCleanupRequested);
+            EventBus.Subscribe<HopballHolderCleanupRequestedEvent>(OnHolderCleanupRequested);
 
             if(_armAnimationEvents == null) return;
             _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
@@ -291,17 +291,17 @@ namespace Game.Hopball {
             EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
             EventBus.Unsubscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
             EventBus.Unsubscribe<WeaponSwitchRequestedEvent>(OnWeaponSwitchRequested);
-            EventBus.Unsubscribe<PlayerHopballDeathDropRequestedEvent>(OnPlayerHopballDeathDropRequested);
-            EventBus.Unsubscribe<PlayerHopballPickupRequestedEvent>(OnPlayerHopballPickupRequested);
-            EventBus.Unsubscribe<PlayerHopballManualDropRequestedEvent>(OnPlayerHopballManualDropRequested);
+            EventBus.Unsubscribe<PlayerHopballDeathDropRequestedEvent>(OnDeathDropRequested);
+            EventBus.Unsubscribe<PlayerHopballPickupRequestedEvent>(OnPickupRequested);
+            EventBus.Unsubscribe<PlayerHopballManualDropRequestedEvent>(OnManualDropRequested);
             EventBus.Unsubscribe<PlayerHopballPickupPromptEvaluationRequestedEvent>(
-                OnPlayerHopballPickupPromptEvaluationRequested);
+                OnPickupPromptEvaluationRequested);
             EventBus.Unsubscribe<PlayerDisconnectFpVisualHideRequestedEvent>(OnPlayerDisconnectFpVisualHideRequested);
-            EventBus.Unsubscribe<HopballVisualPrewarmRequestedEvent>(OnHopballVisualPrewarmRequested);
+            EventBus.Unsubscribe<HopballVisualPrewarmRequestedEvent>(OnVisualPrewarmRequested);
             EventBus.Unsubscribe<HopballEquippedPresentationEvent>(OnHopballEquippedPresentation);
             EventBus.Unsubscribe<HopballDropPresentationEvent>(OnHopballDropPresentation);
-            EventBus.Unsubscribe<HopballVisualCleanupRequestedEvent>(OnHopballVisualCleanupRequested);
-            EventBus.Unsubscribe<HopballHolderCleanupRequestedEvent>(OnHopballHolderCleanupRequested);
+            EventBus.Unsubscribe<HopballVisualCleanupRequestedEvent>(OnVisualCleanupRequested);
+            EventBus.Unsubscribe<HopballHolderCleanupRequestedEvent>(OnHolderCleanupRequested);
             // Unsubscribe from visual state changes
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
             if(_armAnimationEvents != null) {
@@ -342,24 +342,24 @@ namespace Game.Hopball {
             }
         }
 
-        private void OnPlayerHopballDeathDropRequested(PlayerHopballDeathDropRequestedEvent evt) {
+        private void OnDeathDropRequested(PlayerHopballDeathDropRequestedEvent evt) {
             if(evt == null || evt.PlayerOwnerClientId != OwnerClientId) return;
             DropHopballOnDeath();
         }
 
-        private void OnPlayerHopballPickupRequested(PlayerHopballPickupRequestedEvent evt) {
+        private void OnPickupRequested(PlayerHopballPickupRequestedEvent evt) {
             if(evt == null || playerController == null || playerController.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
             TryPickupHopball();
         }
 
-        private void OnPlayerHopballManualDropRequested(PlayerHopballManualDropRequestedEvent evt) {
+        private void OnManualDropRequested(PlayerHopballManualDropRequestedEvent evt) {
             if(evt == null || playerController == null || playerController.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
             DropHopball();
         }
 
-        private void OnPlayerHopballPickupPromptEvaluationRequested(
+        private void OnPickupPromptEvaluationRequested(
             PlayerHopballPickupPromptEvaluationRequestedEvent evt) {
             if(evt == null || playerController == null || playerController.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != playerController.NetworkObjectId) return;
@@ -504,7 +504,7 @@ namespace Game.Hopball {
         /// <summary>
         /// Applies client-local presentation when a hopball equip event is received.
         /// </summary>
-        private void OnHopballVisualPrewarmRequested(HopballVisualPrewarmRequestedEvent _) {
+        private void OnVisualPrewarmRequested(HopballVisualPrewarmRequestedEvent _) {
             PrewarmHopballVisualsIfNeeded();
         }
 
@@ -549,11 +549,11 @@ namespace Game.Hopball {
             }
         }
 
-        private void OnHopballVisualCleanupRequested(HopballVisualCleanupRequestedEvent _) {
+        private void OnVisualCleanupRequested(HopballVisualCleanupRequestedEvent _) {
             CleanupHopballVisuals();
         }
 
-        private void OnHopballHolderCleanupRequested(HopballHolderCleanupRequestedEvent evt) {
+        private void OnHolderCleanupRequested(HopballHolderCleanupRequestedEvent evt) {
             if(evt == null || OwnerClientId != evt.HolderClientId) return;
             RunCleanupAndRestoreWeapons();
         }

@@ -57,7 +57,7 @@ namespace Game.Player.Visual {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             EventBus.Subscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnWorldWeaponRefreshRequested);
-            EventBus.Subscribe<PlayerHolsterShadowRefreshRequestedEvent>(OnPlayerHolsterShadowRefreshRequested);
+            EventBus.Subscribe<PlayerHolsterShadowRefreshRequestedEvent>(OnHolsterShadowRefreshRequested);
 
             // Network-dependent initialization
             // Original behavior: set owner's shadows to ShadowsOnly
@@ -67,7 +67,7 @@ namespace Game.Player.Visual {
 
         public override void OnNetworkDespawn() {
             EventBus.Unsubscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnWorldWeaponRefreshRequested);
-            EventBus.Unsubscribe<PlayerHolsterShadowRefreshRequestedEvent>(OnPlayerHolsterShadowRefreshRequested);
+            EventBus.Unsubscribe<PlayerHolsterShadowRefreshRequestedEvent>(OnHolsterShadowRefreshRequested);
             base.OnNetworkDespawn();
         }
 
@@ -82,7 +82,7 @@ namespace Game.Player.Visual {
             }
         }
 
-        private void OnPlayerHolsterShadowRefreshRequested(PlayerHolsterShadowRefreshRequestedEvent evt) {
+        private void OnHolsterShadowRefreshRequested(PlayerHolsterShadowRefreshRequestedEvent evt) {
             if(evt == null || _playerContext?.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != _playerContext.NetworkObjectId) return;
             UpdateHolsterShadowState();

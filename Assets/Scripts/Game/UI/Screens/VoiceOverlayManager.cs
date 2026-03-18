@@ -32,16 +32,16 @@ namespace Game.UI.Screens {
             _overlayContainer = QOptional<VisualElement>("voice-overlay-container");
 
             // Listen for voice and mute changes through EventBus.
-            EventBus.Unsubscribe<VoiceParticipantSpeechChangedEvent>(OnVoiceParticipantSpeechChangedEvent);
-            EventBus.Subscribe<VoiceParticipantSpeechChangedEvent>(OnVoiceParticipantSpeechChangedEvent);
+            EventBus.Unsubscribe<VoiceParticipantSpeechChangedEvent>(OnParticipantSpeechChanged);
+            EventBus.Subscribe<VoiceParticipantSpeechChangedEvent>(OnParticipantSpeechChanged);
             EventBus.Unsubscribe<VoiceParticipantRemovedEvent>(OnParticipantRemoved);
             EventBus.Subscribe<VoiceParticipantRemovedEvent>(OnParticipantRemoved);
             EventBus.Unsubscribe<VoiceLocalPttStateChangedEvent>(OnLocalPttChanged);
             EventBus.Subscribe<VoiceLocalPttStateChangedEvent>(OnLocalPttChanged);
-            EventBus.Unsubscribe<VoiceOverlayResetEvent>(OnVoiceOverlayResetEvent);
-            EventBus.Subscribe<VoiceOverlayResetEvent>(OnVoiceOverlayResetEvent);
-            EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
-            EventBus.Subscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
+            EventBus.Unsubscribe<VoiceOverlayResetEvent>(OnOverlayReset);
+            EventBus.Subscribe<VoiceOverlayResetEvent>(OnOverlayReset);
+            EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnMuteChangedEvent);
+            EventBus.Subscribe<PlayerMuteChangedEvent>(OnMuteChangedEvent);
 
             // Cache local player ID
             RefreshLocalIdentityContext();
@@ -173,12 +173,12 @@ namespace Game.UI.Screens {
             }
         }
 
-        private void OnPlayerMuteChangedEvent(PlayerMuteChangedEvent evt) {
+        private void OnMuteChangedEvent(PlayerMuteChangedEvent evt) {
             if(evt == null) return;
             OnPlayerMuteChanged(evt.PlayerId, evt.IsMuted);
         }
 
-        private void OnVoiceOverlayResetEvent(VoiceOverlayResetEvent evt) {
+        private void OnOverlayReset(VoiceOverlayResetEvent evt) {
             ResetOverlayEntries();
         }
 
@@ -302,7 +302,7 @@ namespace Game.UI.Screens {
             }
         }
 
-        private void OnVoiceParticipantSpeechChangedEvent(VoiceParticipantSpeechChangedEvent evt) {
+        private void OnParticipantSpeechChanged(VoiceParticipantSpeechChangedEvent evt) {
             if(evt == null) return;
             OnSpeechDetected(evt.PlayerId, evt.DisplayName, evt.IsSpeaking);
         }

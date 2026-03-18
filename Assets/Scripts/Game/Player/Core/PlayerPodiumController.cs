@@ -89,15 +89,15 @@ namespace Game.Player.Core {
         }
 
         private void SubscribeToPostMatchEvents() {
-            EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
-            EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
+            EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPodiumPrepareRequested);
+            EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnResetVelocityRequested);
             EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
             EventBus.Unsubscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
             EventBus.Unsubscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
             EventBus.Unsubscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
             EventBus.Unsubscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
-            EventBus.Subscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
-            EventBus.Subscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
+            EventBus.Subscribe<PostMatchPodiumPrepareRequestedEvent>(OnPodiumPrepareRequested);
+            EventBus.Subscribe<PostMatchResetVelocityRequestedEvent>(OnResetVelocityRequested);
             EventBus.Subscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
             EventBus.Subscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
             EventBus.Subscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
@@ -106,8 +106,8 @@ namespace Game.Player.Core {
         }
 
         private void UnsubscribePostMatchEvents() {
-            EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
-            EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
+            EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPodiumPrepareRequested);
+            EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnResetVelocityRequested);
             EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
             EventBus.Unsubscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
             EventBus.Unsubscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
@@ -118,12 +118,12 @@ namespace Game.Player.Core {
         private bool IsPostMatchTarget(ulong playerClientId) =>
             playerController != null && playerClientId == playerController.OwnerClientId;
 
-        private void OnPostMatchPodiumPrepareRequested(PostMatchPodiumPrepareRequestedEvent evt) {
+        private void OnPodiumPrepareRequested(PostMatchPodiumPrepareRequestedEvent evt) {
             if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
             ForceRespawnForPodiumServer();
         }
 
-        private void OnPostMatchResetVelocityRequested(PostMatchResetVelocityRequestedEvent evt) {
+        private void OnResetVelocityRequested(PostMatchResetVelocityRequestedEvent evt) {
             if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
             ResetVelocityRpc();
         }

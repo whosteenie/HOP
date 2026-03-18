@@ -72,9 +72,9 @@ namespace Game.Social {
              
                 // Listen for SocialSettings changes
                 EventBus.Unsubscribe<SocialSettingsChangedEvent>(OnSocialSettingsChanged);
-                EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
+                EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnMuteChangedEvent);
                 EventBus.Subscribe<SocialSettingsChangedEvent>(OnSocialSettingsChanged);
-                EventBus.Subscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
+                EventBus.Subscribe<PlayerMuteChangedEvent>(OnMuteChangedEvent);
             } catch(Exception e) {
                 Debug.LogException(e);
             }
@@ -82,7 +82,7 @@ namespace Game.Social {
 
         private void OnDestroy() {
             EventBus.Unsubscribe<SocialSettingsChangedEvent>(OnSocialSettingsChanged);
-            EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
+            EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnMuteChangedEvent);
             if(VivoxService.Instance == null) return;
             VivoxService.Instance.ParticipantAddedToChannel -= OnParticipantAddedToChannel;
             VivoxService.Instance.ParticipantRemovedFromChannel -= OnParticipantRemoved;
@@ -460,7 +460,7 @@ namespace Game.Social {
             ApplySettings();
         }
 
-        private void OnPlayerMuteChangedEvent(PlayerMuteChangedEvent evt) {
+        private void OnMuteChangedEvent(PlayerMuteChangedEvent evt) {
             if(evt == null) return;
             OnPlayerMuteChanged(evt.PlayerId, evt.IsMuted);
         }

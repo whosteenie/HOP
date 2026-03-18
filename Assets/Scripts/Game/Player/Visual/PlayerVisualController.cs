@@ -38,11 +38,11 @@ namespace Game.Player.Visual {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            EventBus.Subscribe<PlayerFpWeaponVisualRefreshRequestedEvent>(OnPlayerFpWeaponVisualRefreshRequested);
+            EventBus.Subscribe<PlayerFpWeaponVisualRefreshRequestedEvent>(OnFpWeaponRefreshRequested);
         }
 
         public override void OnNetworkDespawn() {
-            EventBus.Unsubscribe<PlayerFpWeaponVisualRefreshRequestedEvent>(OnPlayerFpWeaponVisualRefreshRequested);
+            EventBus.Unsubscribe<PlayerFpWeaponVisualRefreshRequestedEvent>(OnFpWeaponRefreshRequested);
             base.OnNetworkDespawn();
         }
 
@@ -79,7 +79,7 @@ namespace Game.Player.Visual {
             ApplyMaterialToAllFpArms();
         }
 
-        private void OnPlayerFpWeaponVisualRefreshRequested(PlayerFpWeaponVisualRefreshRequestedEvent evt) {
+        private void OnFpWeaponRefreshRequested(PlayerFpWeaponVisualRefreshRequestedEvent evt) {
             if(evt == null || _playerContext?.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != _playerContext.NetworkObjectId) return;
             if(evt.FpWeaponInstance == null) return;

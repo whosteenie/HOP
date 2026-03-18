@@ -1573,7 +1573,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a0a2527e913d0842b309c656b6a6e9c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimationEvents
-  playerController: {fileID: 0}
+  playerContextSource: {fileID: 0}
   debugAnimationEvents: 0
 --- !u!114 &5706515478969999216
 MonoBehaviour:

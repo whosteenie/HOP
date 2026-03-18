@@ -22,7 +22,7 @@ namespace Game.Player.Core {
             EventBus.Subscribe<PlayerRespawnedEvent>(OnPlayerRespawned);
             EventBus.Subscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
             EventBus.Subscribe<PlayerTeamChangedEvent>(OnPlayerTeamChanged);
-            EventBus.Subscribe<HillOccupancySnapshotRequestedEvent>(OnHillOccupancySnapshotRequested);
+            EventBus.Subscribe<HillOccupancySnapshotRequestedEvent>(OnOccupancySnapshotRequested);
         }
 
         private void OnDisable() {
@@ -30,7 +30,7 @@ namespace Game.Player.Core {
             EventBus.Unsubscribe<PlayerRespawnedEvent>(OnPlayerRespawned);
             EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
             EventBus.Unsubscribe<PlayerTeamChangedEvent>(OnPlayerTeamChanged);
-            EventBus.Unsubscribe<HillOccupancySnapshotRequestedEvent>(OnHillOccupancySnapshotRequested);
+            EventBus.Unsubscribe<HillOccupancySnapshotRequestedEvent>(OnOccupancySnapshotRequested);
             ClearAllOccupancy();
             FlushLocalKingProgression();
         }
@@ -80,7 +80,7 @@ namespace Game.Player.Core {
             RefreshOccupancyFromWorld();
         }
 
-        private void OnHillOccupancySnapshotRequested(HillOccupancySnapshotRequestedEvent evt) {
+        private void OnOccupancySnapshotRequested(HillOccupancySnapshotRequestedEvent evt) {
             if(_player == null || evt == null) return;
             if(_player.IsSpawned == false || _player.IsDead) {
                 ClearOccupancyForHill(evt.HillNetworkObjectId);

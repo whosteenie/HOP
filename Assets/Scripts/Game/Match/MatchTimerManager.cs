@@ -140,19 +140,19 @@ namespace Game.Match {
             EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
             EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
             EventBus.Unsubscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
-            EventBus.Unsubscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
+            EventBus.Unsubscribe<PlayerTagBootstrapStateReportedEvent>(OnTagBootstrapStateReported);
 
             EventBus.Subscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
             EventBus.Subscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
             EventBus.Subscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
-            EventBus.Subscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
+            EventBus.Subscribe<PlayerTagBootstrapStateReportedEvent>(OnTagBootstrapStateReported);
         }
 
         private void UnsubscribeGameplayEvents() {
             EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
             EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
             EventBus.Unsubscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
-            EventBus.Unsubscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
+            EventBus.Unsubscribe<PlayerTagBootstrapStateReportedEvent>(OnTagBootstrapStateReported);
         }
 
         private void RegisterSessionOwnerCallbacks() {
@@ -560,7 +560,7 @@ namespace Game.Match {
             }
         }
 
-        private void OnPlayerTagBootstrapStateReported(PlayerTagBootstrapStateReportedEvent evt) {
+        private void OnTagBootstrapStateReported(PlayerTagBootstrapStateReportedEvent evt) {
             if(evt == null) return;
             _spawnedPlayerClientIds.Add(evt.PlayerClientId);
 
