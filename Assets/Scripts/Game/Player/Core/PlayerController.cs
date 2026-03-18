@@ -1340,13 +1340,18 @@ namespace Game.Player.Core {
         void IPlayerLookContext.UpdateTurnAnimationFromLook(float yawDelta) => UpdateTurnAnimationFromLook(yawDelta);
         bool IPlayerVisualContext.IsPostMatchFlowStarted => PlayerMatchRules.IsPostMatchFlowStarted;
         bool IPlayerVisualContext.IsTagged => tagController != null && tagController.IsTagged.Value;
+        Camera IPlayerVisualContext.WeaponCamera => weaponCamera;
+        CharacterController IPlayerVisualContext.CharacterController => characterController;
 
         Color IPlayerVisualContext.TaggedGlowColor =>
             playerTeamManager != null ? playerTeamManager.TaggedGlow : Color.white;
 
+        LayerMask IPlayerVisualContext.WorldLayer => worldLayer;
+
         NetworkVariable<int> IPlayerVisualContext.JumpAnimationSequence => jumpAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.LandAnimationSequence => landAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.MantleAnimationSequence => mantleAnimationSequence;
+        void IPlayerVisualContext.SetWeaponCameraEnabled(bool enabled) => ((IPlayerCombatContext)this).SetWeaponCameraEnabled(enabled);
 
         NetworkVariable<int> IPlayerMaterialCustomizationContext.PlayerMaterialPacketIndexState =>
             playerMaterialPacketIndex;

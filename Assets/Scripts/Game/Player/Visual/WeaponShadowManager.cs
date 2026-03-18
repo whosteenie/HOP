@@ -1,17 +1,18 @@
 using System;
 using System.Collections.Generic;
 using Diagnostics;
+using Game.Player.Contracts;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
-namespace Game.Player.Core {
+namespace Game.Player.Visual {
     /// <summary>
     /// Dynamically creates shadow-only duplicates of world geometry that cast shadows on the weapon.
     /// Only checks when the player is moving. Uses sphere cast with player radius for accurate shadow detection.
     /// </summary>
     public class WeaponShadowManager : MonoBehaviour {
-        [SerializeField] private PlayerController playerController;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
         
         [Header("Settings")]
         [SerializeField] private float shadowRaycastDistance = 1000f; // Max distance to check for shadows
@@ -26,6 +27,7 @@ namespace Game.Player.Core {
         private CharacterController _characterController;
         private Light _mainLight;
         private LayerMask _worldLayer;
+        private IPlayerVisualContext _playerContext;
         private float _playerRadius; // Cached CharacterController radius for sphere cast
         
         // Current shadow state
@@ -48,19 +50,15 @@ namespace Game.Player.Core {
         }
         
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-            
-            if(playerController == null) {
-                DevLog.LogError("[WeaponShadowManager] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext) || _playerContext == null) {
+                DevLog.LogError("[WeaponShadowManager] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
             }
             
-            _weaponCamera = playerController.WeaponCamera;
-            _characterController = playerController.CharacterController;
-            _worldLayer = playerController.WorldLayer;
+            _weaponCamera = _playerContext.WeaponCamera;
+            _characterController = _playerContext.CharacterController;
+            _worldLayer = _playerContext.WorldLayer;
             
             // Cache player radius for sphere cast
             if(_characterController != null) {

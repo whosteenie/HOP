@@ -3,6 +3,7 @@ using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Combat;
+using Game.Player.Contracts;
 using Game.Player.Visual;
 using Network.Components;
 using Network.Core;
@@ -252,8 +253,9 @@ namespace Game.Player.Core {
                 }
             }
 
-            if(playerController.WeaponCameraController != null) {
-                playerController.WeaponCameraController.SetWeaponCameraEnabled(active);
+            IPlayerVisualContext visualContext = playerController;
+            if(visualContext != null) {
+                visualContext.SetWeaponCameraEnabled(active);
             } else if(playerController.WeaponCamera != null) {
                 playerController.WeaponCamera.enabled = active;
             }

@@ -19,12 +19,15 @@ namespace Game.Player.Contracts {
         Animator PlayerAnimator { get; }
         NetworkAudioRelay AudioRelay { get; }
         CinemachineCamera FpCamera { get; }
+        Camera WeaponCamera { get; }
         WeaponManager WeaponManager { get; }
+        CharacterController CharacterController { get; }
         SkinnedMeshRenderer PlayerMesh { get; }
         GameObject PlayerModelRoot { get; }
         Transform WorldWeaponSocket { get; }
         GameObject[] WorldWeaponPrefabs { get; }
         Color TaggedGlowColor { get; }
+        LayerMask WorldLayer { get; }
         NetworkVariable<bool> NetIsJumping { get; }
         NetworkVariable<bool> NetIsFalling { get; }
         NetworkVariable<bool> NetIsSliding { get; }
@@ -37,5 +40,6 @@ namespace Game.Player.Contracts {
 
         void PlayWalkSound();
         void PlayRunSound();
+        void SetWeaponCameraEnabled(bool enabled);
     }
 }

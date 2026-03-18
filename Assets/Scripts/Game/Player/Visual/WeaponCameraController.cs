@@ -1,20 +1,22 @@
 using Diagnostics;
+using Game.Player.Contracts;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-namespace Game.Player.Core {
+namespace Game.Player.Visual {
     /// <summary>
     /// Manages a separate camera that renders only the weapon layer, ensuring weapons always render above world/enemy geometry.
     /// </summary>
     [DefaultExecutionOrder(-90)]
     public class WeaponCameraController : MonoBehaviour {
-        [SerializeField] private PlayerController playerController;
+        [HideInInspector, SerializeField] private MonoBehaviour playerContextSource;
 
         [Header("Camera Setup")]
         private Camera _weaponCamera;
         private Camera _mainSceneCamera;
         private CinemachineCamera _fpCamera;
+        private IPlayerVisualContext _playerContext;
         [SerializeField] private bool syncWeaponFovWithFpCamera;
         [SerializeField, Range(1f, 179f)] private float fixedWeaponCameraFov = 70f;
 
@@ -32,25 +34,21 @@ namespace Game.Player.Core {
         }
 
         private void ValidateComponents() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(playerController == null) {
-                DevLog.LogError("[WeaponCameraController] PlayerController not found!");
+            if(!PlayerContractResolver.TryResolve(this, ref playerContextSource, out _playerContext) || _playerContext == null) {
+                DevLog.LogError("[WeaponCameraController] IPlayerVisualContext not found!");
                 enabled = false;
                 return;
             }
 
-            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
-            if(_weaponCamera == null) _weaponCamera = playerController.WeaponCamera;
+            if(_fpCamera == null) _fpCamera = _playerContext.FpCamera;
+            if(_weaponCamera == null) _weaponCamera = _playerContext.WeaponCamera;
 
             SetupWeaponCamera();
         }
 
         private void SetupWeaponCamera() {
             if(_weaponCamera == null) {
-                DevLog.LogError("[WeaponCameraController] WeaponCamera reference missing on PlayerController.");
+                DevLog.LogError("[WeaponCameraController] WeaponCamera reference missing on visual context.");
                 return;
             }
 
