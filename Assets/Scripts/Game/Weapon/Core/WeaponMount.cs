@@ -167,7 +167,7 @@ namespace Game.Weapon.Core {
                     return true;
                 }
                 case { IsOwner: true }: {
-                    if(!TryGetRequiredOwnerMuzzleTransform(out var ownerMuzzleTransform, "TryGetMuzzlePosition")) {
+                    if(!TryGetOwnerMuzzleTransform(out var ownerMuzzleTransform, "TryGetMuzzlePosition")) {
                         return false;
                     }
 
@@ -192,7 +192,7 @@ namespace Game.Weapon.Core {
             }
 
             if(!ownerContext.IsSniperOverlayActive) {
-                if(!TryGetRequiredOwnerMuzzleTransform(out var muzzleTransform, "TryGetMuzzlePositionFromCamera")) {
+                if(!TryGetOwnerMuzzleTransform(out var muzzleTransform, "TryGetMuzzlePositionFromCamera")) {
                     return false;
                 }
 
@@ -216,11 +216,11 @@ namespace Game.Weapon.Core {
             }
 
             tracerStartPosition = muzzlePosition;
-            TryRemapOwnerWeaponCameraPointToMainCamera(muzzlePosition, out tracerStartPosition);
+            RemapWeaponCameraPointToMainCamera(muzzlePosition, out tracerStartPosition);
             return true;
         }
 
-        public bool TryGetRequiredOwnerMuzzleTransform(out Transform muzzleTransform, string context, bool logErrors = true) {
+        public bool TryGetOwnerMuzzleTransform(out Transform muzzleTransform, string context, bool logErrors = true) {
             muzzleTransform = null;
 
             var ownerContext = _weapon.OwnerContext;
@@ -374,7 +374,7 @@ namespace Game.Weapon.Core {
             return true;
         }
 
-        private void TryRemapOwnerWeaponCameraPointToMainCamera(Vector3 sourcePoint, out Vector3 remappedPoint) {
+        private void RemapWeaponCameraPointToMainCamera(Vector3 sourcePoint, out Vector3 remappedPoint) {
             remappedPoint = sourcePoint;
             var ownerContext = _weapon.OwnerContext;
             if(ownerContext == null) return;

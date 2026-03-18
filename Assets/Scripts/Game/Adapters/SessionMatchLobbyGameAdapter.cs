@@ -63,36 +63,36 @@ namespace Game.Adapters {
         };
 
         private static float ResolveBackfillScoreProgress(string mode) => mode switch {
-            "Hopball" => ResolveHopballBackfillScoreProgress(),
+            "Hopball" => ResolveHopballScoreProgress(),
             "KOTH" => ResolveKothBackfillScoreProgress(),
-            "Team Deathmatch" => ResolveLeadingTeamObjectiveOrKillProgress(teamMode: true),
-            "Deathmatch" => ResolveLeadingTeamObjectiveOrKillProgress(teamMode: false),
+            "Team Deathmatch" => ResolveKillProgress(teamMode: true),
+            "Deathmatch" => ResolveKillProgress(teamMode: false),
             "Gun Tag" => 0f,
             _ => 0f
         };
 
-        private static float ResolveHopballBackfillScoreProgress() {
+        private static float ResolveHopballScoreProgress() {
             var hopballManager = HopballSpawnManager.Instance;
             return hopballManager == null
                 ? 0f
-                : ResolveLeadingTeamObjectiveProgress(hopballManager.GetTeamAScore(), hopballManager.GetTeamBScore());
+                : ResolveObjectiveProgress(hopballManager.GetTeamAScore(), hopballManager.GetTeamBScore());
         }
 
         private static float ResolveKothBackfillScoreProgress() {
             var kothManager = KingOfTheHillManager.Instance;
             return kothManager == null
                 ? 0f
-                : ResolveLeadingTeamObjectiveProgress(kothManager.GetTeamAScore(), kothManager.GetTeamBScore());
+                : ResolveObjectiveProgress(kothManager.GetTeamAScore(), kothManager.GetTeamBScore());
         }
 
-        private static float ResolveLeadingTeamObjectiveProgress(int teamAScore, int teamBScore) {
+        private static float ResolveObjectiveProgress(int teamAScore, int teamBScore) {
             var scoreToWin = MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : 0;
             if(scoreToWin <= 0) return 0f;
             var leadingScore = Mathf.Max(teamAScore, teamBScore);
             return leadingScore / (float)Mathf.Max(1, scoreToWin);
         }
 
-        private static float ResolveLeadingTeamObjectiveOrKillProgress(bool teamMode) {
+        private static float ResolveKillProgress(bool teamMode) {
             var scoreToWin = MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : 0;
             if(scoreToWin <= 0) return 0f;
 

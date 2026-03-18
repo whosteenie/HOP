@@ -1082,11 +1082,11 @@ namespace Network.Session {
                 callbacks.LobbyChanged += changes =>
                     ctx.LaunchSessionTask(HandlePartyLobbyChangedAsync(ctx, snapshotActions, changes), "PartyLobbyEvents/LobbyChanged");
                 callbacks.LobbyDeleted += () =>
-                    ctx.LaunchSessionTask(HandlePartyLobbyDeletedOrKickedAsync(ctx, "LobbyDeleted"), "PartyLobbyEvents/LobbyDeleted");
+                    ctx.LaunchSessionTask(OnPartyLobbyDeletedOrKickedAsync(ctx, "LobbyDeleted"), "PartyLobbyEvents/LobbyDeleted");
                 callbacks.KickedFromLobby += () =>
-                    ctx.LaunchSessionTask(HandlePartyLobbyDeletedOrKickedAsync(ctx, "KickedFromLobby"), "PartyLobbyEvents/KickedFromLobby");
+                    ctx.LaunchSessionTask(OnPartyLobbyDeletedOrKickedAsync(ctx, "KickedFromLobby"), "PartyLobbyEvents/KickedFromLobby");
                 callbacks.LobbyEventConnectionStateChanged += state =>
-                    ctx.LaunchSessionTask(HandlePartyLobbyEventConnectionStateChangedAsync(ctx, state), "PartyLobbyEvents/ConnectionStateChanged");
+                    ctx.LaunchSessionTask(OnPartyLobbyConnectionStateChangedAsync(ctx, state), "PartyLobbyEvents/ConnectionStateChanged");
 
                 _partyLobbyEvents = await LobbyService.Instance.SubscribeToLobbyEventsAsync(targetLobbyId, callbacks);
                 PartyLobbyEventsLobbyId = targetLobbyId;
@@ -1127,7 +1127,7 @@ namespace Network.Session {
                 callbacks.KickedFromLobby += () =>
                     ctx.LaunchSessionTask(HandleMatchLobbyDeletedOrKickedAsync(ctx, snapshotActions, actions, "KickedFromLobby"), "MatchLobbyEvents/KickedFromLobby");
                 callbacks.LobbyEventConnectionStateChanged += state =>
-                    ctx.LaunchSessionTask(HandleMatchLobbyEventConnectionStateChangedAsync(ctx, state), "MatchLobbyEvents/ConnectionStateChanged");
+                    ctx.LaunchSessionTask(OnMatchLobbyConnectionStateChangedAsync(ctx, state), "MatchLobbyEvents/ConnectionStateChanged");
 
                 _matchLobbyEvents = await LobbyService.Instance.SubscribeToLobbyEventsAsync(targetLobbyId, callbacks);
                 MatchLobbyEventsLobbyId = targetLobbyId;
@@ -1311,7 +1311,7 @@ namespace Network.Session {
         }
 
         /// <summary>Handles party lobby deleted or kicked (clear cache, unsubscribe, notify).</summary>
-        private async UniTask HandlePartyLobbyDeletedOrKickedAsync(ISessionContext ctx, string reason) {
+        private async UniTask OnPartyLobbyDeletedOrKickedAsync(ISessionContext ctx, string reason) {
             await UniTask.SwitchToMainThread();
             if(Debug.isDebugBuild)
                 DevLog.LogWarning($"[SessionManager] Party lobby event: {reason}. Clearing local party lobby cache.");
@@ -1323,7 +1323,7 @@ namespace Network.Session {
         }
 
         /// <summary>Handles party lobby connection state (log, resubscribe on error/unsynced).</summary>
-        private async UniTask HandlePartyLobbyEventConnectionStateChangedAsync(ISessionContext ctx, LobbyEventConnectionState state) {
+        private async UniTask OnPartyLobbyConnectionStateChangedAsync(ISessionContext ctx, LobbyEventConnectionState state) {
             await UniTask.SwitchToMainThread();
             if(Debug.isDebugBuild && ShouldEmitThrottledLogForConnectionState()) {
                 DevLog.Log(
@@ -1371,7 +1371,7 @@ namespace Network.Session {
         }
 
         /// <summary>Handles match lobby connection state (log, resubscribe on error/unsynced).</summary>
-        private async UniTask HandleMatchLobbyEventConnectionStateChangedAsync(ISessionContext ctx, LobbyEventConnectionState state) {
+        private async UniTask OnMatchLobbyConnectionStateChangedAsync(ISessionContext ctx, LobbyEventConnectionState state) {
             await UniTask.SwitchToMainThread();
             if(Debug.isDebugBuild && ShouldEmitThrottledLogForConnectionState()) {
                 DevLog.Log(

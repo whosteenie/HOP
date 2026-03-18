@@ -77,7 +77,7 @@ namespace Game.Player.Visual {
             // Find main directional light
             _mainLight = RenderSettings.sun;
             if(_mainLight == null) {
-                _mainLight = TryResolveDirectionalLightFromSceneHierarchy();
+                _mainLight = TryResolveDirectionalLight();
             }
             
             if(_mainLight == null) {
@@ -85,7 +85,7 @@ namespace Game.Player.Visual {
             }
         }
 
-        private static Light TryResolveDirectionalLightFromSceneHierarchy() {
+        private static Light TryResolveDirectionalLight() {
             var activeScene = SceneManager.GetActiveScene();
             if(!activeScene.IsValid()) return null;
 

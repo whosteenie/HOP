@@ -63,15 +63,15 @@ namespace Game.Player.Visual {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             InvalidateCache();
-            EventBus.Subscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnPlayerWorldWeaponPresentationRefreshRequested);
+            EventBus.Subscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnWorldWeaponRefreshRequested);
         }
 
         public override void OnNetworkDespawn() {
-            EventBus.Unsubscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnPlayerWorldWeaponPresentationRefreshRequested);
+            EventBus.Unsubscribe<PlayerWorldWeaponPresentationRefreshRequestedEvent>(OnWorldWeaponRefreshRequested);
             base.OnNetworkDespawn();
         }
 
-        private void OnPlayerWorldWeaponPresentationRefreshRequested(PlayerWorldWeaponPresentationRefreshRequestedEvent evt) {
+        private void OnWorldWeaponRefreshRequested(PlayerWorldWeaponPresentationRefreshRequestedEvent evt) {
             if(evt == null || _playerContext?.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != _playerContext.NetworkObjectId) return;
             SetWorldWeaponRenderersEnabled(true);

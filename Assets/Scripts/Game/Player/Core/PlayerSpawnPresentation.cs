@@ -66,7 +66,7 @@ namespace Game.Player.Core {
 
             _player.primaryWeaponIndex.Value = GameSettings.Data.player.primaryWeaponIndex;
             _player.secondaryWeaponIndex.Value = GameSettings.Data.player.secondaryWeaponIndex;
-            _player.LoadMaterialCustomizationFromPrefsForSpawn();
+            _player.LoadMaterialPrefsForSpawn();
 
             EventBus.Publish(new LocalPlayerReadyEvent(_player.OwnerClientId));
 

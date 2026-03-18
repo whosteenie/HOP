@@ -58,9 +58,9 @@ namespace Game.Player.Core {
                 characterController.enabled = false;
             }
 
-            _player.ClearTriggerOobCountdownFromPresentation();
+            _player.ClearOobCountdownFromPresentation();
             if(_player.IsOwner) {
-                _player.HideTriggerOobCountdownLocalFromPresentation();
+                _player.HideLocalOobCountdown();
             }
         }
 

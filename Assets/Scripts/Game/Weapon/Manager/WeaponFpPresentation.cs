@@ -18,7 +18,7 @@ namespace Game.Weapon.Manager {
             return _root.FpWeaponInstancesRef[_root.CurrentWeaponIndexInternal];
         }
 
-        public GameObject GetFpWeaponHolderRootForDisconnect() {
+        public GameObject GetFpWeaponRootForDisconnect() {
             var fpWeapon = GetCurrentFpWeapon();
             if(fpWeapon == null || !fpWeapon.activeSelf) return null;
             var holderRoot = ResolveFpHolderRoot(fpWeapon);
@@ -159,7 +159,7 @@ namespace Game.Weapon.Manager {
                 skinnedRenderer.shadowCastingMode = ShadowCastingMode.Off;
             }
 
-            _root.RequestOwnerFpWeaponVisualRefreshInternal(fpWeaponInstance);
+            _root.RequestFpVisualRefreshInternal(fpWeaponInstance);
         }
 
         private void ResolveKinemationViewmodelPose(KinemationWeaponBinding binding, out Vector3 localPosition,

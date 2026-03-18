@@ -1232,7 +1232,7 @@ namespace Game.Hopball {
         /// </summary>
         private void ShowWeapons() {
             if(_weaponManager == null) return;
-            _weaponManager.RestoreCurrentWeaponPresentationAfterHopballDrop();
+            _weaponManager.RestoreAfterHopballDrop();
         }
 
         // ========================================================================

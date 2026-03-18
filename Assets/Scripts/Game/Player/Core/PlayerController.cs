@@ -306,9 +306,9 @@ namespace Game.Player.Core {
         internal void BeginIdentitySyncFromSpawn(ulong localSteamId, string ugsPlayerId, string playerDisplayName) =>
             BeginIdentitySync(localSteamId, ugsPlayerId, playerDisplayName);
 
-        internal void LoadMaterialCustomizationFromPrefsForSpawn() => LoadMaterialCustomizationFromPrefs();
-        internal void ClearTriggerOobCountdownFromPresentation() => ClearTriggerOobCountdownServer();
-        internal void HideTriggerOobCountdownLocalFromPresentation() => HideTriggerOobCountdownLocal();
+        internal void LoadMaterialPrefsForSpawn() => LoadMaterialCustomizationFromPrefs();
+        internal void ClearOobCountdownFromPresentation() => ClearTriggerOobCountdownServer();
+        internal void HideLocalOobCountdown() => HideTriggerOobCountdownLocal();
 
         private void ResetLookPitchFromRespawn() {
             if(lookController != null) {

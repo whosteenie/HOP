@@ -188,12 +188,12 @@ namespace Game.Player.Visual {
             CacheLookPitchSpineProxy();
             DestroyOrphanedShotPreviewObjects();
             if(!Application.isPlaying) {
-                CaptureLookPitchSpineProxyOffsetFromScene();
+                CaptureLookPitchProxy();
                 QueueDeferredApplyInEditor();
                 return;
             }
 
-            ApplyCapturedLookPitchSpineProxyOffsetIfAvailable();
+            ApplyLookPitchProxyIfAvailable();
             ApplyNow(forceAnimationPoseRefresh: true);
         }
 
@@ -218,7 +218,7 @@ namespace Game.Player.Visual {
             fakeVelocityMagnitude = Mathf.Max(0f, fakeVelocityMagnitude);
             trailVelocityMultiplier = Mathf.Max(0f, trailVelocityMultiplier);
             CacheLookPitchSpineProxy(forceRefresh: true);
-            CaptureLookPitchSpineProxyOffsetFromScene();
+            CaptureLookPitchProxy();
             QueueDeferredApplyInEditor();
         }
 
@@ -241,7 +241,7 @@ namespace Game.Player.Visual {
             }
 
             // Re-apply after animator evaluation so look offsets match final frame pose.
-            ApplyCapturedLookPitchSpineProxyOffsetIfAvailable();
+            ApplyLookPitchProxyIfAvailable();
             ApplyLookPitch(forceRefreshBaseFromCurrentPose: _pendingLookBaseRefresh);
             ApplyLookPitchProxyToOriginalSpine();
             ApplyShotSimulation();
@@ -284,7 +284,7 @@ namespace Game.Player.Visual {
             hasCapturedLookPitchSpineProxyOffset = true;
 
             _pendingLookBaseRefresh = true;
-            ApplyCapturedLookPitchSpineProxyOffsetIfAvailable();
+            ApplyLookPitchProxyIfAvailable();
             ApplyLookPitch(forceRefreshBaseFromCurrentPose: true);
             ApplyLookPitchProxyToOriginalSpine();
             _pendingLookBaseRefresh = false;
@@ -293,7 +293,7 @@ namespace Game.Player.Visual {
         [ContextMenu("Capture Spine Proxy Offset")]
         public void CaptureSpineProxyOffsetNow() {
             if(Application.isPlaying) return;
-            CaptureLookPitchSpineProxyOffsetFromScene();
+            CaptureLookPitchProxy();
             if(!hasCapturedLookPitchSpineProxyOffset) return;
 
             DevLog.Log(
@@ -331,7 +331,7 @@ namespace Game.Player.Visual {
                 ApplyTrailPreview();
             }
             ApplyWeaponVisuals();
-            ApplyCapturedLookPitchSpineProxyOffsetIfAvailable();
+            ApplyLookPitchProxyIfAvailable();
             ApplyLookPitch(forceRefreshBaseFromCurrentPose: _pendingLookBaseRefresh);
             ApplyLookPitchProxyToOriginalSpine();
             _animationPoseUpdatedThisApply = false;
@@ -1592,11 +1592,14 @@ namespace Game.Player.Visual {
         }
 
         private void RestoreShotMuzzleLightIntensities() {
-            RestoreShotMuzzleLightIntensityForOptions(primaryOptions);
-            RestoreShotMuzzleLightIntensityForOptions(secondaryOptions);
+            RestoreMuzzleLightIntensity(primaryOptions);
+            RestoreMuzzleLightIntensity(secondaryOptions);
         }
 
-        private void RestoreShotMuzzleLightIntensityForOptions(WeaponVisualOption[] options) {
+        /// <summary>
+        /// Restores the authored muzzle light intensity after preview overrides.
+        /// </summary>
+        private void RestoreMuzzleLightIntensity(WeaponVisualOption[] options) {
             if(options == null) return;
             foreach(var option in options) {
                 if(option?.shotMuzzleLights == null) continue;
@@ -1839,7 +1842,7 @@ namespace Game.Player.Visual {
                 : null;
         }
 
-        private void CaptureLookPitchSpineProxyOffsetFromScene() {
+        private void CaptureLookPitchProxy() {
             if(Application.isPlaying) return;
 
             CacheLookPitchSpineProxy();
@@ -1858,7 +1861,10 @@ namespace Game.Player.Visual {
             hasCapturedLookPitchSpineProxyOffset = true;
         }
 
-        private void ApplyCapturedLookPitchSpineProxyOffsetIfAvailable() {
+        /// <summary>
+        /// Reapplies the cached proxy offset after mannequin setup rebuilds the rig.
+        /// </summary>
+        private void ApplyLookPitchProxyIfAvailable() {
             if(!hasCapturedLookPitchSpineProxyOffset) return;
 
             CacheLookPitchSpineProxy();

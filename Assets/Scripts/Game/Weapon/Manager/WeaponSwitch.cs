@@ -71,7 +71,7 @@ namespace Game.Weapon.Manager {
             }
 
             if(newIndex == _root.CurrentWeaponIndexInternal && isHoldingHopball) {
-                _root.RestoreCurrentWeaponPresentationAfterHopballDrop();
+                _root.RestoreAfterHopballDrop();
                 TriggerPullOutAnimation();
                 return;
             }
@@ -431,7 +431,7 @@ namespace Game.Weapon.Manager {
             _root.EnsureWorldWeaponShadowStateInternal();
         }
 
-        public void RestoreCurrentWeaponPresentationAfterHopballDrop() {
+        public void RestoreAfterHopballDrop() {
             if(_root.CurrentWeaponIndexInternal < 0 || _root.CurrentWeaponIndexInternal >= _root.FpWeaponInstancesRef.Count) {
                 return;
             }

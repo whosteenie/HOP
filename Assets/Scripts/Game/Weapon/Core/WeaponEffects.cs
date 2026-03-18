@@ -18,7 +18,7 @@ namespace Game.Weapon.Core {
             _weapon.PlayShootAnimationServerRpc();
 
             if(_weapon.CurrentWeaponData != null && _weapon.CurrentWeaponData.muzzleFlashPrefab != null) {
-                if(_weapon.TryGetRequiredOwnerMuzzleTransformInternal(out var muzzleTransform, "PlayLocalMuzzleFlash")) {
+                if(_weapon.TryGetOwnerMuzzleTransformInternal(out var muzzleTransform, "PlayLocalMuzzleFlash")) {
                     if(_weapon.KinDriver != null) {
                         var preferredDirection = Vector3.zero;
                         var fpCameraTransform = _weapon.OwnerContext != null ? _weapon.OwnerContext.FpCameraTransform : null;
@@ -161,7 +161,7 @@ namespace Game.Weapon.Core {
         }
 
         public void PlayReloadEffects() {
-            PlayReloadAnimationForCurrentWeapon();
+            PlayReloadAnimation();
             _weapon.PlayReloadAnimationServerRpc();
 
             if(ShouldSuppressLegacyReloadSound()) return;
@@ -245,7 +245,7 @@ namespace Game.Weapon.Core {
             if(_weapon.KinDriver == null) return;
             if(_weapon.CurrentWeaponData == null || _weapon.CurrentWeaponData.muzzleFlashPrefab == null) return;
 
-            if(!_weapon.TryGetRequiredOwnerMuzzleTransformInternal(out var muzzleTransform, "PrewarmKinemationMuzzleFx",
+            if(!_weapon.TryGetOwnerMuzzleTransformInternal(out var muzzleTransform, "PrewarmKinemationMuzzleFx",
                    logErrors: false)) {
                 return;
             }
@@ -269,7 +269,7 @@ namespace Game.Weapon.Core {
             _weapon.KinDriver.PlayFireAnimation(authoritativeAmmoBeforeShot);
         }
 
-        private void PlayReloadAnimationForCurrentWeapon() {
+        private void PlayReloadAnimation() {
             if(_weapon.KinDriver != null) {
                 _weapon.KinDriver.PlayReloadAnimation();
             }
@@ -386,7 +386,7 @@ namespace Game.Weapon.Core {
             }
 
             var shotDirection = (hitPoint - position) / distance;
-            var inheritedPerpendicularVelocity = ComputeTracerInheritedPerpendicularVelocity(shooterVelocity, shotDirection);
+            var inheritedLateralVelocity = ComputeTracerLateralVelocity(shooterVelocity, shotDirection);
 
             var remainingDistance = distance;
             var elapsed = 0f;
@@ -395,7 +395,7 @@ namespace Game.Weapon.Core {
                 var t = 1f - remainingDistance / distance;
                 var basePosition = Vector3.Lerp(position, hitPoint, t);
                 var fade = Mathf.Pow(1f - Mathf.Clamp01(t), Weapon.TracerPerpendicularVelocityFadeExponent);
-                var offset = inheritedPerpendicularVelocity * (elapsed * fade);
+                var offset = inheritedLateralVelocity * (elapsed * fade);
                 trail.transform.position = basePosition + offset;
                 var dt = Time.deltaTime;
                 remainingDistance -= Weapon.BulletSpeed * dt;
@@ -452,7 +452,7 @@ namespace Game.Weapon.Core {
             return null;
         }
 
-        private static Vector3 ComputeTracerInheritedPerpendicularVelocity(Vector3 shooterVelocity, Vector3 shotDirection) {
+        private static Vector3 ComputeTracerLateralVelocity(Vector3 shooterVelocity, Vector3 shotDirection) {
             if(shooterVelocity.sqrMagnitude <= 0.0001f || shotDirection.sqrMagnitude <= 0.0001f) {
                 return Vector3.zero;
             }

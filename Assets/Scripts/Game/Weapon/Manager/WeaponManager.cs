@@ -244,17 +244,17 @@ namespace Game.Weapon.Manager {
         WeaponData IKinWeaponRuntimeContext.GetCurrentWeaponData() => CurrentWeaponInternal != null ? CurrentWeaponInternal.CurrentWeaponData : null;
         public void TriggerPullOutAnimation() => _switch.TriggerPullOutAnimation();
         public void CancelPendingPullOutForPostMatch() => _switch.CancelPendingPullOutForPostMatch();
-        public void RestoreCurrentWeaponPresentationAfterHopballDrop() => _switch.RestoreCurrentWeaponPresentationAfterHopballDrop();
+        public void RestoreAfterHopballDrop() => _switch.RestoreAfterHopballDrop();
         public void ProcessWeaponSwitchRequest(int newIndex) => _switch.ProcessWeaponSwitchRequest(newIndex);
         public GameObject GetCurrentFpWeapon() => _fpPresentation != null ? _fpPresentation.GetCurrentFpWeapon() : null;
-        public GameObject GetFpWeaponHolderRootForDisconnect() =>
-            _fpPresentation.GetFpWeaponHolderRootForDisconnect();
+        public GameObject GetFpWeaponRootForDisconnect() =>
+            _fpPresentation.GetFpWeaponRootForDisconnect();
         public void RefreshOwnerFpWeaponVisuals() {
             if(!IsOwner || OwnerContext == null) return;
 
             foreach(var fpWeaponInstance in FpWeaponInstancesRef) {
                 if(fpWeaponInstance == null) continue;
-                RequestOwnerFpWeaponVisualRefreshInternal(fpWeaponInstance);
+                RequestFpVisualRefreshInternal(fpWeaponInstance);
             }
         }
 
@@ -460,7 +460,7 @@ namespace Game.Weapon.Manager {
             EventBus.Publish(new PlayerHolsterShadowRefreshRequestedEvent(OwnerContext.NetworkObjectId));
         }
 
-        internal void RequestOwnerFpWeaponVisualRefreshInternal(GameObject fpWeaponInstance) {
+        internal void RequestFpVisualRefreshInternal(GameObject fpWeaponInstance) {
             if(!IsOwner || OwnerContext?.NetworkObject == null || fpWeaponInstance == null) return;
             EventBus.Publish(new PlayerFpWeaponVisualRefreshRequestedEvent(OwnerContext.NetworkObjectId, fpWeaponInstance));
         }

@@ -155,13 +155,13 @@ namespace Game.Player.Input {
             EventBus.Unsubscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
             EventBus.Unsubscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
             EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
-            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
+            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnSniperOverlayDisableRequested);
             EventBus.Subscribe<BindingsAppliedEvent>(OnBindingsApplied);
             EventBus.Subscribe<PauseMenuStateChangedEvent>(OnPauseMenuStateChanged);
             EventBus.Subscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
             EventBus.Subscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
             EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
-            EventBus.Subscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
+            EventBus.Subscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnSniperOverlayDisableRequested);
             RefreshCachedScrollBindings();
         }
 
@@ -174,7 +174,7 @@ namespace Game.Player.Input {
                 WeaponManager.InitializeWeapons();
 
             if(IsOwner && WeaponManager != null) {
-                StartCoroutine(RefreshOwnerFpWeaponVisualsDeferred());
+                StartCoroutine(RefreshFpWeaponVisualsNextFrame());
             }
 
             if(IsOwner && WeaponManager != null) {
@@ -214,7 +214,7 @@ namespace Game.Player.Input {
 
         private void OnDisable() {
             this.UnsubscribeFromEventBus();
-            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
+            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnSniperOverlayDisableRequested);
             _queuedWeaponCycleOffset = 0;
             _jumpBtnDown = false;
             if(_deferredAmmoHudRefreshRoutine != null) {
@@ -234,7 +234,7 @@ namespace Game.Player.Input {
             ApplyHopballInteractPrompt(false, "PRESS INTERACT");
         }
 
-        private void OnPostMatchSniperOverlayDisableRequested(PostMatchSniperOverlayDisableRequestedEvent evt) {
+        private void OnSniperOverlayDisableRequested(PostMatchSniperOverlayDisableRequestedEvent evt) {
             if(evt == null || !IsOwner || evt.PlayerClientId != OwnerClientId) return;
             ForceDisableSniperOverlay(evt.PlayZoomSound);
         }
@@ -258,7 +258,7 @@ namespace Game.Player.Input {
             _deferredAmmoHudRefreshRoutine = null;
         }
 
-        private IEnumerator RefreshOwnerFpWeaponVisualsDeferred() {
+        private IEnumerator RefreshFpWeaponVisualsNextFrame() {
             yield return null;
 
             if(IsOwner && WeaponManager != null) {

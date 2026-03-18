@@ -474,9 +474,9 @@ namespace Game.Weapon.Core {
                 logErrors);
         }
 
-        internal bool TryGetRequiredOwnerMuzzleTransformInternal(out Transform muzzleTransform, string context,
+        internal bool TryGetOwnerMuzzleTransformInternal(out Transform muzzleTransform, string context,
             bool logErrors = true) {
-            return _mount.TryGetRequiredOwnerMuzzleTransform(out muzzleTransform, context, logErrors);
+            return _mount.TryGetOwnerMuzzleTransform(out muzzleTransform, context, logErrors);
         }
 
         internal bool TryGetOwnerTracerStartPositionInternal(out Vector3 tracerStartPosition) {

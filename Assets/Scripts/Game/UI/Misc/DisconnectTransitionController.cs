@@ -63,7 +63,7 @@ namespace Game.UI.Misc {
             var weaponManager = player.WeaponManager;
             if(weaponManager == null) { if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] FAIL: weaponManager null"); return false; }
 
-            var holderRoot = weaponManager.GetFpWeaponHolderRootForDisconnect();
+            var holderRoot = weaponManager.GetFpWeaponRootForDisconnect();
             if(holderRoot == null) { if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] FAIL: holderRoot null (no FP weapon?)"); return false; }
 
             var mainCamera = Camera.main;
