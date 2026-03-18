@@ -39,45 +39,44 @@ namespace Diagnostics {
 
         private void OnComponentNotFound(ComponentNotFoundEvent evt) {
             if(!logComponentNotFound) return;
-            Debug.LogError($"[DebugEventLogger] Component Not Found: {evt.ComponentType} on {evt.GameObjectName} " +
-                          $"(Context: {evt.Context})");
+            DevLog.LogError($"[DebugEventLogger] Component Not Found: {evt.ComponentType} on {evt.GameObjectName} " +
+                            $"(Context: {evt.Context})");
         }
 
         private void OnNetworkObjectReferenceFailed(NetworkObjectReferenceFailedEvent evt) {
             if(!logNetworkObjectReferenceFailed) return;
-            Debug.LogWarning($"[DebugEventLogger] NetworkObjectReference Failed: ClientId={evt.ClientId}, " +
-                           $"Reason={evt.Reason} (Context: {evt.Context})");
+            DevLog.LogWarning($"[DebugEventLogger] NetworkObjectReference Failed: ClientId={evt.ClientId}, " +
+                              $"Reason={evt.Reason} (Context: {evt.Context})");
         }
 
         private void OnSingletonNotAvailable(SingletonNotAvailableEvent evt) {
             if(!logSingletonNotAvailable) return;
-            Debug.LogWarning($"[DebugEventLogger] Singleton Not Available: {evt.SingletonType} " +
-                           $"(Context: {evt.Context})");
+            DevLog.LogWarning($"[DebugEventLogger] Singleton Not Available: {evt.SingletonType} " +
+                              $"(Context: {evt.Context})");
         }
 
         private void OnCriticalError(CriticalErrorEvent evt) {
             if(!logCriticalError) return;
             var message = $"[DebugEventLogger] Critical Error: {evt.ErrorMessage} (Context: {evt.Context})";
             if(evt.Exception != null) {
-                Debug.LogError(message + $"\nException: {evt.Exception}", this);
+                DevLog.LogError(message + $"\nException: {evt.Exception}", this);
             } else {
-                Debug.LogError(message + $"\nStackTrace: {evt.StackTrace}", this);
+                DevLog.LogError(message + $"\nStackTrace: {evt.StackTrace}", this);
             }
         }
 
         private void OnNetworkRpcFailed(NetworkRpcFailedEvent evt) {
             if(!logNetworkRpcFailed) return;
-            Debug.LogWarning($"[DebugEventLogger] Network RPC Failed: {evt.RpcName} to ClientId={evt.TargetClientId}, " +
-                           $"Reason={evt.Reason}");
+            DevLog.LogWarning($"[DebugEventLogger] Network RPC Failed: {evt.RpcName} to ClientId={evt.TargetClientId}, " +
+                              $"Reason={evt.Reason}");
         }
 
         private void OnGameObjectNotFound(GameObjectNotFoundEvent evt) {
             if(!logGameObjectNotFound) return;
-            Debug.LogError($"[DebugEventLogger] GameObject Not Found: {evt.GameObjectName} " +
-                          $"(Context: {evt.Context})");
+            DevLog.LogError($"[DebugEventLogger] GameObject Not Found: {evt.GameObjectName} " +
+                            $"(Context: {evt.Context})");
         }
 
         #endregion
     }
 }
-

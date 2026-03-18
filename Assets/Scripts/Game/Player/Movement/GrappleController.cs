@@ -1,7 +1,6 @@
 using System.Collections;
 using Events;
 using Game.Audio.System;
-using Game.Match;
 using Game.Player.Contracts;
 using Game.Weapon.Kinemation;
 using Unity.Cinemachine;
@@ -116,15 +115,7 @@ namespace Game.Player.Movement {
         /// Gets the current grapple cooldown based on whether the player is tagged in Gun Tag mode.
         /// </summary>
         private float GetCurrentCooldown() {
-            // Check if we're in Gun Tag mode and player is tagged
-            var matchSettings = MatchSettingsManager.Instance;
-            var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
-
-            if(isTagMode && _playerContext is { IsTagged: true }) {
-                return TaggedPlayerCooldown;
-            }
-
-            return GrappleCooldown;
+            return _playerContext is { IsGunTagMode: true, IsTagged: true } ? TaggedPlayerCooldown : GrappleCooldown;
         }
         
         /// <summary>

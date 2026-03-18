@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Diagnostics;
 using Events;
-using Game.Player.Combat;
-using Game.Player.Core;
 using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
@@ -31,6 +29,8 @@ namespace Game.Match {
         private bool _hasTriggeredPostMatch;
         private bool _hasDesignatedInitialIt;
         private readonly HashSet<ulong> _clientsScenePresented = new();
+        private readonly HashSet<ulong> _spawnedPlayerClientIds = new();
+        private readonly HashSet<ulong> _taggedPlayerClientIds = new();
         private bool _sessionOwnerCallbacksRegistered;
 
         private bool HasMatchAuthority => NetworkAuthority.HasGlobalAuthority(this);
@@ -58,6 +58,7 @@ namespace Game.Match {
             base.OnNetworkSpawn();
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
             RegisterSessionOwnerCallbacks();
+            SubscribeGameplayEvents();
 
             // Subscribe for UI updates on all clients
             _timeRemainingSeconds.OnValueChanged += OnTimeRemainingChanged;
@@ -81,6 +82,7 @@ namespace Game.Match {
             }
 
             base.OnNetworkDespawn();
+            UnsubscribeGameplayEvents();
             if(NetworkManager != null) {
                 NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
             }
@@ -90,6 +92,7 @@ namespace Game.Match {
 
         public override void OnDestroy() {
             base.OnDestroy();
+            UnsubscribeGameplayEvents();
             _timeRemainingSeconds.OnValueChanged -= OnTimeRemainingChanged;
             _preMatchCountdownSeconds.OnValueChanged -= OnPreMatchCountdownChanged;
             _isWaitingForPlayers.OnValueChanged -= OnPreMatchWaitingForPlayersChanged;
@@ -100,6 +103,25 @@ namespace Game.Match {
             UnregisterSessionOwnerCallbacks();
 
             ClearInstanceIfCurrent();
+        }
+
+        private void SubscribeGameplayEvents() {
+            EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
+            EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            EventBus.Unsubscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
+            EventBus.Unsubscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
+
+            EventBus.Subscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
+            EventBus.Subscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            EventBus.Subscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
+            EventBus.Subscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
+        }
+
+        private void UnsubscribeGameplayEvents() {
+            EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
+            EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            EventBus.Unsubscribe<PlayerTagStateChangedEvent>(OnPlayerTagStateChanged);
+            EventBus.Unsubscribe<PlayerTagBootstrapStateReportedEvent>(OnPlayerTagBootstrapStateReported);
         }
 
         private void RegisterSessionOwnerCallbacks() {
@@ -125,6 +147,8 @@ namespace Game.Match {
         private void EnterAuthoritativeMode(bool resetState, string source) {
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
             _clientsScenePresented.Clear();
+            _spawnedPlayerClientIds.Clear();
+            _taggedPlayerClientIds.Clear();
 
             if(NetworkManager != null) {
                 NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
@@ -204,6 +228,8 @@ namespace Game.Match {
         private void OnClientDisconnectedDuringPreMatch(ulong clientId) {
             if(!HasMatchAuthority) return;
             _clientsScenePresented.Remove(clientId);
+            _spawnedPlayerClientIds.Remove(clientId);
+            _taggedPlayerClientIds.Remove(clientId);
         }
 
         /// <summary>Server RPC: client reports that the gameplay scene is loaded and presented.</summary>
@@ -216,7 +242,7 @@ namespace Game.Match {
         public void MarkClientScenePresented(ulong clientId, string source = "ServerLocal") {
             if(!HasMatchAuthority) return;
             if(_clientsScenePresented.Add(clientId) && Debug.isDebugBuild) {
-                Debug.Log($"[MatchTimerManager] Client {clientId} marked scene-presented ({source}).");
+                DevLog.Log($"[MatchTimerManager] Client {clientId} marked scene-presented ({source}).");
             }
         }
 
@@ -246,7 +272,7 @@ namespace Game.Match {
                 if(!expectedCountLocked && waitedSeconds >= expectedJoinGraceSeconds && connectedCount < expectedPlayers) {
                     expectedPlayers = Mathf.Max(connectedCount, 1);
                     expectedCountLocked = true;
-                    Debug.LogWarning(
+                    DevLog.LogWarning(
                         $"[MatchTimerManager] Expected-player grace expired. Continuing with {expectedPlayers} expected connected players.");
                 }
 
@@ -268,19 +294,19 @@ namespace Game.Match {
                 }
 
                 if (haveExpectedConnections && allPlayersReady && allConnectedPresented && connectedCount > 0) {
-                    Debug.Log(
+                    DevLog.Log(
                         $"[MatchTimerManager] All {connectedCount}/{expectedPlayers} expected players connected, spawned, and scene-presented. Starting countdown.");
                     break;
                 }
 
-                Debug.Log(
+                DevLog.Log(
                     $"[MatchTimerManager] Waiting for players... expected={expectedPlayers} connected={connectedCount} spawnedReady={allPlayersReady} presented={_clientsScenePresented.Count}");
                 yield return wait;
                 waitedSeconds += 1f;
             }
 
             if (waitedSeconds >= maxWaitSeconds) {
-                Debug.LogWarning("[MatchTimerManager] Timed out waiting for all players. Starting countdown anyway.");
+                DevLog.LogWarning("[MatchTimerManager] Timed out waiting for all players. Starting countdown anyway.");
             }
 
             _isWaitingForPlayers.Value = false;
@@ -408,17 +434,14 @@ namespace Game.Match {
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings == null || matchSettings.selectedGameModeId != "Gun Tag") yield break;
 
-            // Check if anyone is already tagged
-            var allPlayers = PlayerController.SpawnedPlayers
-                .Where(p => p != null && p.NetworkObject != null && p.NetworkObject.IsSpawned)
-                .ToList();
+            _spawnedPlayerClientIds.Clear();
+            _taggedPlayerClientIds.Clear();
+            EventBus.Publish(new PlayerTagBootstrapSnapshotRequestedEvent());
 
+            var allPlayers = _spawnedPlayerClientIds.ToList();
             if(allPlayers.Count == 0) yield break;
 
-            var taggedPlayers = allPlayers.Where(p => {
-                var tagCtrl = p.GetComponent<PlayerTagController>();
-                return tagCtrl != null && tagCtrl.IsTagged.Value;
-            }).ToList();
+            var taggedPlayers = _taggedPlayerClientIds.ToList();
 
             var maxInitialTaggedPlayers = allPlayers.Count > 1 ? allPlayers.Count - 1 : 1;
             var configuredTaggedPlayers = Mathf.Clamp(matchSettings.taggedPlayers, 1, maxInitialTaggedPlayers);
@@ -428,26 +451,50 @@ namespace Game.Match {
                 yield break;
             }
 
-            var untaggedPlayers = allPlayers.Where(p => {
-                var tagCtrl = p.GetComponent<PlayerTagController>();
-                return tagCtrl == null || !tagCtrl.IsTagged.Value;
-            }).ToList();
+            var untaggedPlayers = allPlayers.Where(playerClientId => !_taggedPlayerClientIds.Contains(playerClientId)).ToList();
 
             for(var i = 0; i < additionalTaggedPlayersNeeded && untaggedPlayers.Count > 0; i++) {
                 var selectedIndex = Random.Range(0, untaggedPlayers.Count);
-                var selectedPlayer = untaggedPlayers[selectedIndex];
+                var selectedPlayerClientId = untaggedPlayers[selectedIndex];
                 untaggedPlayers.RemoveAt(selectedIndex);
 
-                var tagCtrl = selectedPlayer.GetComponent<PlayerTagController>();
-                if(tagCtrl == null) continue;
-
-                tagCtrl.IsTagged.Value = true;
-                tagCtrl.Tagged.Value++;
-                tagCtrl.PlayTaggedSoundClientRpc();
-                tagCtrl.BroadcastTagTransferFromHopClientRpc(selectedPlayer.OwnerClientId);
+                EventBus.Publish(new InitialTagDesignationRequestedEvent(selectedPlayerClientId));
             }
 
             _hasDesignatedInitialIt = true;
+        }
+
+        private void OnPlayerNetworkSpawned(PlayerNetworkSpawnedEvent evt) {
+            if(evt == null) return;
+            _spawnedPlayerClientIds.Add(evt.ClientId);
+        }
+
+        private void OnPlayerNetworkDespawned(PlayerNetworkDespawnedEvent evt) {
+            if(evt == null) return;
+            _spawnedPlayerClientIds.Remove(evt.ClientId);
+            _taggedPlayerClientIds.Remove(evt.ClientId);
+        }
+
+        private void OnPlayerTagStateChanged(PlayerTagStateChangedEvent evt) {
+            if(evt == null) return;
+            _spawnedPlayerClientIds.Add(evt.PlayerId);
+
+            if(evt.IsTagged) {
+                _taggedPlayerClientIds.Add(evt.PlayerId);
+            } else {
+                _taggedPlayerClientIds.Remove(evt.PlayerId);
+            }
+        }
+
+        private void OnPlayerTagBootstrapStateReported(PlayerTagBootstrapStateReportedEvent evt) {
+            if(evt == null) return;
+            _spawnedPlayerClientIds.Add(evt.PlayerClientId);
+
+            if(evt.IsTagged) {
+                _taggedPlayerClientIds.Add(evt.PlayerClientId);
+            } else {
+                _taggedPlayerClientIds.Remove(evt.PlayerClientId);
+            }
         }
     }
 }

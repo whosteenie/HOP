@@ -4,7 +4,6 @@ using Events;
 using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
-using Game.Player.Core;
 using Random = UnityEngine.Random;
 
 namespace Game.Match {
@@ -25,33 +24,29 @@ namespace Game.Match {
 
         [Header("Movement Settings")]
         [SerializeField] private float wanderRadius = 5.0f; // Raycast distance for wall detection
+
         [SerializeField] private float moveSpeed = 5.0f; // Fallback when match settings are unavailable.
 
         [Header("Components")]
         [SerializeField] private Collider zoneCollider;
+
         [SerializeField] private MeshRenderer visualRenderer;
 
         [Header("Visuals")]
         [SerializeField] private Color colorUncontested = Color.white;
+
         [SerializeField] private Color colorContested = Color.yellow;
         [SerializeField] private Color colorTeamA = Color.cyan; // Blue-ish
         [SerializeField] private Color colorTeamB = new(1f, 0.5f, 0f); // Orange
 
         // Runtime State
         private readonly NetworkVariable<HillState> _currentState = new();
-        private readonly Dictionary<ulong, PlayerController> _trackedPlayers = new();
-        private readonly List<ulong> _staleTrackedPlayers = new();
-        
-        private float _timer;
+        private readonly Dictionary<ulong, SpawnPoint.Team> _occupantsByClientId = new();
+
         private bool _isMoving;
         private Vector3 _targetPosition;
-        private bool _networkCallbacksRegistered;
-        private bool _pendingTrackedPlayersRefresh;
-        private float _nextTrackedPlayersRefreshTime;
-        private const float TrackedPlayersRefreshIntervalSeconds = 1f;
-        private const float KingTimeProgressionChunkSeconds = 1f;
         private bool _sessionOwnerCallbacksRegistered;
-        private float _localKingProgressionSeconds;
+
         private float EffectiveMoveSpeed {
             get {
                 var baseMoveSpeed = Mathf.Max(0.1f, moveSpeed);
@@ -65,6 +60,7 @@ namespace Game.Match {
                 return baseMoveSpeed * configuredSpeedScale;
             }
         }
+
         private bool HasHillAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         public SpawnPoint.Team? ControllingTeam {
@@ -81,16 +77,16 @@ namespace Game.Match {
             base.OnNetworkSpawn();
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
             RegisterSessionOwnerCallbacks();
-            
-            if (HasHillAuthority) {
+
+            if(HasHillAuthority) {
                 // Set initial random direction
                 _targetPosition = Random.onUnitSphere;
                 _targetPosition.y = 0; // Flatten direction
                 _targetPosition.Normalize();
-                
+
                 _isMoving = true;
-                RegisterNetworkCallbacks();
-                RefreshTrackedPlayers();
+                SubscribeToOccupancyEvents();
+                RequestOccupancySnapshot();
             }
 
             _currentState.OnValueChanged += OnStateChanged;
@@ -98,15 +94,12 @@ namespace Game.Match {
         }
 
         public override void OnNetworkDespawn() {
-            FlushLocalKingProgression();
             base.OnNetworkDespawn();
             _currentState.OnValueChanged -= OnStateChanged;
 
-            UnregisterNetworkCallbacks();
+            UnsubscribeFromOccupancyEvents();
             UnregisterSessionOwnerCallbacks();
-
-            _trackedPlayers.Clear();
-            _staleTrackedPlayers.Clear();
+            _occupantsByClientId.Clear();
         }
 
         private void RegisterSessionOwnerCallbacks() {
@@ -123,8 +116,9 @@ namespace Game.Match {
 
         private void OnSessionOwnerPromoted(ulong _) {
             if(!HasHillAuthority) {
-                UnregisterNetworkCallbacks();
+                UnsubscribeFromOccupancyEvents();
                 _isMoving = false;
+                _occupantsByClientId.Clear();
                 return;
             }
 
@@ -133,15 +127,14 @@ namespace Game.Match {
             _targetPosition.y = 0f;
             _targetPosition.Normalize();
             _isMoving = true;
-            RegisterNetworkCallbacks();
-            RefreshTrackedPlayers();
+            SubscribeToOccupancyEvents();
+            _occupantsByClientId.Clear();
+            RequestOccupancySnapshot();
         }
 
         private void OnStateChanged(HillState previous, HillState current) {
             UpdateVisuals(current);
         }
-
-        private PlayerController _localPlayerInZone;
 
         private void Awake() {
             if(zoneCollider == null) {
@@ -156,46 +149,36 @@ namespace Game.Match {
         }
 
         private void Update() {
-             // Client-side Personal KOTH time tracking
-            if(_localPlayerInZone == null && PlayerController.LocalPlayer != null) {
-                _localPlayerInZone = PlayerController.LocalPlayer;
-            }
-
-            TrackLocalKingProgression();
-
-            if (!HasHillAuthority) return;
-            if(_pendingTrackedPlayersRefresh || Time.unscaledTime >= _nextTrackedPlayersRefreshTime) {
-                RefreshTrackedPlayers();
-            }
+            if(!HasHillAuthority) return;
 
             // Roomba Movement Logic
             // Move forward in current direction (_targetPosition is used as direction vector here)
-            if (_isMoving) {
+            if(_isMoving) {
                 var currentPos = transform.position;
                 var moveDir = _targetPosition;
-                
+
                 // Raycast ahead to detect walls (Enable Trigger Detection)
                 var ray = new Ray(currentPos, moveDir);
                 // Note: User specified "Bounds" layer. We use QueryTriggerInteraction.Collide to hit Triggers.
-                if (Physics.Raycast(ray, out var hit, wanderRadius, LayerMask.GetMask("Bounds"), 
-                        QueryTriggerInteraction.Collide)) {
+                if(Physics.Raycast(ray, out var hit, wanderRadius, LayerMask.GetMask("Bounds"),
+                       QueryTriggerInteraction.Collide)) {
                     // If we are close to a wall, reflect direction
-                    if (hit.distance < 2.0f) {
+                    if(hit.distance < 2.0f) {
                         var reflectDir = Vector3.Reflect(moveDir, hit.normal);
                         reflectDir.y = 0; // Flatten direction
                         _targetPosition = reflectDir.normalized;
                     }
                 }
-                
+
                 // Move
                 transform.position += _targetPosition * (EffectiveMoveSpeed * Time.deltaTime);
 
                 // Force Height (Safety net against physics drift or low spawn)
-                if (transform.position.y < 753f) {
+                if(transform.position.y < 753f) {
                     var transformHill = transform;
                     var pos = transformHill.position;
-                     pos.y = 753f;
-                     transformHill.position = pos;
+                    pos.y = 753f;
+                    transformHill.position = pos;
                 }
             }
 
@@ -203,54 +186,12 @@ namespace Game.Match {
             UpdateControlState();
         }
 
-        private void TrackLocalKingProgression() {
-            var isTrackingLocalKingTime = _localPlayerInZone != null &&
-                                          _localPlayerInZone.NetIsDead is { Value: false } &&
-                                          IsPointInsideZone(_localPlayerInZone.transform.position);
-
-            if(!isTrackingLocalKingTime) {
-                FlushLocalKingProgression();
-                return;
-            }
-
-            _localKingProgressionSeconds += Time.deltaTime;
-            if(_localKingProgressionSeconds < KingTimeProgressionChunkSeconds) return;
-
-            var wholeChunks = Mathf.Floor(_localKingProgressionSeconds / KingTimeProgressionChunkSeconds);
-            var awardedSeconds = wholeChunks * KingTimeProgressionChunkSeconds;
-            _localKingProgressionSeconds -= awardedSeconds;
-            EventBus.Publish(new MatchKingTimeAwardedEvent(NetworkManager.Singleton.LocalClientId, awardedSeconds));
-        }
-
-        private void FlushLocalKingProgression() {
-            if(_localKingProgressionSeconds <= 0f || NetworkManager.Singleton == null) {
-                _localKingProgressionSeconds = 0f;
-                return;
-            }
-
-            EventBus.Publish(new MatchKingTimeAwardedEvent(NetworkManager.Singleton.LocalClientId,
-                _localKingProgressionSeconds));
-            _localKingProgressionSeconds = 0f;
-        }
-
         private void UpdateControlState() {
             var teamACount = 0;
             var teamBCount = 0;
 
-            _staleTrackedPlayers.Clear();
-            foreach(var (clientId, player) in _trackedPlayers) {
-                if(player == null || !player.IsSpawned) {
-                    _staleTrackedPlayers.Add(clientId);
-                    continue;
-                }
-
-                if(player.NetIsDead.Value) continue;
-                if(!IsPointInsideZone(player.transform.position)) continue;
-
-                var teamMgr = player.TeamManager;
-                if (teamMgr == null) continue;
-                
-                switch(teamMgr.netTeam.Value) {
+            foreach(var (_, team) in _occupantsByClientId) {
+                switch(team) {
                     case SpawnPoint.Team.TeamA:
                         teamACount++;
                         break;
@@ -264,12 +205,6 @@ namespace Game.Match {
                 }
             }
 
-            if(_staleTrackedPlayers.Count > 0) {
-                foreach(var clientId in _staleTrackedPlayers) {
-                    _trackedPlayers.Remove(clientId);
-                }
-            }
-
             var newState = HillState.Uncontested;
             switch(teamACount) {
                 case > 0 when teamBCount > 0:
@@ -279,7 +214,7 @@ namespace Game.Match {
                     newState = HillState.ControlledTeamA;
                     break;
                 default: {
-                    if (teamBCount > 0) {
+                    if(teamBCount > 0) {
                         newState = HillState.ControlledTeamB;
                     }
 
@@ -287,102 +222,61 @@ namespace Game.Match {
                 }
             }
 
-            if (_currentState.Value != newState) {
+            if(_currentState.Value != newState) {
                 _currentState.Value = newState;
             }
         }
 
-        private void RegisterNetworkCallbacks() {
-            if(_networkCallbacksRegistered) return;
-
-            var networkManager = NetworkManager.Singleton;
-            if(networkManager == null) return;
-
-            networkManager.OnClientConnectedCallback += OnClientConnected;
-            networkManager.OnClientDisconnectCallback += OnClientDisconnected;
-            _networkCallbacksRegistered = true;
+        private void SubscribeToOccupancyEvents() {
+            EventBus.Unsubscribe<PlayerHillOccupancyChangedEvent>(OnPlayerHillOccupancyChanged);
+            EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
+            EventBus.Unsubscribe<PlayerRespawnedEvent>(OnPlayerRespawned);
+            EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            EventBus.Subscribe<PlayerHillOccupancyChangedEvent>(OnPlayerHillOccupancyChanged);
+            EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
+            EventBus.Subscribe<PlayerRespawnedEvent>(OnPlayerRespawned);
+            EventBus.Subscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
         }
 
-        private void UnregisterNetworkCallbacks() {
-            if(!_networkCallbacksRegistered) return;
-
-            var networkManager = NetworkManager.Singleton;
-            if(networkManager != null) {
-                networkManager.OnClientConnectedCallback -= OnClientConnected;
-                networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
-            }
-
-            _networkCallbacksRegistered = false;
+        private void UnsubscribeFromOccupancyEvents() {
+            EventBus.Unsubscribe<PlayerHillOccupancyChangedEvent>(OnPlayerHillOccupancyChanged);
+            EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
+            EventBus.Unsubscribe<PlayerRespawnedEvent>(OnPlayerRespawned);
+            EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
         }
 
-        private void OnClientConnected(ulong clientId) {
+        private void RequestOccupancySnapshot() {
             if(!HasHillAuthority) return;
-            TrackConnectedClient(clientId);
+            EventBus.Publish(new HillOccupancySnapshotRequestedEvent(NetworkObjectId));
         }
 
-        private void OnClientDisconnected(ulong clientId) {
-            if(!HasHillAuthority) return;
-            _trackedPlayers.Remove(clientId);
-        }
+        private void OnPlayerHillOccupancyChanged(PlayerHillOccupancyChangedEvent evt) {
+            if(!HasHillAuthority || evt == null || evt.HillNetworkObjectId != NetworkObjectId) return;
 
-        /// <summary>Refreshes the set of tracked players from the network.</summary>
-        private void RefreshTrackedPlayers() {
-            var networkManager = NetworkManager.Singleton;
-            if(networkManager == null) {
-                _trackedPlayers.Clear();
-                _pendingTrackedPlayersRefresh = false;
-                _nextTrackedPlayersRefreshTime = Time.unscaledTime + TrackedPlayersRefreshIntervalSeconds;
+            if(evt.IsInsideHill) {
+                _occupantsByClientId[evt.PlayerClientId] = (SpawnPoint.Team)evt.TeamId;
                 return;
             }
 
-            _staleTrackedPlayers.Clear();
-            foreach(var clientId in _trackedPlayers.Keys) {
-                if(!networkManager.ConnectedClients.ContainsKey(clientId)) {
-                    _staleTrackedPlayers.Add(clientId);
-                }
-            }
-
-            if(_staleTrackedPlayers.Count > 0) {
-                foreach(var clientId in _staleTrackedPlayers) {
-                    _trackedPlayers.Remove(clientId);
-                }
-
-                _staleTrackedPlayers.Clear();
-            }
-
-            foreach(var clientId in networkManager.ConnectedClientsIds) {
-                TrackConnectedClient(clientId);
-            }
-
-            _pendingTrackedPlayersRefresh = false;
-            _nextTrackedPlayersRefreshTime = Time.unscaledTime + TrackedPlayersRefreshIntervalSeconds;
+            _occupantsByClientId.Remove(evt.PlayerClientId);
         }
 
-        private void TrackConnectedClient(ulong clientId) {
-            var networkManager = NetworkManager.Singleton;
-            if(networkManager == null) return;
-
-            if(!networkManager.ConnectedClients.TryGetValue(clientId, out var client)) {
-                _trackedPlayers.Remove(clientId);
-                return;
-            }
-
-            var playerObject = client.PlayerObject;
-            if(playerObject == null) {
-                _pendingTrackedPlayersRefresh = true;
-                return;
-            }
-
-            var player = playerObject.GetComponent<PlayerController>();
-            if(player == null) {
-                _trackedPlayers.Remove(clientId);
-                return;
-            }
-
-            _trackedPlayers[clientId] = player;
+        private void OnPlayerDied(PlayerDiedEvent evt) {
+            if(!HasHillAuthority || evt == null) return;
+            _occupantsByClientId.Remove(evt.PlayerId);
         }
 
-        private bool IsPointInsideZone(Vector3 worldPoint) {
+        private void OnPlayerRespawned(PlayerRespawnedEvent evt) {
+            if(!HasHillAuthority || evt == null) return;
+            _occupantsByClientId.Remove(evt.PlayerId);
+        }
+
+        private void OnPlayerNetworkDespawned(PlayerNetworkDespawnedEvent evt) {
+            if(!HasHillAuthority || evt == null) return;
+            _occupantsByClientId.Remove(evt.ClientId);
+        }
+
+        public bool ContainsPoint(Vector3 worldPoint) {
             if(zoneCollider == null) return false;
 
             var sphere = zoneCollider as SphereCollider;
@@ -402,12 +296,11 @@ namespace Game.Match {
             return Mathf.Abs(local.x) <= half.x &&
                    Mathf.Abs(local.y) <= half.y &&
                    Mathf.Abs(local.z) <= half.z;
-
         }
 
         private void UpdateVisuals(HillState state) {
-            if (visualRenderer == null) return;
-            
+            if(visualRenderer == null) return;
+
             var targetColor = state switch {
                 HillState.Contested => colorContested,
                 HillState.ControlledTeamA => colorTeamA,
@@ -417,43 +310,13 @@ namespace Game.Match {
 
             // Assuming material has color property. If using custom shader, might need property block.
             // Using material.color for standard shader support, or PropertyBlock for optimization
-            visualRenderer.material.color = targetColor; 
-            
+            visualRenderer.material.color = targetColor;
+
             // If custom shader uses _BaseColor or event emission
-            if (visualRenderer.material.HasProperty(BaseColor))
+            if(visualRenderer.material.HasProperty(BaseColor))
                 visualRenderer.material.SetColor(BaseColor, targetColor);
-            if (visualRenderer.material.HasProperty(EmissionColor))
+            if(visualRenderer.material.HasProperty(EmissionColor))
                 visualRenderer.material.SetColor(EmissionColor, targetColor * 1.5f);
-        }
-
-        private void OnTriggerEnter(Collider other) {
-            var player = other.GetComponent<PlayerController>();
-            if (player == null) player = other.GetComponentInParent<PlayerController>(); // Check parent if collider is on child part
-
-            if(player == null) return;
-            // Client-side check for local player
-            if (player.IsOwner) {
-                _localPlayerInZone = player;
-            }
-
-            // Server-side logic
-            if(!HasHillAuthority) return;
-            Debug.Log($"[HillController] Player {player.name} entered zone.");
-        }
-
-        private void OnTriggerExit(Collider other) {
-            var player = other.GetComponent<PlayerController>();
-            if (player == null) player = other.GetComponentInParent<PlayerController>();
-
-            if(player == null) return;
-            // Client-side check for local player
-            if (player.IsOwner) {
-                _localPlayerInZone = null;
-            }
-
-            // Server-side logic
-            if(!HasHillAuthority) return;
-            Debug.Log($"[HillController] Player {player.name} exited zone.");
         }
 
         private void OnDrawGizmos() {

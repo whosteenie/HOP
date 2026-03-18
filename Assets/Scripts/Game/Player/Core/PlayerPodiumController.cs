@@ -1,14 +1,14 @@
 using System.Collections;
 using Events;
+using Game.Match;
 using Game.Player.Combat;
-using Game.Player.Core;
 using Game.Player.Visual;
 using Network.Components;
 using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Match {
+namespace Game.Player.Core {
     /// <summary>
     /// Handles podium-specific logic for post-match display.
     /// </summary>

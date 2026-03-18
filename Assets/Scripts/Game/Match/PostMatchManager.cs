@@ -5,8 +5,6 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
 using Events;
-using Game.Player.Combat;
-using Game.Player.Core;
 using Network.Core;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -61,10 +59,6 @@ namespace Game.Match {
 
         private Coroutine _podiumWorldSpaceTrackingRoutine;
         private bool _missingUiReferenceLogged;
-
-        private ulong _firstPlacePlayerId = ulong.MaxValue;
-        private ulong _secondPlacePlayerId = ulong.MaxValue;
-        private ulong _thirdPlacePlayerId = ulong.MaxValue;
 
         private const float AssumedCharacterHeight = 1.9f;
 
@@ -339,9 +333,7 @@ namespace Game.Match {
         /// and face them toward the podium camera. Also hide non-top3 visuals.
         /// </summary>
         private void SetupTopThreeOnServer() {
-            var allPlayers = PlayerController.SpawnedPlayers
-                .Where(p => p != null && p.NetworkObject != null && p.NetworkObject.IsSpawned)
-                .ToList();
+            var allPlayers = ResolveActivePlayerStates().ToList();
 
             if(allPlayers.Count == 0) return;
 
@@ -350,42 +342,35 @@ namespace Game.Match {
             var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
 
             // Sort by appropriate stat based on gamemode
-            List<PlayerController> sorted;
+            List<MatchPlayerStateProxy> sorted;
             if(isTagMode) {
                 // Tag mode: sort by time tagged (lowest first), then by tags as tie-breaker
                 sorted = allPlayers
-                    .OrderBy(p => {
-                        var tagCtrl = p.GetComponent<PlayerTagController>();
-                        return tagCtrl != null ? tagCtrl.TimeTagged.Value : int.MaxValue;
-                    })
-                    .ThenByDescending(p => {
-                        var tagCtrl = p.GetComponent<PlayerTagController>();
-                        return tagCtrl != null ? tagCtrl.Tags.Value : 0;
-                    })
+                    .OrderBy(p => p.timeTagged.Value)
+                    .ThenByDescending(p => p.tags.Value)
                     .ToList();
             } else {
                 // Normal mode: sort by kills descending, then by damage as tie-breaker
                 sorted = allPlayers
-                    .OrderByDescending(p => p.Kills.Value)
-                    .ThenByDescending(p => p.DamageDealt.Value)
+                    .OrderByDescending(p => p.kills.Value)
+                    .ThenByDescending(p => p.damageDealt.Value)
                     .ToList();
             }
 
-            var topThree = new List<PlayerController>();
+            var topThree = new List<MatchPlayerStateProxy>();
             if(sorted.Count > 0) topThree.Add(sorted[0]);
             if(sorted.Count > 1) topThree.Add(sorted[1]);
             if(sorted.Count > 2) topThree.Add(sorted[2]);
 
             foreach(var player in topThree) {
                 if(player == null) continue;
-                // Always normalize podium player visuals. This also fixes hopball-holder weapon visibility.
-                player.ForceRespawnForPodiumServer();
+                EventBus.Publish(new PostMatchPodiumPrepareRequestedEvent(player.representedClientId.Value));
             }
 
             // Zero out momentum only after blackout is fully active.
             foreach(var p in allPlayers) {
                 if(p == null) continue;
-                p.ResetVelocityRpc();
+                EventBus.Publish(new PostMatchResetVelocityRequestedEvent(p.representedClientId.Value));
             }
 
             // Teleport & face podium
@@ -401,59 +386,38 @@ namespace Game.Match {
 
                 if(anchor == null || player == null) continue;
 
-                var netObj = player.NetworkObject;
-                if(netObj == null || !netObj.IsSpawned) continue;
-
-                // Teleport their transform to podium slot
-                netObj.TrySetParent((Transform)null, false); // ensure no odd parents
-                player.TeleportToPodiumFromServer(anchor.position, anchor.rotation);
-                player.SnapPodiumVisualsClientRpc();
+                TryDetachPlayerObjectFromParent(player.representedClientId.Value);
+                EventBus.Publish(new PostMatchTeleportRequestedEvent(player.representedClientId.Value, anchor.position,
+                    anchor.rotation));
+                EventBus.Publish(new PostMatchSnapVisualsRequestedEvent(player.representedClientId.Value));
             }
 
             // Hide non-top3 player models (world models only, not cameras)
             foreach(var p in allPlayers) {
                 var isOnPodium = topThree.Contains(p);
-                p.SetWorldModelVisibleRpc(isOnPodium); // you'll add this helper
+                EventBus.Publish(new PostMatchWorldModelVisibilityRequestedEvent(p.representedClientId.Value,
+                    isOnPodium));
             }
 
-            var firstName = topThree.Count > 0 ? topThree[0].PlayerName.Value.ToString() : string.Empty;
-            var firstId = topThree.Count > 0 ? topThree[0].OwnerClientId : ulong.MaxValue;
+            var firstName = topThree.Count > 0 ? topThree[0].playerName.Value.ToString() : string.Empty;
             var firstScore = 0;
             if(topThree.Count > 0) {
-                if(isTagMode) {
-                    var tagController = topThree[0].GetComponent<PlayerTagController>();
-                    firstScore = tagController != null ? tagController.TimeTagged.Value : 0;
-                } else {
-                    firstScore = topThree[0].Kills.Value;
-                }
+                firstScore = isTagMode ? topThree[0].timeTagged.Value : topThree[0].kills.Value;
             }
 
-            var secondName = topThree.Count > 1 ? topThree[1].PlayerName.Value.ToString() : string.Empty;
-            var secondId = topThree.Count > 1 ? topThree[1].OwnerClientId : ulong.MaxValue;
+            var secondName = topThree.Count > 1 ? topThree[1].playerName.Value.ToString() : string.Empty;
             var secondScore = 0;
             if(topThree.Count > 1) {
-                if(isTagMode) {
-                    var tagController = topThree[1].GetComponent<PlayerTagController>();
-                    secondScore = tagController != null ? tagController.TimeTagged.Value : 0;
-                } else {
-                    secondScore = topThree[1].Kills.Value;
-                }
+                secondScore = isTagMode ? topThree[1].timeTagged.Value : topThree[1].kills.Value;
             }
 
-            var thirdName = topThree.Count > 2 ? topThree[2].PlayerName.Value.ToString() : string.Empty;
-            var thirdId = topThree.Count > 2 ? topThree[2].OwnerClientId : ulong.MaxValue;
+            var thirdName = topThree.Count > 2 ? topThree[2].playerName.Value.ToString() : string.Empty;
             var thirdScore = 0;
             if(topThree.Count > 2) {
-                if(isTagMode) {
-                    var tagController = topThree[2].GetComponent<PlayerTagController>();
-                    thirdScore = tagController != null ? tagController.TimeTagged.Value : 0;
-                } else {
-                    thirdScore = topThree[2].Kills.Value;
-                }
+                thirdScore = isTagMode ? topThree[2].timeTagged.Value : topThree[2].kills.Value;
             }
 
-            UpdatePodiumUiClientRpc(firstName, firstScore, firstId, secondName, secondScore, secondId, thirdName,
-                thirdScore, thirdId);
+            UpdatePodiumUiClientRpc(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
         }
 
         // --- CLIENT RPCs ---
@@ -472,12 +436,8 @@ namespace Game.Match {
 
                 // Find local controller and disable sniper overlay (do NOT lock movement yet - wait for fade to complete)
                 if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) return;
-                var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
-                if(localPlayer == null) return;
-                var localController = localPlayer.GetComponent<PlayerController>();
-                if(localController != null && localController.PlayerInputController != null) {
-                    localController.PlayerInputController.ForceDisableSniperOverlay(false);
-                }
+                EventBus.Publish(new PostMatchSniperOverlayDisableRequestedEvent(NetworkManager.Singleton.LocalClientId,
+                    false));
 
             } catch(Exception e) {
                 DebugHelpers.PublishCriticalError($"PostMatchManager.FadeToPodiumClientRpc failed: {e.Message}",
@@ -501,11 +461,9 @@ namespace Game.Match {
             var averageSpeed = 0f;
 
             var localTeam = SpawnPoint.Team.None;
-            if(NetworkManager.Singleton.LocalClient.PlayerObject != null) {
-                var teamManager = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerTeamManager>();
-                if(teamManager != null) {
-                    localTeam = teamManager.netTeam.Value;
-                }
+            var localState = MatchPlayerStateProxy.GetForPlayer(localClientId);
+            if(localState != null) {
+                localTeam = (SpawnPoint.Team)localState.teamId.Value;
             }
 
             var matchSettings = MatchSettingsManager.Instance;
@@ -536,11 +494,8 @@ namespace Game.Match {
                 }
             }
 
-            if(NetworkManager.Singleton.LocalClient.PlayerObject != null) {
-                var statsCtrl = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerStatsController>();
-                if(statsCtrl != null) {
-                    averageSpeed = statsCtrl.AverageVelocity.Value;
-                }
+            if(localState != null) {
+                averageSpeed = localState.averageVelocity.Value;
             }
 
             EventBus.Publish(new MatchProgressionResolvedEvent(localClientId, matchCompletionXp, bonusXp, didWin,
@@ -571,15 +526,9 @@ namespace Game.Match {
         [Rpc(SendTo.Everyone)]
         private void UpdatePodiumUiClientRpc(
             string firstName, int firstScore,
-            ulong firstPlayerId,
             string secondName, int secondScore,
-            ulong secondPlayerId,
-            string thirdName, int thirdScore,
-            ulong thirdPlayerId
+            string thirdName, int thirdScore
         ) {
-            _firstPlacePlayerId = firstPlayerId;
-            _secondPlacePlayerId = secondPlayerId;
-            _thirdPlacePlayerId = thirdPlayerId;
             SetPodiumSlots(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
             StartPodiumWorldTracking();
         }
@@ -628,17 +577,16 @@ namespace Game.Match {
             var localClient = NetworkManager.Singleton.LocalClient;
             if(localClient?.PlayerObject == null) return false;
 
-            var sortedPlayers = PlayerController.SpawnedPlayers
-                .Where(p => p != null && p.IsSpawned)
-                .OrderBy(p => isTagMode ? GetTagSortScore(p) : -p.Kills.Value)
-                .ThenBy(p => p.OwnerClientId)
+            var sortedPlayers = ResolveActivePlayerStates()
+                .OrderBy(p => isTagMode ? GetTagSortScore(p) : -p.kills.Value)
+                .ThenBy(p => p.representedClientId.Value)
                 .ToList();
 
             var totalPlayers = sortedPlayers.Count;
             if(totalPlayers == 0) return false;
 
             for(var i = 0; i < sortedPlayers.Count; i++) {
-                if(sortedPlayers[i].OwnerClientId != localClient.ClientId) continue;
+                if(sortedPlayers[i].representedClientId.Value != localClient.ClientId) continue;
                 placement = i + 1;
                 return true;
             }
@@ -646,9 +594,8 @@ namespace Game.Match {
             return false;
         }
 
-        private static int GetTagSortScore(PlayerController player) {
-            var tagCtrl = player != null ? player.GetComponent<PlayerTagController>() : null;
-            return tagCtrl != null ? tagCtrl.TimeTagged.Value : int.MaxValue;
+        private static int GetTagSortScore(MatchPlayerStateProxy player) {
+            return player != null ? player.timeTagged.Value : int.MaxValue;
         }
 
         /// <summary>
@@ -669,10 +616,10 @@ namespace Game.Match {
         public void ShowInGameHudAfterPostMatch() {
             EnsureUiReferencesBound();
             ResetPostMatchUiState();
-            var controllers = PlayerController.SpawnedPlayers;
-            foreach(var controller in controllers) {
-                if(controller == null) continue;
-                controller.SetPostMatchControlLock(false);
+            foreach(var state in ResolveActivePlayerStates()) {
+                if(state == null) continue;
+                EventBus.Publish(new PostMatchControlLockRequestedEvent(state.representedClientId.Value, false, true,
+                    true));
             }
 
             // Show individual HUD elements
@@ -719,20 +666,17 @@ namespace Game.Match {
             var worldCamera = ResolveWorldCamera();
             if(worldCamera == null) return;
 
-            UpdatePodiumSlotPosition(_podiumFirstSlot, _firstPlacePlayerId, firstPlaceAnchor, worldCamera);
-            UpdatePodiumSlotPosition(_podiumSecondSlot, _secondPlacePlayerId, secondPlaceAnchor, worldCamera);
-            UpdatePodiumSlotPosition(_podiumThirdSlot, _thirdPlacePlayerId, thirdPlaceAnchor, worldCamera);
+            UpdatePodiumSlotPosition(_podiumFirstSlot, firstPlaceAnchor, worldCamera);
+            UpdatePodiumSlotPosition(_podiumSecondSlot, secondPlaceAnchor, worldCamera);
+            UpdatePodiumSlotPosition(_podiumThirdSlot, thirdPlaceAnchor, worldCamera);
         }
 
-        private void UpdatePodiumSlotPosition(VisualElement slot, ulong playerId, Transform slotAnchor,
-            Camera worldCamera) {
+        private void UpdatePodiumSlotPosition(VisualElement slot, Transform slotAnchor, Camera worldCamera) {
             if(slot == null) return;
 
             Vector3 targetWorldPosition;
             if(slotAnchor != null) {
                 targetWorldPosition = slotAnchor.position + Vector3.up * podiumCardAnchorYOffset;
-            } else if(TryGetPodiumPlayer(playerId, out var player) && player != null) {
-                targetWorldPosition = GetPlayerFeetWorldPosition(player);
             } else {
                 slot.style.display = DisplayStyle.None;
                 return;
@@ -825,36 +769,6 @@ namespace Game.Match {
             return best;
         }
 
-        private static Vector3 GetPlayerFeetWorldPosition(PlayerController player) {
-            if(player == null) return Vector3.zero;
-
-            var cc = player.CharacterController;
-            if(cc == null) return player.transform.position;
-            var bounds = cc.bounds;
-            return bounds.size.y > 0.001f
-                ? new Vector3(bounds.center.x, bounds.min.y, bounds.center.z)
-                : player.transform.position;
-        }
-
-        private static bool TryGetPodiumPlayer(ulong playerId, out PlayerController player) {
-            player = null;
-            if(playerId == ulong.MaxValue) return false;
-            if(NetworkManager.Singleton == null) return false;
-            var spawnManager = NetworkManager.Singleton.SpawnManager;
-            if(spawnManager == null) return false;
-
-            // Works for host and clients; ConnectedClients is not reliable on all peers.
-            foreach(var kvp in spawnManager.SpawnedObjects) {
-                var netObj = kvp.Value;
-                if(netObj == null || !netObj.IsSpawned) continue;
-                if(netObj.OwnerClientId != playerId) continue;
-                player = netObj.GetComponent<PlayerController>();
-                if(player != null) return true;
-            }
-
-            return false;
-        }
-
         private void ResetPostMatchUiState() {
             EnsureUiReferencesBound();
             StopPodiumWorldTracking();
@@ -864,10 +778,6 @@ namespace Game.Match {
                 StopCoroutine(_localReturnToMenuRoutine);
                 _localReturnToMenuRoutine = null;
             }
-
-            _firstPlacePlayerId = ulong.MaxValue;
-            _secondPlacePlayerId = ulong.MaxValue;
-            _thirdPlacePlayerId = ulong.MaxValue;
 
             if(_podiumContainer != null) {
                 _podiumContainer.style.display = DisplayStyle.None;
@@ -906,21 +816,30 @@ namespace Game.Match {
             EventBus.Publish(new HideHUDEvent());
             HideInGameHudForPostMatch();
 
-            var controllers = PlayerController.SpawnedPlayers;
-            foreach(var pc in controllers) {
-                if(pc == null) continue;
-                pc.SetGameplayCameraActive(false);
+            foreach(var state in ResolveActivePlayerStates()) {
+                if(state == null) continue;
+                EventBus.Publish(new PostMatchGameplayCameraStateRequestedEvent(state.representedClientId.Value, false));
             }
 
             // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)
             if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) return;
-            var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
+            EventBus.Publish(new PostMatchControlLockRequestedEvent(NetworkManager.Singleton.LocalClientId, true, false,
+                false));
+        }
 
-            if(localPlayer == null) return;
-            var localController = localPlayer.GetComponent<PlayerController>();
+        private static IEnumerable<MatchPlayerStateProxy> ResolveActivePlayerStates() {
+            return MatchPlayerStateProxy.GetAllStates()
+                .Where(state => state != null && state.NetworkObject != null && state.NetworkObject.IsSpawned);
+        }
 
-            if(localController == null) return;
-            localController.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
+        private static void TryDetachPlayerObjectFromParent(ulong ownerClientId) {
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+            if(!networkManager.ConnectedClients.TryGetValue(ownerClientId, out var client)) return;
+
+            var playerObject = client.PlayerObject;
+            if(playerObject == null || !playerObject.IsSpawned) return;
+            playerObject.TrySetParent((Transform)null, false);
         }
     }
 }

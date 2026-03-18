@@ -29,6 +29,10 @@ namespace Game.Player.Contracts {
         NetworkVariable<int> Assists { get; }
         NetworkVariable<FixedString64Bytes> PlayerName { get; }
         bool IsHoldingHopball { get; }
+        bool IsGunTagMode { get; }
+        bool IsTeamBasedMode { get; }
+        bool IsPostMatchFlowStarted { get; }
+        string CurrentGameModeId { get; }
         float BaseFov { get; }
         SpawnPoint.Team CurrentTeam { get; }
 
@@ -48,5 +52,9 @@ namespace Game.Player.Contracts {
         void PlayHitEffects(Vector3 hitPoint, float amount);
         float GetOutOfBoundsKillY();
         bool IsYLevelOutOfBoundsKillEnabled();
+        void ReserveRespawnPoint();
+        bool TryGetReservedRespawnPose(out Vector3 position, out Quaternion rotation);
+        void GetFallbackRespawnPose(out Vector3 position, out Quaternion rotation);
+        void ReleaseRespawnReservation();
     }
 }

@@ -1,9 +1,9 @@
-using Game.Player.Core;
 using Network.Core;
 using Network.Session;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using Diagnostics;
 
 namespace Game.Match {
     [DisallowMultipleComponent]
@@ -105,6 +105,25 @@ namespace Game.Match {
             state.playerName.Value = new FixedString64Bytes(displayName);
         }
 
+        private void ApplyTeamForPlayer(ulong playerClientId, int submittedTeamId) {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) {
+                return;
+            }
+
+            if(!IsValidSubmittedTeamId(submittedTeamId)) {
+                DevLog.LogWarning(
+                    $"[MatchPlayerStateAuthority] Rejected invalid team sync '{submittedTeamId}' for client {playerClientId}.");
+                return;
+            }
+
+            var state = EnsurePlayerState(playerClientId);
+            if(state == null) {
+                return;
+            }
+
+            state.teamId.Value = submittedTeamId;
+        }
+
         private void RegisterCallbacks() {
             if(_callbacksRegistered || NetworkManager == null) {
                 return;
@@ -192,13 +211,35 @@ namespace Game.Match {
                 return;
             }
 
-            var player = playerObject.GetComponent<PlayerController>();
-            if(player == null || player.OwnerClientId != senderClientId) {
+            if(playerObject.OwnerClientId != senderClientId) {
                 return;
             }
 
-            ApplyIdentityForPlayer(player.OwnerClientId, submittedSteamId, submittedUgsId,
+            ApplyIdentityForPlayer(playerObject.OwnerClientId, submittedSteamId, submittedUgsId,
                 submittedPlayerName);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void RequestTeamSyncServerRpc(NetworkObjectReference playerRef, int submittedTeamId,
+            RpcParams rpcParams = default) {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) {
+                return;
+            }
+
+            var senderClientId = rpcParams.Receive.SenderClientId;
+            if(!playerRef.TryGet(out var playerObject) || playerObject == null) {
+                return;
+            }
+
+            if(playerObject.OwnerClientId != senderClientId) {
+                return;
+            }
+
+            ApplyTeamForPlayer(playerObject.OwnerClientId, submittedTeamId);
+        }
+
+        private static bool IsValidSubmittedTeamId(int submittedTeamId) {
+            return System.Enum.IsDefined(typeof(SpawnPoint.Team), submittedTeamId);
         }
     }
 }

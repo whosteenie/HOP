@@ -79,6 +79,8 @@ namespace Game.Player.Combat {
             MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
             MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
             MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
+            EventBus.Subscribe<PlayerTagBootstrapSnapshotRequestedEvent>(OnPlayerTagBootstrapSnapshotRequested);
+            EventBus.Subscribe<InitialTagDesignationRequestedEvent>(OnInitialTagDesignationRequested);
             TryBindTagState();
 
             // Update outline on spawn if already tagged
@@ -91,21 +93,20 @@ namespace Game.Player.Combat {
             base.OnNetworkDespawn();
             MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
             MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            EventBus.Unsubscribe<PlayerTagBootstrapSnapshotRequestedEvent>(OnPlayerTagBootstrapSnapshotRequested);
+            EventBus.Unsubscribe<InitialTagDesignationRequestedEvent>(OnInitialTagDesignationRequested);
             UnbindTagState();
         }
 
         private void Update() {
             if(!HasTagAuthority) return;
 
-            var matchSettings = MatchSettingsManager.Instance;
-            var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
-
             _timer += Time.deltaTime;
             if(!(_timer >= 1f)) return;
 
             _timer = 0f;
 
-            if(!isTagMode || !IsTagged.Value) return;
+            if(_playerContext is not { IsGunTagMode: true } || !IsTagged.Value) return;
 
             if(Time.time - lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
                 TimeTagged.Value++;
@@ -163,11 +164,8 @@ namespace Game.Player.Combat {
         /// </summary>
         private void OnTaggedStateChanged(bool oldValue, bool newValue) {
             // Update HUD for Tag mode
-            if(IsOwner && _playerContext != null) {
-                var matchSettings = MatchSettingsManager.Instance;
-                if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
-                    EventBus.Publish(new UpdateTagStatusEvent(newValue));
-                }
+            if(IsOwner && _playerContext is { IsGunTagMode: true }) {
+                EventBus.Publish(new UpdateTagStatusEvent(newValue));
             }
 
             if(_playerContext != null) {
@@ -215,7 +213,7 @@ namespace Game.Player.Combat {
         /// </summary>
         [Rpc(SendTo.Everyone)]
         // ReSharper disable once MemberCanBeMadeStatic.Global
-        public void BroadcastTagTransferFromHopClientRpc(ulong taggedClientId) {
+        private void BroadcastTagTransferFromHopClientRpc(ulong taggedClientId) {
             var taggedName = "Unknown";
 
             if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggedClientId, out _)) {
@@ -234,8 +232,8 @@ namespace Game.Player.Combat {
         /// Plays UI sound when this player gets tagged (called on the victim's client).
         /// </summary>
         [Rpc(SendTo.Owner)]
-        // ReSharper disable once MemberCanBeMadeStatic.Global
-        public void PlayTaggedSoundClientRpc() {
+        // ReSharper disable once MemberCanBeMadeStatic.Local
+        private void PlayTaggedSoundClientRpc() {
             if(AudioService.Instance != null) {
                 AudioService.Instance.Play("ui.tag.tagged", Vector3.zero);
             }
@@ -259,8 +257,7 @@ namespace Game.Player.Combat {
         public void ResetTagState() {
             if(!HasTagAuthority) return;
 
-            var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
+            if(_playerContext is { IsGunTagMode: true }) {
                 // Do NOT reset tag state on respawn - keep "It" status if they died/fell off map
                 // isTagged.Value = false; 
             }
@@ -283,6 +280,22 @@ namespace Game.Player.Combat {
             IsTagged.Value = false;
             Tags.Value++;
             lastTagStatsUpdateTime = Time.time;
+        }
+
+        private void OnPlayerTagBootstrapSnapshotRequested(PlayerTagBootstrapSnapshotRequestedEvent evt) {
+            if(evt == null || !IsSpawned || _playerContext is not { IsGunTagMode: true }) return;
+            EventBus.Publish(new PlayerTagBootstrapStateReportedEvent(_playerContext.OwnerClientId, IsTagged.Value));
+        }
+
+        private void OnInitialTagDesignationRequested(InitialTagDesignationRequestedEvent evt) {
+            if(evt == null || !HasTagAuthority || _playerContext == null || evt.PlayerClientId != _playerContext.OwnerClientId) {
+                return;
+            }
+
+            IsTagged.Value = true;
+            Tagged.Value++;
+            PlayTaggedSoundClientRpc();
+            BroadcastTagTransferFromHopClientRpc(_playerContext.OwnerClientId);
         }
 
         private MatchPlayerStateProxy ResolvePlayerState() {

@@ -1,5 +1,4 @@
 using Events;
-using Game.Match;
 using Game.Settings;
 using Game.Social;
 using Steamworks;
@@ -71,8 +70,7 @@ namespace Game.Player.Core {
 
             EventBus.Publish(new LocalPlayerReadyEvent(_player.OwnerClientId));
 
-            var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" && _player.TagController != null) {
+            if(PlayerController.IsGunTagMode && _player.TagController != null) {
                 EventBus.Publish(new UpdateTagStatusEvent(_player.TagController.IsTagged.Value));
             }
 

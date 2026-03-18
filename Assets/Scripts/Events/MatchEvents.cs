@@ -98,5 +98,87 @@ namespace Events {
             PlayerNetworkObjectId = playerNetworkObjectId;
         }
     }
+
+    public class PostMatchPodiumPrepareRequestedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+
+        public PostMatchPodiumPrepareRequestedEvent(ulong playerClientId) {
+            PlayerClientId = playerClientId;
+        }
+    }
+
+    public class PostMatchResetVelocityRequestedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+
+        public PostMatchResetVelocityRequestedEvent(ulong playerClientId) {
+            PlayerClientId = playerClientId;
+        }
+    }
+
+    public class PostMatchTeleportRequestedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly UnityEngine.Vector3 Position;
+        public readonly UnityEngine.Quaternion Rotation;
+
+        public PostMatchTeleportRequestedEvent(ulong playerClientId, UnityEngine.Vector3 position,
+            UnityEngine.Quaternion rotation) {
+            PlayerClientId = playerClientId;
+            Position = position;
+            Rotation = rotation;
+        }
+    }
+
+    public class PostMatchSnapVisualsRequestedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+
+        public PostMatchSnapVisualsRequestedEvent(ulong playerClientId) {
+            PlayerClientId = playerClientId;
+        }
+    }
+
+    public class PostMatchWorldModelVisibilityRequestedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly bool Visible;
+
+        public PostMatchWorldModelVisibilityRequestedEvent(ulong playerClientId, bool visible) {
+            PlayerClientId = playerClientId;
+            Visible = visible;
+        }
+    }
+
+    public class PostMatchGameplayCameraStateRequestedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly bool Active;
+
+        public PostMatchGameplayCameraStateRequestedEvent(ulong playerClientId, bool active) {
+            PlayerClientId = playerClientId;
+            Active = active;
+        }
+    }
+
+    public class PostMatchControlLockRequestedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly bool Locked;
+        public readonly bool LockLook;
+        public readonly bool ResetVelocity;
+
+        public PostMatchControlLockRequestedEvent(ulong playerClientId, bool locked, bool lockLook,
+            bool resetVelocity) {
+            PlayerClientId = playerClientId;
+            Locked = locked;
+            LockLook = lockLook;
+            ResetVelocity = resetVelocity;
+        }
+    }
+
+    public class PostMatchSniperOverlayDisableRequestedEvent : GameEvent {
+        public readonly ulong PlayerClientId;
+        public readonly bool PlayZoomSound;
+
+        public PostMatchSniperOverlayDisableRequestedEvent(ulong playerClientId, bool playZoomSound) {
+            PlayerClientId = playerClientId;
+            PlayZoomSound = playZoomSound;
+        }
+    }
 }
 

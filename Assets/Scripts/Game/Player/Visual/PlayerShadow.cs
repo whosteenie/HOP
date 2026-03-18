@@ -1,5 +1,4 @@
 using Events;
-using Game.Match;
 using Game.Player.Contracts;
 using Game.Weapon.Manager;
 using Unity.Netcode;
@@ -283,7 +282,7 @@ namespace Game.Player.Visual {
         /// <summary>Updates holster shadow state for the owner.</summary>
         private void UpdateHolsterShadowState() {
             if(_playerContext is not { IsOwner: true }) return;
-            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
+            var isPostMatch = _playerContext is { IsPostMatchFlowStarted: true };
             if(isPostMatch) {
                 TrySetHolsterShadowState(true, false, ShadowCastingMode.On);
             } else {

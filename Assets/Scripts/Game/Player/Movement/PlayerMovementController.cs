@@ -1,6 +1,5 @@
 using Events;
 using Game.Audio.System;
-using Game.Match;
 using Game.Player.Contracts;
 using Game.Weapon.Presentation;
 using Unity.Cinemachine;
@@ -320,7 +319,7 @@ namespace Game.Player.Movement {
         /// Calculates the horizontal velocity vector for the player based on input.
         /// </summary>
         private void CalculateHorizontalVelocity() {
-            if(MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch) {
+            if(_playerContext is { IsPreMatchMovementLocked: true }) {
                 ApplyFriction();
                 var targetVel = Vector3.zero;
                 _horizontalVelocity = Vector3.MoveTowards(_horizontalVelocity, targetVel, Acceleration * Time.deltaTime);

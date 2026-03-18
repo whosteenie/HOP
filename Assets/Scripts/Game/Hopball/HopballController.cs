@@ -18,7 +18,6 @@ namespace Game.Hopball {
         AntiCheatLogger.LogAuthorityViolate($"Hopball.{action}", OwnerClientId);
         return false;
     }
-    public static HopballController Instance { get; private set; }
 
     public readonly int IntensityID = Shader.PropertyToID("_EmissionIntensity");
     public readonly int DissolveAmountID = Shader.PropertyToID("_DissolveAmount");
@@ -153,9 +152,6 @@ namespace Game.Hopball {
             _networkTransform = GetComponent<NetworkTransform>();
         }
 
-        // Set singleton instance
-        Instance = this;
-
         _networkEnergy.OnValueChanged += OnEnergyChanged;
 
         // Reset all state to initial spawn state
@@ -179,11 +175,6 @@ namespace Game.Hopball {
     public override void OnNetworkDespawn() {
         base.OnNetworkDespawn();
         EventBus.Unsubscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
-
-        // Clear singleton instance
-        if(Instance == this) {
-            Instance = null;
-        }
 
         _networkEnergy.OnValueChanged -= OnEnergyChanged;
         UnregisterSessionOwnerCallbacks();
@@ -604,13 +595,13 @@ namespace Game.Hopball {
 
         if(ignore) {
             return;
-        } else {
-            foreach(var col in _ignoredPlayerColliders) {
-                if(col != null) Physics.IgnoreCollision(hopballCollider, col, false);
-            }
-
-            _ignoredPlayerColliders.Clear();
         }
+
+        foreach(var col in _ignoredPlayerColliders) {
+            if(col != null) Physics.IgnoreCollision(hopballCollider, col, false);
+        }
+
+        _ignoredPlayerColliders.Clear();
     }
 
     private void NotifyVisualStateChanged(bool forceBroadcast) {

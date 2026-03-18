@@ -88,10 +88,6 @@ namespace Game.Menu.Main {
 
         #region Unity Lifecycle
 
-        protected override void Awake() {
-            base.Awake();
-        }
-
         protected override void Start() {
             base.Start();
             InitializeMenuBlurController();

@@ -1,4 +1,6 @@
 using System.Collections;
+using Diagnostics;
+using Events;
 using Game.Match;
 using Game.Player.Combat;
 using Unity.Netcode;
@@ -51,9 +53,8 @@ namespace Game.Player.Core {
         private MaterialPropertyBlock _tagPropertyBlock; // Reusable property block for tagged players
         private PlayerTagController _tagController;
         private Camera _mainCamera; // Cached main camera reference
+        private Coroutine _pendingTeamSyncRoutine;
 
-        // Cache MatchSettingsManager and game mode to avoid repeated lookups
-        private MatchSettingsManager _cachedMatchSettings;
         private string _cachedGameModeId;
         private bool _cachedIsTeamBased;
         private bool _cachedIsTagMode;
@@ -78,14 +79,14 @@ namespace Game.Player.Core {
                 playerController = GetComponent<PlayerController>();
             
             if(playerController == null) {
-                Debug.LogError($"[PlayerTeamManager] PlayerController not found! GameObject: {gameObject.name}");
+                DevLog.LogError($"[PlayerTeamManager] PlayerController not found! GameObject: {gameObject.name}");
                 enabled = false;
                 return;
             }
 
             _skinned = playerController.PlayerMesh;
             if(_skinned == null) {
-                Debug.LogError($"[PlayerTeamManager] PlayerController.PlayerMesh is null! GameObject: {gameObject.name}");
+                DevLog.LogError($"[PlayerTeamManager] PlayerController.PlayerMesh is null! GameObject: {gameObject.name}");
                 enabled = false;
                 return;
             }
@@ -93,10 +94,7 @@ namespace Game.Player.Core {
             // Find and cache main camera once (for dynamically spawned prefabs)
             _mainCamera = Camera.main;
 
-            _tagController = GetComponent<PlayerTagController>();
-
-            // Cache MatchSettingsManager
-            _cachedMatchSettings = MatchSettingsManager.Instance;
+            _tagController = playerController.TagController;
             _gameModeCacheValid = false;
 
             // Initialize MaterialPropertyBlock for per-instance properties
@@ -108,6 +106,7 @@ namespace Game.Player.Core {
 
             netTeam.OnValueChanged -= OnTeamChanged;
             netTeam.OnValueChanged += OnTeamChanged;
+            QueueTeamStateSyncToMatch();
 
             // Delay outline update to ensure all teams are synced
             StartCoroutine(DelayedOutlineUpdate());
@@ -136,6 +135,10 @@ namespace Game.Player.Core {
 
         public override void OnNetworkDespawn() {
             netTeam.OnValueChanged -= OnTeamChanged;
+            if(_pendingTeamSyncRoutine != null) {
+                StopCoroutine(_pendingTeamSyncRoutine);
+                _pendingTeamSyncRoutine = null;
+            }
             base.OnNetworkDespawn();
         }
 
@@ -143,12 +146,59 @@ namespace Game.Player.Core {
         // Called whenever NetTeam changes (including on spawn)
         // --------------------------------------------------------------------
         private void OnTeamChanged(SpawnPoint.Team previous, SpawnPoint.Team current) {
+            QueueTeamStateSyncToMatch();
+            if(IsSpawned) {
+                EventBus.Publish(new PlayerTeamChangedEvent(OwnerClientId, (int)current));
+            }
             UpdateOutlineColour();
 
             // If this is the local player's team changing, update all other players' outlines
             if(IsOwner) {
                 UpdateAllPlayerOutlines();
             }
+        }
+
+        private void QueueTeamStateSyncToMatch() {
+            if(!IsOwner) {
+                return;
+            }
+
+            if(TrySubmitTeamStateToMatch()) {
+                return;
+            }
+
+            if(_pendingTeamSyncRoutine == null && isActiveAndEnabled) {
+                _pendingTeamSyncRoutine = StartCoroutine(WaitAndSubmitTeamStateToMatch());
+            }
+        }
+
+        private IEnumerator WaitAndSubmitTeamStateToMatch() {
+            while(isActiveAndEnabled && IsSpawned) {
+                if(TrySubmitTeamStateToMatch()) {
+                    _pendingTeamSyncRoutine = null;
+                    yield break;
+                }
+
+                yield return null;
+            }
+
+            _pendingTeamSyncRoutine = null;
+        }
+
+        private bool TrySubmitTeamStateToMatch() {
+            if(!IsOwner || playerController == null || playerController.NetworkObject == null ||
+               !playerController.NetworkObject.IsSpawned) {
+                return false;
+            }
+
+            var authority = MatchPlayerStateAuthority.Instance;
+            if(authority == null || authority.NetworkObject == null || !authority.IsSpawned ||
+               !authority.NetworkObject.IsSpawned) {
+                return false;
+            }
+
+            authority.RequestTeamSyncServerRpc(playerController.NetworkObject, (int)netTeam.Value);
+            return true;
         }
 
         // --------------------------------------------------------------------
@@ -159,34 +209,24 @@ namespace Game.Player.Core {
         /// </summary>
         public void UpdateOutlineColour() {
             if(_skinned == null || _propertyBlock == null) {
-                Debug.LogWarning($"[PlayerTeamManager] Cannot update outline - skinned: {_skinned != null}, propertyBlock: {_propertyBlock != null}, GameObject: {gameObject.name}");
+                DevLog.LogWarning(
+                    $"[PlayerTeamManager] Cannot update outline - skinned: {_skinned != null}, propertyBlock: {_propertyBlock != null}, GameObject: {gameObject.name}");
                 return;
             }
 
-            // Refresh MatchSettingsManager cache if needed
-            if(_cachedMatchSettings == null) {
-                _cachedMatchSettings = MatchSettingsManager.Instance;
-                _gameModeCacheValid = false;
-            }
-
-            if(_cachedMatchSettings == null) {
-                Debug.LogWarning($"[PlayerTeamManager] MatchSettingsManager is null! GameObject: {gameObject.name}");
-                return;
-            }
-
-            // Always check current game mode and invalidate cache if it changed
-            var currentGameModeId = _cachedMatchSettings.selectedGameModeId;
+            var currentGameModeId = playerController != null ? PlayerController.CurrentGameModeId : string.Empty;
             if(_gameModeCacheValid && _cachedGameModeId != currentGameModeId) {
                 // Game mode changed - invalidate cache
                 _gameModeCacheValid = false;
-                Debug.Log($"[PlayerTeamManager] Game mode changed from '{_cachedGameModeId}' to '{currentGameModeId}', invalidating cache. GameObject: {gameObject.name}");
+                DevLog.Log(
+                    $"[PlayerTeamManager] Game mode changed from '{_cachedGameModeId}' to '{currentGameModeId}', invalidating cache. GameObject: {gameObject.name}");
             }
 
             // Cache game mode checks
             if(!_gameModeCacheValid) {
                 _cachedGameModeId = currentGameModeId;
-                _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
-                _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
+                _cachedIsTeamBased = playerController != null && PlayerController.IsTeamBasedMode;
+                _cachedIsTagMode = playerController != null && PlayerController.IsGunTagMode;
                 _gameModeCacheValid = true;
             }
 
@@ -299,16 +339,7 @@ namespace Game.Player.Core {
             if(_skinned == null || _propertyBlock == null) return;
             if(IsOwner) return; // Don't update for self
 
-            // Refresh MatchSettingsManager cache if needed
-            if(_cachedMatchSettings == null) {
-                _cachedMatchSettings = MatchSettingsManager.Instance;
-                _gameModeCacheValid = false;
-            }
-
-            if(_cachedMatchSettings == null) return;
-
-            // Always check current game mode and invalidate cache if it changed
-            var currentGameModeId = _cachedMatchSettings.selectedGameModeId;
+            var currentGameModeId = playerController != null ? PlayerController.CurrentGameModeId : string.Empty;
             switch(_gameModeCacheValid) {
                 case true when _cachedGameModeId != currentGameModeId:
                     // Game mode changed - invalidate cache and update outline
@@ -318,8 +349,8 @@ namespace Game.Player.Core {
                 // Cache game mode checks
                 case false:
                     _cachedGameModeId = currentGameModeId;
-                    _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
-                    _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
+                    _cachedIsTeamBased = playerController != null && PlayerController.IsTeamBasedMode;
+                    _cachedIsTagMode = playerController != null && PlayerController.IsGunTagMode;
                     _gameModeCacheValid = true;
                     break;
             }

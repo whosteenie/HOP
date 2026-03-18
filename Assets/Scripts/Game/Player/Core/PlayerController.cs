@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using Events;
 using Game.Audio.System;
-using Game.Player.Contracts;
 using Game.Match;
 using Game.Player.Combat;
+using Game.Player.Contracts;
 using Game.Player.Input;
 using Game.Player.Movement;
 using Game.Player.Visual;
@@ -24,6 +24,7 @@ namespace Game.Player.Core {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NetworkAudioRelay))]
+    [RequireComponent(typeof(PlayerHillTracker))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext, IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext, IPlayerCombatContext, IPlayerMaterialCustomizationContext {
         public static PlayerController LocalPlayer { get; private set; }
@@ -160,6 +161,7 @@ namespace Game.Player.Core {
         private PlayerWeaponPresentation _weaponPresentation;
         private PlayerSpawnPresentation _spawnPresentation;
         private PlayerPresentationState _presentationState;
+        private SpawnPoint _reservedRespawnPoint;
 
         #endregion
 
@@ -454,6 +456,7 @@ namespace Game.Player.Core {
             SubscribeToNetworkVariables();
             SubscribeToLocalVoiceEvents();
             SubscribeToHopballStateEvents();
+            SubscribeToPostMatchEvents();
             TryBindStateSubscriptions();
             UpdatePlayerMaterialFromNetwork();
             _spawnPresentation.HandleNetworkSpawnPresentation();
@@ -519,6 +522,7 @@ namespace Game.Player.Core {
 
             UnsubscribeFromLocalVoiceEvents();
             UnsubscribeFromNetworkVariables();
+            UnsubscribeFromPostMatchEvents();
         }
 
         private void RegisterLocalAudioRelay() {
@@ -571,6 +575,78 @@ namespace Game.Player.Core {
         private void UnsubscribeFromLocalVoiceEvents() {
             if(!IsOwner) return;
             EventBus.Unsubscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChanged);
+        }
+
+        private void SubscribeToPostMatchEvents() {
+            EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
+            EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
+            EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
+            EventBus.Unsubscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
+            EventBus.Unsubscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
+            EventBus.Unsubscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
+            EventBus.Unsubscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
+            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
+            EventBus.Subscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
+            EventBus.Subscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
+            EventBus.Subscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
+            EventBus.Subscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
+            EventBus.Subscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
+            EventBus.Subscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
+            EventBus.Subscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
+            EventBus.Subscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
+        }
+
+        private void UnsubscribeFromPostMatchEvents() {
+            EventBus.Unsubscribe<PostMatchPodiumPrepareRequestedEvent>(OnPostMatchPodiumPrepareRequested);
+            EventBus.Unsubscribe<PostMatchResetVelocityRequestedEvent>(OnPostMatchResetVelocityRequested);
+            EventBus.Unsubscribe<PostMatchTeleportRequestedEvent>(OnPostMatchTeleportRequested);
+            EventBus.Unsubscribe<PostMatchSnapVisualsRequestedEvent>(OnPostMatchSnapVisualsRequested);
+            EventBus.Unsubscribe<PostMatchWorldModelVisibilityRequestedEvent>(OnPostMatchWorldModelVisibilityRequested);
+            EventBus.Unsubscribe<PostMatchGameplayCameraStateRequestedEvent>(OnPostMatchGameplayCameraStateRequested);
+            EventBus.Unsubscribe<PostMatchControlLockRequestedEvent>(OnPostMatchControlLockRequested);
+            EventBus.Unsubscribe<PostMatchSniperOverlayDisableRequestedEvent>(OnPostMatchSniperOverlayDisableRequested);
+        }
+
+        private bool IsPostMatchTarget(ulong playerClientId) => playerClientId == OwnerClientId;
+
+        private void OnPostMatchPodiumPrepareRequested(PostMatchPodiumPrepareRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            ForceRespawnForPodiumServer();
+        }
+
+        private void OnPostMatchResetVelocityRequested(PostMatchResetVelocityRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            ResetVelocityRpc();
+        }
+
+        private void OnPostMatchTeleportRequested(PostMatchTeleportRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            TeleportToPodiumFromServer(evt.Position, evt.Rotation);
+        }
+
+        private void OnPostMatchSnapVisualsRequested(PostMatchSnapVisualsRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            SnapPodiumVisualsClientRpc();
+        }
+
+        private void OnPostMatchWorldModelVisibilityRequested(PostMatchWorldModelVisibilityRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            SetWorldModelVisibleRpc(evt.Visible);
+        }
+
+        private void OnPostMatchGameplayCameraStateRequested(PostMatchGameplayCameraStateRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            SetGameplayCameraActive(evt.Active);
+        }
+
+        private void OnPostMatchControlLockRequested(PostMatchControlLockRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            SetPostMatchControlLock(evt.Locked, evt.LockLook, evt.ResetVelocity);
+        }
+
+        private void OnPostMatchSniperOverlayDisableRequested(PostMatchSniperOverlayDisableRequestedEvent evt) {
+            if(evt == null || !IsPostMatchTarget(evt.PlayerClientId)) return;
+            ForceDisableSniperOverlay(evt.PlayZoomSound);
         }
 
         private void OnVoiceLocalPttStateChanged(VoiceLocalPttStateChangedEvent evt) {
@@ -848,7 +924,7 @@ namespace Game.Player.Core {
             }
         }
 
-        public void SetGameplayCameraActive(bool active) {
+        private void SetGameplayCameraActive(bool active) {
             if(fpCamera != null) {
                 fpCamera.enabled = active;
             }
@@ -867,11 +943,17 @@ namespace Game.Player.Core {
             }
         }
 
-        public void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {
+        private void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {
             if(podiumController != null) {
                 podiumController.SetPostMatchControlLock(locked, lockLook, resetVelocity);
             } else if(IsOwner) {
                 LockLook = locked && lockLook;
+            }
+        }
+
+        private void ForceDisableSniperOverlay(bool playZoomSound = false) {
+            if(playerInputController != null) {
+                playerInputController.ForceDisableSniperOverlay(playZoomSound);
             }
         }
 
@@ -1065,6 +1147,16 @@ namespace Game.Player.Core {
         public bool IsDead => NetIsDead is { Value: true };
         public bool IsCrouching => netIsCrouching is { Value: true };
         public bool IsGrounded => movementController != null && movementController.IsGrounded;
+        private static bool IsPreMatchMovementLocked => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
+        private static bool IsPostMatchMovementLocked => PostMatchManager.IsPostMatchMovementLockedLocal;
+        private static bool IsPostMatchFlowStarted => PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
+        public static string CurrentGameModeId => MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.selectedGameModeId : string.Empty;
+        public static bool IsGunTagMode => MatchSettingsManager.Instance != null &&
+                                           MatchSettingsManager.Instance.selectedGameModeId == "Gun Tag";
+        public static bool IsTeamBasedMode => MatchSettingsManager.IsTeamBasedMode(CurrentGameModeId);
+        public SpawnPoint.Team CurrentTeam => playerTeamManager != null && playerTeamManager.netTeam != null
+            ? playerTeamManager.netTeam.Value
+            : SpawnPoint.Team.TeamA;
 
         #endregion
 
@@ -1100,17 +1192,74 @@ namespace Game.Player.Core {
         public int TimeTagged => tagController != null ? tagController.TimeTagged.Value : 0;
         public bool IsTagged => tagController != null && tagController.IsTagged.Value;
 
+        private void ReserveRespawnPoint() {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
+
+            SpawnPoint reservedPoint = null;
+            if(IsTeamBasedMode) {
+                if(SpawnManager.Instance != null) {
+                    reservedPoint = SpawnManager.Instance.ReserveSpawnPoint(OwnerClientId, CurrentTeam);
+                }
+            } else if(SpawnManager.Instance != null) {
+                reservedPoint = SpawnManager.Instance.ReserveSpawnPoint(OwnerClientId);
+            }
+
+            _reservedRespawnPoint = reservedPoint;
+        }
+
+        private bool TryGetReservedRespawnPose(out Vector3 position, out Quaternion rotation) {
+            if(_reservedRespawnPoint != null) {
+                var reservedSpawnTransform = _reservedRespawnPoint.transform;
+                position = reservedSpawnTransform.position;
+                rotation = reservedSpawnTransform.rotation;
+                return true;
+            }
+
+            position = Vector3.zero;
+            rotation = Quaternion.identity;
+            return false;
+        }
+
+        private void GetFallbackRespawnPose(out Vector3 position, out Quaternion rotation) {
+            SpawnPoint point = null;
+            if(SpawnManager.Instance != null) {
+                point = IsTeamBasedMode
+                    ? SpawnManager.Instance.GetNextSpawnForRespawn(CurrentTeam)
+                    : SpawnManager.Instance.GetNextSpawnForRespawn();
+            }
+
+            if(point == null) {
+                position = Vector3.zero;
+                rotation = Quaternion.identity;
+                return;
+            }
+
+            var pointTransform = point.transform;
+            position = pointTransform.position;
+            rotation = pointTransform.rotation;
+        }
+
+        private void ReleaseRespawnReservation() {
+            if(!NetworkAuthority.HasGlobalAuthority(this) || _reservedRespawnPoint == null) return;
+
+            if(SpawnManager.Instance != null) {
+                SpawnManager.Instance.ReleaseReservation(OwnerClientId);
+            }
+
+            _reservedRespawnPoint = null;
+        }
+
         #endregion
 
         #region Podium Methods
 
-        public void ForceRespawnForPodiumServer() {
+        private void ForceRespawnForPodiumServer() {
             if(podiumController != null) {
                 podiumController.ForceRespawnForPodiumServer();
             }
         }
 
-        public void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
+        private void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
             if(podiumController != null) {
                 podiumController.TeleportToPodiumFromServer(position, rotation);
             }
@@ -1121,14 +1270,14 @@ namespace Game.Player.Core {
         #region Network RPCs
 
         [Rpc(SendTo.Everyone)]
-        public void SetWorldModelVisibleRpc(bool visible) {
+        private void SetWorldModelVisibleRpc(bool visible) {
             if(visualController != null) {
                 visualController.SetWorldModelVisible(visible);
             }
         }
 
         [Rpc(SendTo.Everyone)]
-        public void ResetVelocityRpc() {
+        private void ResetVelocityRpc() {
             if(movementController != null) {
                 movementController.ResetVelocity();
             }
@@ -1157,7 +1306,7 @@ namespace Game.Player.Core {
         }
 
         [Rpc(SendTo.Everyone)]
-        public void SnapPodiumVisualsClientRpc() {
+        private void SnapPodiumVisualsClientRpc() {
             if(podiumController != null) {
                 podiumController.SnapPodiumVisualsClientRpc();
             }
@@ -1167,6 +1316,8 @@ namespace Game.Player.Core {
         bool IPlayerMovementContext.SprintInput => sprintInput;
         bool IPlayerMovementContext.CrouchInput => crouchInput;
         Vector3 IPlayerMovementContext.FullVelocity => GetFullVelocity;
+        bool IPlayerMovementContext.IsPreMatchMovementLocked => IsPreMatchMovementLocked;
+        bool IPlayerMovementContext.IsGunTagMode => IsGunTagMode;
         NetworkVariable<Vector4> IPlayerMovementContext.PlayerBaseColorNetwork => playerBaseColor;
         UnityEngine.InputSystem.PlayerInput IPlayerInputContext.UnityPlayerInput => unityPlayerInput;
         AudioListener IPlayerInputContext.AudioListener => audioListener;
@@ -1176,6 +1327,9 @@ namespace Game.Player.Core {
         bool IPlayerInputContext.IsMantling => mantleController != null && mantleController.IsMantling;
         bool IPlayerInputContext.CanMantleJump => mantleController != null && mantleController.CanJump;
         bool IPlayerInputContext.IsGrappling => grappleController != null && grappleController.IsGrappling;
+        bool IPlayerInputContext.IsPreMatchMovementLocked => IsPreMatchMovementLocked;
+        bool IPlayerInputContext.IsPostMatchMovementLocked => IsPostMatchMovementLocked;
+        bool IPlayerInputContext.IsPostMatchFlowStarted => IsPostMatchFlowStarted;
         bool IPlayerInputContext.SprintInputState {
             get => sprintInput;
             set => sprintInput = value;
@@ -1233,6 +1387,7 @@ namespace Game.Player.Core {
         float IPlayerStatsContext.ObservedServerMovementSpeed => ObservedServerMovementSpeed;
 
         void IPlayerTagContext.PlayHitEffects(Vector3 hitPoint, float amount) => PlayHitEffectsClientRpc(hitPoint, amount);
+        bool IPlayerTagContext.IsGunTagMode => IsGunTagMode;
         void IPlayerTagContext.UpdateTeamOutlineColour() {
             if(playerTeamManager != null) playerTeamManager.UpdateOutlineColour();
         }
@@ -1265,10 +1420,12 @@ namespace Game.Player.Core {
         NetworkVariable<int> IPlayerCombatContext.Assists => Assists;
         NetworkVariable<FixedString64Bytes> IPlayerCombatContext.PlayerName => PlayerName;
         bool IPlayerCombatContext.IsHoldingHopball => IsHoldingHopball;
+        bool IPlayerCombatContext.IsGunTagMode => IsGunTagMode;
+        bool IPlayerCombatContext.IsTeamBasedMode => IsTeamBasedMode;
+        bool IPlayerCombatContext.IsPostMatchFlowStarted => IsPostMatchFlowStarted;
+        string IPlayerCombatContext.CurrentGameModeId => CurrentGameModeId;
         float IPlayerCombatContext.BaseFov => BaseFov;
-        SpawnPoint.Team IPlayerCombatContext.CurrentTeam => playerTeamManager != null && playerTeamManager.netTeam != null
-            ? playerTeamManager.netTeam.Value
-            : SpawnPoint.Team.TeamA;
+        SpawnPoint.Team IPlayerCombatContext.CurrentTeam => CurrentTeam;
         void IPlayerCombatContext.SetOutOfBoundsGraceWindow(float seconds) => SetOutOfBoundsGraceWindow(seconds);
         void IPlayerCombatContext.ResetLookPitchFromRespawn() => ResetLookPitchFromRespawn();
         void IPlayerCombatContext.ClearLookInput() => lookInput = Vector2.zero;
@@ -1319,6 +1476,12 @@ namespace Game.Player.Core {
         void IPlayerCombatContext.PlayHitEffects(Vector3 hitPoint, float amount) => PlayHitEffectsClientRpc(hitPoint, amount);
         float IPlayerCombatContext.GetOutOfBoundsKillY() => GetOutOfBoundsKillY();
         bool IPlayerCombatContext.IsYLevelOutOfBoundsKillEnabled() => IsYLevelOutOfBoundsKillEnabled();
+        void IPlayerCombatContext.ReserveRespawnPoint() => ReserveRespawnPoint();
+        bool IPlayerCombatContext.TryGetReservedRespawnPose(out Vector3 position, out Quaternion rotation) =>
+            TryGetReservedRespawnPose(out position, out rotation);
+        void IPlayerCombatContext.GetFallbackRespawnPose(out Vector3 position, out Quaternion rotation) =>
+            GetFallbackRespawnPose(out position, out rotation);
+        void IPlayerCombatContext.ReleaseRespawnReservation() => ReleaseRespawnReservation();
 
         Transform IPlayerLookContext.PlayerTransform => PlayerTransform;
         CinemachineCamera IPlayerLookContext.FpCamera => fpCamera;
@@ -1326,6 +1489,7 @@ namespace Game.Player.Core {
         Vector3 IPlayerLookContext.HorizontalVelocity => movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
         bool IPlayerLookContext.IsRagdoll => playerRagdoll != null && playerRagdoll.IsRagdoll;
         void IPlayerLookContext.UpdateTurnAnimationFromLook(float yawDelta) => UpdateTurnAnimationFromLook(yawDelta);
+        bool IPlayerVisualContext.IsPostMatchFlowStarted => IsPostMatchFlowStarted;
         Color IPlayerVisualContext.TaggedGlowColor => playerTeamManager != null ? playerTeamManager.TaggedGlow : Color.white;
         NetworkVariable<int> IPlayerVisualContext.JumpAnimationSequence => jumpAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.LandAnimationSequence => landAnimationSequence;
