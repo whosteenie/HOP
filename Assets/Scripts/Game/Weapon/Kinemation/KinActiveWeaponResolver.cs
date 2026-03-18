@@ -132,8 +132,6 @@ namespace Game.Weapon.Kinemation {
             return weapons[0];
         }
 
-        public Transform GetMuzzleTransform() => _muzzleTransform;
-
         public WeaponData GetActiveWeaponData() {
             return _context.WeaponRuntimeContext?.GetCurrentWeaponData();
         }
@@ -156,13 +154,6 @@ namespace Game.Weapon.Kinemation {
             ReportMissingAssignment(data, MissingKinemationGrappleIndexWarnings,
                 nameof(WeaponData.kinemationGrappleWeaponIndex), "Grapple animation index is invalid until assigned.");
             return -1;
-        }
-
-        public void InvalidateCache() => _cache.Invalidate();
-
-        public void OnActiveWeaponSwitched() {
-            _muzzleTransform = null;
-            _cache.Invalidate();
         }
 
         public Animator[] GetActiveWeaponAnimators() => _cache.GetAnimators(ActiveWeapon);
