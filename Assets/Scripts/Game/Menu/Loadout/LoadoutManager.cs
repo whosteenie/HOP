@@ -166,14 +166,13 @@ namespace Game.Menu.Loadout {
             ResetPreviewCameraTarget();
         }
 
-        protected override void OnEnable() {
-            base.OnEnable();
+        protected void OnEnable() {
             // Subscribe to resolution changes
             EventBus.Unsubscribe<ResolutionChangedEvent>(OnResolutionChanged);
             EventBus.Subscribe<ResolutionChangedEvent>(OnResolutionChanged);
         }
 
-        protected override void OnDisable() {
+        protected void OnDisable() {
             // Stop brute force rendering
             _previewActive = false;
             _showingStats = false;
@@ -205,7 +204,6 @@ namespace Game.Menu.Loadout {
 
             ReleasePreviewRenderTexture();
             ResetPreviewCameraTarget();
-            base.OnDisable();
         }
 
         protected override void OnInitialize() {

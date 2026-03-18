@@ -122,8 +122,7 @@ namespace Game.Menu.Main {
             base.Initialize();
         }
 
-        protected override void OnEnable() {
-            base.OnEnable();
+        protected void OnEnable() {
             ResetUiTaskCancellationSource();
             ResetUiUpdateCache();
             EventBus.Unsubscribe<FrontStatusChangedEvent>(OnFrontStatusChanged);
@@ -136,13 +135,12 @@ namespace Game.Menu.Main {
                 "RefreshSessionHeaderAfterLoad");
         }
 
-        protected override void OnDisable() {
+        protected void OnDisable() {
             CancelUiTaskSource();
             _partyUiRefreshSerial++;
             ResetUiUpdateCache();
             EventBus.Unsubscribe<FrontStatusChangedEvent>(OnFrontStatusChanged);
             EventBus.Unsubscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
-            base.OnDisable();
         }
 
         private CancellationToken UiTaskToken =>

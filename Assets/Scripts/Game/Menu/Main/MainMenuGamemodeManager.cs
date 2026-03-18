@@ -31,17 +31,15 @@ namespace Game.Menu.Main {
             return new Dictionary<string, Type>();
         }
 
-        protected override void OnEnable() {
-            base.OnEnable();
+        protected void OnEnable() {
             SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
             SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
             // Initial Check
             UpdateGamemodeFromSession();
         }
 
-        protected override void OnDisable() {
+        protected void OnDisable() {
             SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
-            base.OnDisable();
         }
 
         private void OnLobbyDataChanged(Lobby lobby) {

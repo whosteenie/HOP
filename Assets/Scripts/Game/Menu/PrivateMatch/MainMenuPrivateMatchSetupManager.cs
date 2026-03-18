@@ -141,15 +141,13 @@ namespace Game.Menu.PrivateMatch {
             }
         }
 
-        protected override void OnEnable() {
-            base.OnEnable();
+        protected void OnEnable() {
             EventBus.Unsubscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
             EventBus.Subscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
         }
 
-        protected override void OnDisable() {
+        protected void OnDisable() {
             EventBus.Unsubscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
-            base.OnDisable();
         }
 
         private void OnSessionPropertiesRefreshed(SessionPropertiesRefreshedEvent _) {

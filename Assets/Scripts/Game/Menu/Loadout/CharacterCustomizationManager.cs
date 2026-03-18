@@ -104,8 +104,7 @@ namespace Game.Menu.Loadout {
             }
         }
 
-        protected override void OnEnable() {
-            base.OnEnable();
+        protected void OnEnable() {
             if(loadoutManager != null) {
                 loadoutManager.OnApplyCustomizationRequested -= ApplyCustomization;
                 loadoutManager.OnApplyCustomizationRequested += ApplyCustomization;
@@ -129,12 +128,11 @@ namespace Game.Menu.Loadout {
             }
         }
 
-        protected override void OnDisable() {
+        protected void OnDisable() {
             if(loadoutManager != null) {
                 loadoutManager.OnApplyCustomizationRequested -= ApplyCustomization;
                 loadoutManager.OnReloadCustomizationRequested -= ReloadSavedCustomization;
             }
-            base.OnDisable();
         }
 
         protected override void OnInitialize() {

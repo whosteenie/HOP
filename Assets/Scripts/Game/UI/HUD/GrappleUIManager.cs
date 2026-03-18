@@ -47,8 +47,7 @@ namespace Game.UI.HUD {
             base.Awake();
         }
 
-        protected override void OnEnable() {
-            base.OnEnable();
+        protected void OnEnable() {
             // Subscribe to scene changes to update cache
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -62,14 +61,13 @@ namespace Game.UI.HUD {
             EventBus.Subscribe<ShowGrappleUIEvent>(OnShowGrappleUIEvent);
         }
         
-        protected override void OnDisable() {
+        protected void OnDisable() {
             // Unsubscribe from scene changes
             SceneManager.sceneLoaded -= OnSceneLoaded;
             EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
             EventBus.Unsubscribe<LocalPlayerReadyEvent>(OnLocalPlayerReady);
             EventBus.Unsubscribe<HideGrappleUIEvent>(OnHideGrappleUIEvent);
             EventBus.Unsubscribe<ShowGrappleUIEvent>(OnShowGrappleUIEvent);
-            base.OnDisable();
         }
 
         protected override void OnInitialize() {

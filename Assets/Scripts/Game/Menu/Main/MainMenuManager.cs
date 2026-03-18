@@ -115,9 +115,8 @@ namespace Game.Menu.Main {
             }
         }
 
-        protected override void OnDisable() {
+        protected void OnDisable() {
             SetOptionsOpenState(false, false);
-            base.OnDisable();
         }
 
         protected override void OnDestroy() {

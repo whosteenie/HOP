@@ -46,8 +46,7 @@ namespace Game.UI.HUD {
         private MatchSettingsManager _cachedMatchSettings;
         private bool _eventsBound;
 
-        protected override void OnEnable() {
-            base.OnEnable();
+        protected void OnEnable() {
             // Cache MatchSettingsManager.Instance (but don't cache game mode - check it fresh each time)
             _cachedMatchSettings = MatchSettingsManager.Instance;
             if(!IsInitialized) {
@@ -57,9 +56,8 @@ namespace Game.UI.HUD {
             BindHudEvents();
         }
 
-        protected override void OnDisable() {
+        protected void OnDisable() {
             UnbindHudEvents();
-            base.OnDisable();
         }
 
         protected override void OnInitialize() {

@@ -20,16 +20,14 @@ namespace Game.UI.Misc {
             if(uiDocument == null) uiDocument = GetComponent<UIDocument>();
         }
 
-        protected override void OnEnable() {
-            base.OnEnable();
+        protected void OnEnable() {
             EventBus.Subscribe<ShowPostMatchXpEvent>(OnShowPostMatchXp);
             EventBus.Subscribe<HidePostMatchXpEvent>(OnHidePostMatchXp);
         }
 
-        protected override void OnDisable() {
+        protected void OnDisable() {
             EventBus.Unsubscribe<ShowPostMatchXpEvent>(OnShowPostMatchXp);
             EventBus.Unsubscribe<HidePostMatchXpEvent>(OnHidePostMatchXp);
-            base.OnDisable();
         }
 
         protected override void Start() {

@@ -143,8 +143,7 @@ namespace Game.Menu.Game {
                 DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         }
 
-        protected override void OnEnable() {
-            base.OnEnable();
+        protected void OnEnable() {
             UpdateCachedSceneName();
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -152,13 +151,12 @@ namespace Game.Menu.Game {
             BindGameplayEvents();
         }
 
-        protected override void OnDisable() {
+        protected void OnDisable() {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             UnbindProgressionEvents();
             UnbindGameplayEvents();
             ClosePauseLoadoutDropdowns();
             SetOptionsOpenState(false);
-            base.OnDisable();
         }
 
         protected override void OnInitialize() {
