@@ -1,7 +1,7 @@
 using Game.Match;
 
 namespace Game.Player.Core {
-    internal sealed class PlayerMatchRules {
+    internal static class PlayerMatchRules {
         public static bool IsPreMatchMovementLocked =>
             MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
 

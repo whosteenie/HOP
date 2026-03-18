@@ -9,7 +9,7 @@ namespace Network.AntiCheat {
             public const string WeaponSwitch = "WeaponSwitchRPC";
         }
 
-        private class Entry {
+        private sealed class Entry {
             public float WindowStart;
             public int Count;
         }

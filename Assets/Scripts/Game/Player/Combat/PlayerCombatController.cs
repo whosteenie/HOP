@@ -62,7 +62,7 @@ namespace Game.Player.Combat {
         private Coroutine _respawnFadeCoroutine;
         private Coroutine _respawnTimeoutProbeCoroutine;
 
-        private class AssistInfo {
+        private sealed class AssistInfo {
             public ulong AttackerId;
             public float LastDamageTime;
             public float Damage;

@@ -2,7 +2,7 @@
 using UnityEngine;
 
 namespace OSI {
-    internal class ArrowObjectPool : MonoBehaviour {
+    internal sealed class ArrowObjectPool : MonoBehaviour {
         public static ArrowObjectPool Current;
 
         [Tooltip("Assign the arrow prefab.")] public Indicator pooledObject;

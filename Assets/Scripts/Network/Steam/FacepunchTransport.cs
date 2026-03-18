@@ -204,7 +204,7 @@ namespace Network.Steam {
             public ArraySegment<byte> Payload;
         }
 
-        private class FacepunchSocketManager : SocketManager {
+        private sealed class FacepunchSocketManager : SocketManager {
             public FacepunchTransport Transport;
             private readonly Queue<TransportEvent> _eventQueue = new();
 
@@ -257,7 +257,7 @@ namespace Network.Steam {
             }
         }
 
-        private class FacepunchConnectionManager : ConnectionManager {
+        private sealed class FacepunchConnectionManager : ConnectionManager {
             private readonly Queue<TransportEvent> _eventQueue = new();
 
             public override void OnConnected(ConnectionInfo data) {

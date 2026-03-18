@@ -149,7 +149,6 @@ namespace Game.Player.Core {
         private PlayerWeaponPresentation _weaponPresentation;
         private PlayerSpawnPresentation _spawnPresentation;
         private PlayerPresentationState _presentationState;
-        private PlayerMatchRules _matchRules;
         private PlayerRespawnCoordinator _respawnCoordinator;
 
         #endregion
@@ -395,7 +394,6 @@ namespace Game.Player.Core {
             _weaponPresentation ??= new PlayerWeaponPresentation(this);
             _spawnPresentation ??= new PlayerSpawnPresentation(this);
             _presentationState ??= new PlayerPresentationState(this);
-            _matchRules ??= new PlayerMatchRules();
             _respawnCoordinator ??= new PlayerRespawnCoordinator(this);
         }
 
@@ -570,7 +568,6 @@ namespace Game.Player.Core {
         }
 
         public MatchPlayerStateProxy PlayerState => _networkState.PlayerState;
-        internal PlayerMatchRules MatchRules => _matchRules ??= new PlayerMatchRules();
 
         private MatchPlayerStateProxy ResolvePlayerState() {
             return _networkState.ResolvePlayerState();

@@ -19,7 +19,7 @@ namespace Game.UI.Screens {
         private const float MessageLifetime = 8f; // Seconds before message fades when chat is closed
         private const float FadeDuration = 1.5f; // Fade out duration
 
-        private class ChatMessageElement {
+        private sealed class ChatMessageElement {
             public VisualElement Element;
             public float Timestamp;
             public bool IsVisible = true;
