@@ -118,7 +118,6 @@ namespace Game.Menu.Loadout {
         private Coroutine _slideOutCoroutine;
         private const float SlideAnimationDuration = 0.3f;
         private const float BackgroundFadeDuration = 0.2f;
-        private bool _containersInitialized;
         private static readonly Vector2 WeaponOffscreenPercent = new(-200f, 0f);
         private static readonly Vector2 CustomizationOffscreenPercent = new(200f, 0f);
         private static readonly Vector2 NameOffscreenPercent = new(0f, 200f);

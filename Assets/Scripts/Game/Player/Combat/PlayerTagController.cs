@@ -53,7 +53,6 @@ namespace Game.Player.Combat {
 
         // Throttling for network updates (at 90Hz: 5 ticks = ~55ms, 2 ticks = ~22ms)
         public float lastTagStatsUpdateTime; // Public for cross-reference in HandleTagTransfer
-        private float _lastIsTaggedUpdateTime;
         private const float TagStatsUpdateInterval = 0.055f; // ~5 ticks at 90Hz
 
         private float _timer;

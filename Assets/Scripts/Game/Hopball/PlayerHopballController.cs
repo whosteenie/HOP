@@ -105,7 +105,6 @@ namespace Game.Hopball {
         private Vector3 _worldHopballBaseLocalPosition;
         private float _hopballFloatPhase;
         private float _heldHopballProgressionSeconds;
-        private Coroutine _restoreWeaponsCoroutine; // Track restore coroutine
         private Collider PlayerCollider { get; set; }
         private bool _fpParticlesPrewarmed;
         private bool _worldParticlesPrewarmed;

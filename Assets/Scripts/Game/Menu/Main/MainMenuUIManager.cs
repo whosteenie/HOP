@@ -21,7 +21,6 @@ namespace Game.Menu.Main {
 
         private UIModalHost _modalHost;
         private VisualElement MainMenuPanel { get; set; }
-        private VisualElement _gamemodePanel;
         private Button _cardGunTag;
 
         // HUD / Global Containers
