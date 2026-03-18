@@ -10,8 +10,8 @@ namespace Network.AntiCheat {
         }
 
         private sealed class Entry {
-            public float WindowStart;
-            public int Count;
+            internal float WindowStart;
+            internal int Count;
         }
 
         private static readonly Dictionary<ulong, Dictionary<string, Entry>> Cache = new();

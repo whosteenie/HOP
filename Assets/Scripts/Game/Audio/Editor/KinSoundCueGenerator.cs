@@ -14,8 +14,8 @@ namespace Game.Audio.Editor {
         private const string DefaultCatalogPath = "Assets/Audio/SoundCatalog.asset";
 
         private readonly struct WeaponSoundSource {
-            public readonly string Key;
-            public readonly FPSWeaponSettings Settings;
+            internal readonly string Key;
+            internal readonly FPSWeaponSettings Settings;
 
             public WeaponSoundSource(string key, FPSWeaponSettings settings) {
                 Key = key;

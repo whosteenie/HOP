@@ -19,9 +19,9 @@ namespace Events {
         private static EventBusLogSettings logSettings;
 
         private struct CorrelationContext {
-            public string CorrelationId;
-            public string ParentCorrelationId;
-            public int Depth;
+            internal string CorrelationId;
+            internal string ParentCorrelationId;
+            internal int Depth;
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD

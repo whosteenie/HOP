@@ -103,47 +103,47 @@ namespace Events {
                 var subscriberContext = ResolveSubscriberContext(target, settingsSnapshot.RedactIdentifiers);
 
                 var record = new EventBusFailureRecord {
-                    recordType = "handler_exception",
-                    sessionId = activeSessionId,
-                    sequence = recordCount + 1,
-                    timestampUtc = DateTime.UtcNow.ToString("o"),
-                    severity = "Error",
-                    scene = ResolveSceneName(),
-                    frame = Time.frameCount,
-                    networkRole = ResolveNetworkRole(),
-                    eventType = eventType != null ? eventType.FullName : "Unknown",
-                    publisherMember = callerMember,
-                    publisherFile = publisherFile,
-                    publisherLine = callerLine,
-                    publisherContext = publisherContext,
-                    correlationId = correlationId,
-                    parentCorrelationId = parentCorrelationId,
-                    correlationDepth = correlationDepth,
-                    publisherEventContext = MaybeRedactString(publisherEventContext, settingsSnapshot.RedactIdentifiers),
-                    subscriberMethod = subscriberMethod,
-                    subscriberDeclaringType = subscriberDeclaringType,
-                    subscriberTargetType = subscriberTargetType,
-                    subscriberInstanceId = MaybeRedactInt(subscriberInstanceId, settingsSnapshot.RedactIdentifiers),
-                    subscriberObjectName = MaybeRedactString(subscriberObjectName, settingsSnapshot.RedactIdentifiers),
-                    subscriberObjectPath = MaybeRedactString(subscriberObjectPath, settingsSnapshot.RedactIdentifiers),
-                    subscriberNetworkObjectId = MaybeRedactString(subscriberNetworkObjectId, settingsSnapshot.RedactIdentifiers),
-                    subscriberOwnerClientId = MaybeRedactString(subscriberOwnerClientId, settingsSnapshot.RedactIdentifiers),
-                    subscriberContext = subscriberContext,
-                    exceptionType = exception != null ? exception.GetType().FullName : "UnknownException",
-                    exceptionMessage = exception != null ? exception.Message : "Unknown exception",
-                    exceptionStackTrace = exception != null ? exception.StackTrace : string.Empty,
-                    eventPayload = settingsSnapshot.IncludeEventPayload && gameEvent != null ? gameEvent.ToString() : string.Empty,
-                    publishStackTrace = settingsSnapshot.IncludePublisherStackTrace ? new System.Diagnostics.StackTrace(2, true).ToString() : string.Empty
+                    RecordType = "handler_exception",
+                    SessionId = activeSessionId,
+                    Sequence = recordCount + 1,
+                    TimestampUtc = DateTime.UtcNow.ToString("o"),
+                    Severity = "Error",
+                    Scene = ResolveSceneName(),
+                    Frame = Time.frameCount,
+                    NetworkRole = ResolveNetworkRole(),
+                    EventType = eventType != null ? eventType.FullName : "Unknown",
+                    PublisherMember = callerMember,
+                    PublisherFile = publisherFile,
+                    PublisherLine = callerLine,
+                    PublisherContext = publisherContext,
+                    CorrelationId = correlationId,
+                    ParentCorrelationId = parentCorrelationId,
+                    CorrelationDepth = correlationDepth,
+                    PublisherEventContext = MaybeRedactString(publisherEventContext, settingsSnapshot.RedactIdentifiers),
+                    SubscriberMethod = subscriberMethod,
+                    SubscriberDeclaringType = subscriberDeclaringType,
+                    SubscriberTargetType = subscriberTargetType,
+                    SubscriberInstanceId = MaybeRedactInt(subscriberInstanceId, settingsSnapshot.RedactIdentifiers),
+                    SubscriberObjectName = MaybeRedactString(subscriberObjectName, settingsSnapshot.RedactIdentifiers),
+                    SubscriberObjectPath = MaybeRedactString(subscriberObjectPath, settingsSnapshot.RedactIdentifiers),
+                    SubscriberNetworkObjectId = MaybeRedactString(subscriberNetworkObjectId, settingsSnapshot.RedactIdentifiers),
+                    SubscriberOwnerClientId = MaybeRedactString(subscriberOwnerClientId, settingsSnapshot.RedactIdentifiers),
+                    SubscriberContext = subscriberContext,
+                    ExceptionType = exception != null ? exception.GetType().FullName : "UnknownException",
+                    ExceptionMessage = exception != null ? exception.Message : "Unknown exception",
+                    ExceptionStackTrace = exception != null ? exception.StackTrace : string.Empty,
+                    EventPayload = settingsSnapshot.IncludeEventPayload && gameEvent != null ? gameEvent.ToString() : string.Empty,
+                    PublishStackTrace = settingsSnapshot.IncludePublisherStackTrace ? new System.Diagnostics.StackTrace(2, true).ToString() : string.Empty
                 };
 
                 WriteRecord(record, flushImmediately: settingsSnapshot.ImmediateFlushOnError);
 
                 if(settingsSnapshot.EchoToUnityConsole) {
                     EventDevLog.LogError(
-                        $"[EventBusFailure] event={record.eventType} publisher={record.publisherContext} " +
-                        $"subscriber={record.subscriberDeclaringType}.{record.subscriberMethod} " +
-                        $"exception={record.exceptionType}: {record.exceptionMessage} session={record.sessionId} " +
-                        $"corr={record.correlationId}");
+                        $"[EventBusFailure] event={record.EventType} publisher={record.PublisherContext} " +
+                        $"subscriber={record.SubscriberDeclaringType}.{record.SubscriberMethod} " +
+                        $"exception={record.ExceptionType}: {record.ExceptionMessage} session={record.SessionId} " +
+                        $"corr={record.CorrelationId}");
                 }
             } catch(Exception internalException) {
                 if(internalErrorLogged) {
@@ -371,27 +371,27 @@ namespace Events {
 
         private static void WriteSessionBoundaryLocked(string recordType) {
             var boundary = new EventBusFailureRecord {
-                recordType = recordType,
-                sessionId = activeSessionId,
-                sequence = recordCount + 1,
-                timestampUtc = DateTime.UtcNow.ToString("o"),
-                severity = "Info",
-                scene = ResolveSceneName(),
-                frame = Time.frameCount,
-                networkRole = ResolveNetworkRole(),
-                eventType = string.Empty,
-                publisherContext = string.Empty,
-                correlationId = string.Empty,
-                parentCorrelationId = string.Empty,
-                correlationDepth = 0,
-                publisherEventContext = string.Empty,
-                subscriberMethod = string.Empty,
-                subscriberContext = string.Empty,
-                exceptionType = string.Empty,
-                exceptionMessage = string.Empty,
-                exceptionStackTrace = string.Empty,
-                eventPayload = string.Empty,
-                publishStackTrace = string.Empty
+                RecordType = recordType,
+                SessionId = activeSessionId,
+                Sequence = recordCount + 1,
+                TimestampUtc = DateTime.UtcNow.ToString("o"),
+                Severity = "Info",
+                Scene = ResolveSceneName(),
+                Frame = Time.frameCount,
+                NetworkRole = ResolveNetworkRole(),
+                EventType = string.Empty,
+                PublisherContext = string.Empty,
+                CorrelationId = string.Empty,
+                ParentCorrelationId = string.Empty,
+                CorrelationDepth = 0,
+                PublisherEventContext = string.Empty,
+                SubscriberMethod = string.Empty,
+                SubscriberContext = string.Empty,
+                ExceptionType = string.Empty,
+                ExceptionMessage = string.Empty,
+                ExceptionStackTrace = string.Empty,
+                EventPayload = string.Empty,
+                PublishStackTrace = string.Empty
             };
 
             WriteRecordLocked(boundary, flushImmediately: true);
@@ -410,7 +410,7 @@ namespace Events {
             if(recordCount >= settings.MaxRecordsPerSession) return;
 
             try {
-                record.sequence = recordCount + 1;
+                record.Sequence = recordCount + 1;
                 var json = JsonUtility.ToJson(record);
                 var byteCount = Encoding.UTF8.GetByteCount(json) + NewLineByteCount;
                 if(bytesWritten + byteCount > settings.MaxFileSizeBytes) {
@@ -491,51 +491,51 @@ namespace Events {
 
         [Serializable]
         private sealed class EventBusFailureRecord {
-            public string recordType;
-            public string sessionId;
-            public long sequence;
-            public string timestampUtc;
-            public string severity;
-            public string scene;
-            public int frame;
-            public string networkRole;
-            public string eventType;
-            public string publisherMember;
-            public string publisherFile;
-            public int publisherLine;
-            public string publisherContext;
-            public string correlationId;
-            public string parentCorrelationId;
-            public int correlationDepth;
-            public string publisherEventContext;
-            public string subscriberMethod;
-            public string subscriberDeclaringType;
-            public string subscriberTargetType;
-            public int subscriberInstanceId;
-            public string subscriberObjectName;
-            public string subscriberObjectPath;
-            public string subscriberNetworkObjectId;
-            public string subscriberOwnerClientId;
-            public string subscriberContext;
-            public string exceptionType;
-            public string exceptionMessage;
-            public string exceptionStackTrace;
-            public string eventPayload;
-            public string publishStackTrace;
+            internal string RecordType;
+            internal string SessionId;
+            internal long Sequence;
+            internal string TimestampUtc;
+            internal string Severity;
+            internal string Scene;
+            internal int Frame;
+            internal string NetworkRole;
+            internal string EventType;
+            internal string PublisherMember;
+            internal string PublisherFile;
+            internal int PublisherLine;
+            internal string PublisherContext;
+            internal string CorrelationId;
+            internal string ParentCorrelationId;
+            internal int CorrelationDepth;
+            internal string PublisherEventContext;
+            internal string SubscriberMethod;
+            internal string SubscriberDeclaringType;
+            internal string SubscriberTargetType;
+            internal int SubscriberInstanceId;
+            internal string SubscriberObjectName;
+            internal string SubscriberObjectPath;
+            internal string SubscriberNetworkObjectId;
+            internal string SubscriberOwnerClientId;
+            internal string SubscriberContext;
+            internal string ExceptionType;
+            internal string ExceptionMessage;
+            internal string ExceptionStackTrace;
+            internal string EventPayload;
+            internal string PublishStackTrace;
         }
 
         private struct FailureRuntimeSettings {
-            public bool FailureCaptureEnabled;
-            public bool FileLoggingEnabled;
-            public bool EchoToUnityConsole;
-            public bool IncludePublisherStackTrace;
-            public bool IncludeEventPayload;
-            public bool FailFastOnHandlerException;
-            public float FlushIntervalSeconds;
-            public long MaxFileSizeBytes;
-            public int MaxRecordsPerSession;
-            public bool ImmediateFlushOnError;
-            public bool RedactIdentifiers;
+            internal bool FailureCaptureEnabled;
+            internal bool FileLoggingEnabled;
+            internal bool EchoToUnityConsole;
+            internal bool IncludePublisherStackTrace;
+            internal bool IncludeEventPayload;
+            internal bool FailFastOnHandlerException;
+            internal float FlushIntervalSeconds;
+            internal long MaxFileSizeBytes;
+            internal int MaxRecordsPerSession;
+            internal bool ImmediateFlushOnError;
+            internal bool RedactIdentifiers;
 
             public static FailureRuntimeSettings Default => new() {
                 FailureCaptureEnabled = true,

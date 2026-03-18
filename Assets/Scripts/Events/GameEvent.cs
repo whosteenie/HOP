@@ -70,8 +70,8 @@ namespace Events {
 
         [Serializable]
         private struct ContextEntry {
-            public string key;
-            public string value;
+            internal string Key;
+            internal string Value;
         }
 
         [SerializeField] private List<ContextEntry> entries;
@@ -90,10 +90,10 @@ namespace Events {
             entries ??= new List<ContextEntry>(4);
 
             for(var i = 0; i < entries.Count; i++) {
-                if(!string.Equals(entries[i].key, normalizedKey, StringComparison.Ordinal)) continue;
+                if(!string.Equals(entries[i].Key, normalizedKey, StringComparison.Ordinal)) continue;
                 entries[i] = new ContextEntry {
-                    key = normalizedKey,
-                    value = normalizedValue
+                    Key = normalizedKey,
+                    Value = normalizedValue
                 };
                 return;
             }
@@ -101,8 +101,8 @@ namespace Events {
             if(entries.Count >= MaxEntries) return;
 
             entries.Add(new ContextEntry {
-                key = normalizedKey,
-                value = normalizedValue
+                Key = normalizedKey,
+                Value = normalizedValue
             });
         }
 
@@ -150,9 +150,9 @@ namespace Events {
             var count = Mathf.Min(maxPairs, entries.Count);
             for(var i = 0; i < count; i++) {
                 if(i > 0) sb.Append(';');
-                sb.Append(entries[i].key);
+                sb.Append(entries[i].Key);
                 sb.Append('=');
-                sb.Append(entries[i].value);
+                sb.Append(entries[i].Value);
             }
             return sb.ToString();
         }

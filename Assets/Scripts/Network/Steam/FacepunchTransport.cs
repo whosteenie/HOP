@@ -199,13 +199,13 @@ namespace Network.Steam {
         // --- Internal Classes to handle Callbacks ---
 
         private struct TransportEvent {
-            public NetworkEvent Type;
-            public ulong ClientId;
-            public ArraySegment<byte> Payload;
+            internal NetworkEvent Type;
+            internal ulong ClientId;
+            internal ArraySegment<byte> Payload;
         }
 
         private sealed class FacepunchSocketManager : SocketManager {
-            public FacepunchTransport Transport;
+            internal FacepunchTransport Transport;
             private readonly Queue<TransportEvent> _eventQueue = new();
 
             public override void OnConnecting(Connection connection, ConnectionInfo data) {

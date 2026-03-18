@@ -27,11 +27,11 @@ namespace Events.Editor {
         private const int MaxLogEntries = 500;
         
         private struct EventLogEntry {
-            public string EventName;
-            public string Caller;
-            public int SubscriberCount;
-            public int Frame;
-            public float Time;
+            internal string EventName;
+            internal string Caller;
+            internal int SubscriberCount;
+            internal int Frame;
+            internal float Time;
         }
         
         [MenuItem("Tools/Event Bus Debugger")]
