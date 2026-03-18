@@ -8,10 +8,10 @@ using Game.Player.Combat;
 using Game.Player.Contracts;
 using Game.Player.Input;
 using Game.Player.Movement;
+using Game.Player.Weapon;
 using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
-using Game.Weapon.Presentation;
 using Network.Components;
 using Network.Core;
 using OSI;
@@ -93,7 +93,7 @@ namespace Game.Player.Core {
         [Header("Weapon System")]
         [SerializeField] private WeaponManager weaponManager;
 
-        [SerializeField] private Weapon.Core.Weapon weaponComponent;
+        [SerializeField] private Game.Weapon.Core.Weapon weaponComponent;
 
         // [SerializeField] private MeshRenderer worldWeapon;
         [SerializeField] private Transform worldWeaponSocket;
@@ -363,7 +363,7 @@ namespace Game.Player.Core {
             deathCameraController =
                 deathCameraController ? deathCameraController : GetComponent<DeathCameraController>();
             weaponManager = weaponManager ? weaponManager : GetComponent<WeaponManager>();
-            weaponComponent = weaponComponent ? weaponComponent : GetComponent<Weapon.Core.Weapon>();
+            weaponComponent = weaponComponent ? weaponComponent : GetComponent<Game.Weapon.Core.Weapon>();
             audioRelay = audioRelay ? audioRelay : GetComponent<NetworkAudioRelay>();
             audioListener = audioListener ? audioListener : GetComponentInChildren<AudioListener>(true);
             impulseSource = impulseSource ? impulseSource : GetComponentInChildren<CinemachineImpulseSource>(true);
@@ -856,7 +856,7 @@ namespace Game.Player.Core {
 
         public void HideFpVisualsForDisconnectTransition() {
             if(!IsOwner) return;
-            if(weaponManager != null) weaponManager.HideFpVisualsForDisconnectTransition();
+            _weaponPresentation.HideFpVisualsForDisconnectTransition();
             if(NetworkObject != null) {
                 EventBus.Publish(new PlayerDisconnectFpVisualHideRequestedEvent(NetworkObjectId));
             }
@@ -951,14 +951,14 @@ namespace Game.Player.Core {
         #region Weapons
 
         public WeaponManager WeaponManager => weaponManager;
-        public Weapon.Core.Weapon CurrentWeapon => weaponManager != null ? weaponManager.CurrentWeapon : null;
+        public Game.Weapon.Core.Weapon CurrentWeapon => weaponManager != null ? weaponManager.CurrentWeapon : null;
         public GrappleController GrappleController => grappleController;
         public WeaponDamageRelay DamageRelay => damageRelay;
         public WeaponFxRelay FxRelay => fxRelay;
         public NetworkAudioRelay AudioRelay => audioRelay;
         public CinemachineImpulseSource ImpulseSource => impulseSource;
         public GameObject[] WorldWeaponPrefabs => worldWeaponPrefabs;
-        public Weapon.Core.Weapon WeaponComponent => weaponComponent;
+        public Game.Weapon.Core.Weapon WeaponComponent => weaponComponent;
         public Animator PlayerAnimator => playerAnimator;
         public Transform WorldWeaponSocket => worldWeaponSocket;
 
@@ -1186,6 +1186,11 @@ namespace Game.Player.Core {
             if(lookController != null) lookController.SetSniperZoomActive(active, zoomFov);
         }
 
+        void IPlayerInputContext.SetCurrentFpWeaponVisible(bool visible) => _weaponPresentation.SetCurrentFpWeaponVisible(visible);
+        GameObject IPlayerInputContext.GetCurrentFpWeapon() => _weaponPresentation.GetCurrentFpWeapon();
+        void IPlayerInputContext.OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) =>
+            _weaponPresentation.OffsetCurrentFpWeapon(localPosition, localEulerAngles);
+
         CharacterController IPlayerRagdollContext.CharacterController => characterController;
         Animator IPlayerRagdollContext.PlayerAnimator => playerAnimator;
 
@@ -1206,7 +1211,7 @@ namespace Game.Player.Core {
         }
 
         void IPlayerTagContext.UpdateFpArmTagGlow(bool isTagged) {
-            if(weaponManager != null) weaponManager.UpdateAllFpArmTagGlow(isTagged);
+            _weaponPresentation.UpdateAllFpArmTagGlow(isTagged);
         }
 
         void IPlayerTagContext.DrainCurrentWeaponAmmoForTag() {

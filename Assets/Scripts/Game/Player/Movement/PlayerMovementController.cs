@@ -2,6 +2,7 @@ using Diagnostics;
 using Events;
 using Game.Audio.System;
 using Game.Player.Contracts;
+using Game.Player.Weapon;
 using Game.Weapon.Presentation;
 using Unity.Cinemachine;
 using Unity.Netcode;

@@ -2,6 +2,7 @@ using Diagnostics;
 using Game.Match;
 using Game.Weapon.Kinemation;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace Game.Weapon.Core {
     internal sealed class WeaponMount {
@@ -405,21 +406,39 @@ namespace Game.Weapon.Core {
         private bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
             mainSceneCamera = null;
 
-            var playerController = _weapon.PlayerController;
-            var weaponCameraController = playerController != null ? playerController.WeaponCameraController : null;
-            if(weaponCameraController == null) {
-                return false;
-            }
-
-            if(!weaponCameraController.TryGetMainSceneCamera(out mainSceneCamera)) {
-                return false;
-            }
+            mainSceneCamera = FindCandidateMainSceneCamera(weaponCamera);
 
             if(mainSceneCamera == weaponCamera) {
                 mainSceneCamera = null;
             }
 
             return mainSceneCamera != null;
+        }
+
+        private static Camera FindCandidateMainSceneCamera(Camera weaponCamera) {
+            var cameraCount = Camera.allCamerasCount;
+            if(cameraCount <= 0) {
+                return null;
+            }
+
+            var cameras = new Camera[cameraCount];
+            Camera.GetAllCameras(cameras);
+
+            Camera fallback = null;
+            foreach(var sceneCamera in cameras) {
+                if(sceneCamera == null || sceneCamera == weaponCamera || !sceneCamera.isActiveAndEnabled) continue;
+
+                if(sceneCamera.CompareTag("MainCamera")) {
+                    return sceneCamera;
+                }
+
+                var cameraData = sceneCamera.GetUniversalAdditionalCameraData();
+                if(cameraData != null && cameraData.renderType == CameraRenderType.Base && fallback == null) {
+                    fallback = sceneCamera;
+                }
+            }
+
+            return fallback;
         }
 
         private static string GetTransformPath(Transform transform) {

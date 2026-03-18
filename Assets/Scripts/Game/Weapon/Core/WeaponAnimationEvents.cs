@@ -1,5 +1,4 @@
 using Diagnostics;
-using Game.Player.Core;
 using Game.Weapon.Manager;
 using UnityEngine;
 
@@ -10,21 +9,13 @@ namespace Game.Weapon.Core {
     /// </summary>
     public class WeaponAnimationEvents : MonoBehaviour {
         private WeaponManager ResolveWeaponManager() {
-            // Find PlayerController via hierarchy (FP weapon is child of camera, camera is child of player)
-            var playerController = GetComponentInParent<PlayerController>();
-            if(playerController != null && playerController.WeaponManager != null) {
-                return playerController.WeaponManager;
-            }
-
-            // Fallback: try to find via root
-            var root = transform.root;
-            playerController = root.GetComponent<PlayerController>();
-            if(playerController != null && playerController.WeaponManager != null) {
-                return playerController.WeaponManager;
+            var weaponManager = GetComponentInParent<WeaponManager>();
+            if(weaponManager != null) {
+                return weaponManager;
             }
 
             DevLog.LogWarning(
-                "[WeaponAnimationEvents] Could not find PlayerController or WeaponManager to handle equip completion!");
+                "[WeaponAnimationEvents] Could not find WeaponManager to handle equip completion!");
             return null;
         }
 

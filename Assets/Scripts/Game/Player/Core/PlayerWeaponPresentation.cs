@@ -42,13 +42,53 @@ namespace Game.Player.Core {
                 if(updateHud) {
                     EventBus.Publish(new UpdateAmmoEvent(currentWeapon.currentAmmo, currentWeapon.GetMagSize()));
                     EventBus.Publish(new UpdateHealthEvent(_player.NetHealth.Value, 100f));
-                    EventBus.Publish(new UpdateMultiplierEvent(1f, Weapon.Core.Weapon.MaxDamageMultiplier));
+                    EventBus.Publish(new UpdateMultiplierEvent(1f, Game.Weapon.Core.Weapon.MaxDamageMultiplier));
                 }
             }
 
             if(switchToWeapon0) {
                 _player.PlayerInputController.SwitchWeapon(0);
             }
+        }
+
+        public void UpdateAllFpArmTagGlow(bool isTagged) {
+            var weaponManager = _player.WeaponManager;
+            var visualController = _player.VisualController;
+            if(!_player.IsOwner || weaponManager == null || visualController == null) return;
+
+            foreach(var fpWeapon in weaponManager.FpWeaponInstancesRef) {
+                if(fpWeapon == null) continue;
+                visualController.UpdateFpArmTagGlow(isTagged, fpWeapon);
+            }
+        }
+
+        public void SetCurrentFpWeaponVisible(bool visible) {
+            var fpWeapon = GetCurrentFpWeapon();
+            if(fpWeapon == null || _player.PlayerRenderer == null) return;
+            _player.PlayerRenderer.SetFpWeaponRenderersEnabled(visible, fpWeapon);
+        }
+
+        public void HideFpVisualsForDisconnectTransition() {
+            var weaponManager = _player.WeaponManager;
+            if(!_player.IsOwner || weaponManager == null) return;
+
+            foreach(var fpWeapon in weaponManager.FpWeaponInstancesRef) {
+                if(fpWeapon != null && fpWeapon.activeSelf) {
+                    fpWeapon.SetActive(false);
+                }
+            }
+        }
+
+        public void OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) {
+            var fpWeapon = GetCurrentFpWeapon();
+            if(fpWeapon == null) return;
+            fpWeapon.transform.localPosition = localPosition;
+            fpWeapon.transform.localEulerAngles = localEulerAngles;
+        }
+
+        public GameObject GetCurrentFpWeapon() {
+            var weaponManager = _player.WeaponManager;
+            return weaponManager != null ? weaponManager.GetCurrentFpWeapon() : null;
         }
 
         private void EnsureWeaponHierarchyActive(GameObject weaponInstance) {

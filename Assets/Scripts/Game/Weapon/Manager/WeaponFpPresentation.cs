@@ -1,6 +1,4 @@
 using Diagnostics;
-using Game.Player.Combat;
-using Game.Player.Visual;
 using Game.Weapon.Core;
 using Game.Weapon.Kinemation;
 using Game.Weapon.Presentation;
@@ -25,40 +23,6 @@ namespace Game.Weapon.Manager {
             if(fpWeapon == null || !fpWeapon.activeSelf) return null;
             var holderRoot = ResolveFpHolderRoot(fpWeapon);
             return holderRoot != null ? holderRoot : fpWeapon;
-        }
-
-        public void UpdateAllFpArmTagGlow(bool isTagged) {
-            if(!_root.IsOwner || _root.PlayerControllerRef == null) return;
-            var visualController = _root.PlayerControllerRef.VisualController;
-            if(visualController == null) return;
-
-            foreach(var fpWeapon in _root.FpWeaponInstancesRef) {
-                if(fpWeapon == null) continue;
-                visualController.UpdateFpArmTagGlow(isTagged, fpWeapon);
-            }
-        }
-
-        public void SetCurrentFpWeaponVisible(bool visible) {
-            var fpWeapon = GetCurrentFpWeapon();
-            if(fpWeapon == null) return;
-
-            _root.PlayerRendererRef.SetFpWeaponRenderersEnabled(visible, fpWeapon);
-        }
-
-        public void HideFpVisualsForDisconnectTransition() {
-            if(!_root.IsOwner) return;
-            foreach(var fpWeapon in _root.FpWeaponInstancesRef) {
-                if(fpWeapon != null && fpWeapon.activeSelf) {
-                    fpWeapon.SetActive(false);
-                }
-            }
-        }
-
-        public void OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) {
-            var fpWeapon = GetCurrentFpWeapon();
-            if(fpWeapon == null) return;
-            fpWeapon.transform.localPosition = localPosition;
-            fpWeapon.transform.localEulerAngles = localEulerAngles;
         }
 
         public void ApplyKinemationViewmodelPose(GameObject fpWeaponRoot, KinemationWeaponBinding binding) {
@@ -200,9 +164,9 @@ namespace Game.Weapon.Manager {
             if(!_root.IsOwner) return;
             ApplyPlayerMaterialToFpWeapon(fpWeaponInstance);
 
-            var tagController = _root.PlayerControllerRef.GetComponent<PlayerTagController>();
+            var tagController = _root.PlayerControllerRef != null ? _root.PlayerControllerRef.TagController : null;
             if(tagController == null || !tagController.IsTagged.Value) return;
-            var visualController = _root.PlayerControllerRef.GetComponent<PlayerVisualController>();
+            var visualController = _root.PlayerControllerRef != null ? _root.PlayerControllerRef.VisualController : null;
             if(visualController != null) {
                 visualController.UpdateFpArmTagGlow(true, fpWeaponInstance);
             }
@@ -222,7 +186,7 @@ namespace Game.Weapon.Manager {
         private void ApplyPlayerMaterialToFpWeapon(GameObject fpWeaponInstance) {
             if(fpWeaponInstance == null || _root.PlayerControllerRef == null) return;
 
-            var visualController = _root.PlayerControllerRef.GetComponent<PlayerVisualController>();
+            var visualController = _root.PlayerControllerRef.VisualController;
             if(visualController != null) {
                 visualController.ApplyMaterialToFpArms(fpWeaponInstance);
             }

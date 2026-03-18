@@ -252,11 +252,6 @@ namespace Game.Weapon.Manager {
         public GameObject GetCurrentFpWeapon() => _fpPresentation != null ? _fpPresentation.GetCurrentFpWeapon() : null;
         public GameObject GetFpWeaponHolderRootForDisconnect() =>
             _fpPresentation.GetFpWeaponHolderRootForDisconnect();
-        public void UpdateAllFpArmTagGlow(bool isTagged) => _fpPresentation.UpdateAllFpArmTagGlow(isTagged);
-        public void SetCurrentFpWeaponVisible(bool visible) => _fpPresentation.SetCurrentFpWeaponVisible(visible);
-        public void HideFpVisualsForDisconnectTransition() => _fpPresentation.HideFpVisualsForDisconnectTransition();
-        public void OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) =>
-            _fpPresentation.OffsetCurrentFpWeapon(localPosition, localEulerAngles);
 
         public static bool IsFriendlyFireServer(PlayerController shooter, PlayerController victim) {
             if(shooter == null || victim == null) return false;

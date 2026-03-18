@@ -68,7 +68,7 @@ namespace Game.Player.Input {
             }
         }
 
-        private Weapon.Core.Weapon CurrentWeapon => WeaponManager == null ? null : WeaponManager.CurrentWeapon;
+        private Game.Weapon.Core.Weapon CurrentWeapon => WeaponManager == null ? null : WeaponManager.CurrentWeapon;
         private bool IsMantling => _playerContext is { IsMantling: true };
         private bool CanMantleJump => _playerContext is { CanMantleJump: true };
         private bool IsGrappling => _playerContext is { IsGrappling: true };
@@ -892,10 +892,10 @@ namespace Game.Player.Input {
         public Vector3 SniperMuzzleCameraOffset => sniperMuzzleCameraOffset;
 
         private void ApplySniperOverlayEffects(bool zoomEnabled, bool playZoomSound) {
-            if(WeaponManager != null) {
-                WeaponManager.SetCurrentFpWeaponVisible(!zoomEnabled);
+            if(_playerContext != null) {
+                _playerContext.SetCurrentFpWeaponVisible(!zoomEnabled);
 
-                var fpWeapon = WeaponManager.GetCurrentFpWeapon();
+                var fpWeapon = _playerContext.GetCurrentFpWeapon();
                 if(fpWeapon != null) {
                     if(zoomEnabled) {
                         if(_cachedFpWeaponPosition == null)
@@ -903,13 +903,13 @@ namespace Game.Player.Input {
                         if(_cachedFpWeaponRotation == null)
                             _cachedFpWeaponRotation = fpWeapon.transform.localEulerAngles;
 
-                        WeaponManager.OffsetCurrentFpWeapon(sniperScopedWeaponPosition, sniperScopedWeaponRotation);
+                        _playerContext.OffsetCurrentFpWeapon(sniperScopedWeaponPosition, sniperScopedWeaponRotation);
                     } else {
                         if(_cachedFpWeaponPosition.HasValue) {
                             var rotation = _cachedFpWeaponRotation.HasValue
                                 ? _cachedFpWeaponRotation.Value
                                 : Vector3.zero;
-                            WeaponManager.OffsetCurrentFpWeapon(_cachedFpWeaponPosition.Value, rotation);
+                            _playerContext.OffsetCurrentFpWeapon(_cachedFpWeaponPosition.Value, rotation);
                         }
 
                         _cachedFpWeaponPosition = null;

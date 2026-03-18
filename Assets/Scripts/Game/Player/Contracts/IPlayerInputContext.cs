@@ -32,5 +32,8 @@ namespace Game.Player.Contracts {
         void TryGrapple();
         void CancelGrapple();
         void SetSniperZoomActive(bool active, float zoomFov = 0f);
+        void SetCurrentFpWeaponVisible(bool visible);
+        GameObject GetCurrentFpWeapon();
+        void OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles);
     }
 }

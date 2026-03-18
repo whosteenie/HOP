@@ -1,6 +1,6 @@
 using Game.Match;
+using Game.Player.Weapon;
 using Game.Weapon.Manager;
-using Game.Weapon.Presentation;
 using Network.Components;
 using Unity.Collections;
 using Unity.Cinemachine;
