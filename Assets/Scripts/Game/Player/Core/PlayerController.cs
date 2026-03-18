@@ -27,7 +27,9 @@ namespace Game.Player.Core {
     [RequireComponent(typeof(NetworkAudioRelay))]
     [RequireComponent(typeof(PlayerHillTracker))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
-    public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext, IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext, IPlayerCombatContext, IPlayerMaterialCustomizationContext {
+    public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext,
+        IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext,
+        IPlayerCombatContext, IPlayerMaterialCustomizationContext {
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -162,7 +164,8 @@ namespace Game.Player.Core {
         private PlayerWeaponPresentation _weaponPresentation;
         private PlayerSpawnPresentation _spawnPresentation;
         private PlayerPresentationState _presentationState;
-        private SpawnPoint _reservedRespawnPoint;
+        private PlayerMatchRules _matchRules;
+        private PlayerRespawnCoordinator _respawnCoordinator;
 
         #endregion
 
@@ -265,7 +268,7 @@ namespace Game.Player.Core {
         #endregion
 
         #region Public Properties
- 
+
         public float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
         private float BaseFov => lookController != null ? lookController.BaseFov : 80f;
         public bool IsJumpHeld => playerInputController != null && playerInputController.IsJumpHeld;
@@ -337,10 +340,13 @@ namespace Game.Player.Core {
         private void ValidateSerializedReferences(bool logIssues) {
             playerTransform = playerTransform ? playerTransform : transform;
             characterController = characterController ? characterController : GetComponent<CharacterController>();
-            playerInputController = playerInputController ? playerInputController : GetComponent<PlayerInputController>();
-            unityPlayerInput = unityPlayerInput ? unityPlayerInput : GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            playerInputController =
+                playerInputController ? playerInputController : GetComponent<PlayerInputController>();
+            unityPlayerInput =
+                unityPlayerInput ? unityPlayerInput : GetComponent<UnityEngine.InputSystem.PlayerInput>();
             playerAnimator = playerAnimator ? playerAnimator : GetComponentInChildren<Animator>(true);
-            clientNetworkTransform = clientNetworkTransform ? clientNetworkTransform : GetComponent<ClientNetworkTransform>();
+            clientNetworkTransform =
+                clientNetworkTransform ? clientNetworkTransform : GetComponent<ClientNetworkTransform>();
             movementController = movementController ? movementController : GetComponent<PlayerMovementController>();
             lookController = lookController ? lookController : GetComponent<PlayerLookController>();
             mantleController = mantleController ? mantleController : GetComponent<MantleController>();
@@ -352,8 +358,10 @@ namespace Game.Player.Core {
             tagController = tagController ? tagController : GetComponent<PlayerTagController>();
             podiumController = podiumController ? podiumController : GetComponent<PlayerPodiumController>();
             playerTeamManager = playerTeamManager ? playerTeamManager : GetComponent<PlayerTeamManager>();
-            weaponCameraController = weaponCameraController ? weaponCameraController : GetComponent<WeaponCameraController>();
-            deathCameraController = deathCameraController ? deathCameraController : GetComponent<DeathCameraController>();
+            weaponCameraController =
+                weaponCameraController ? weaponCameraController : GetComponent<WeaponCameraController>();
+            deathCameraController =
+                deathCameraController ? deathCameraController : GetComponent<DeathCameraController>();
             weaponManager = weaponManager ? weaponManager : GetComponent<WeaponManager>();
             weaponComponent = weaponComponent ? weaponComponent : GetComponent<Weapon.Core.Weapon>();
             audioRelay = audioRelay ? audioRelay : GetComponent<NetworkAudioRelay>();
@@ -394,6 +402,8 @@ namespace Game.Player.Core {
             _weaponPresentation ??= new PlayerWeaponPresentation(this);
             _spawnPresentation ??= new PlayerSpawnPresentation(this);
             _presentationState ??= new PlayerPresentationState(this);
+            _matchRules ??= new PlayerMatchRules();
+            _respawnCoordinator ??= new PlayerRespawnCoordinator(this);
         }
 
         private void Awake() {
@@ -582,6 +592,7 @@ namespace Game.Player.Core {
         }
 
         public MatchPlayerStateProxy PlayerState => _networkState.PlayerState;
+        internal PlayerMatchRules MatchRules => _matchRules ??= new PlayerMatchRules();
 
         private MatchPlayerStateProxy ResolvePlayerState() {
             return _networkState.ResolvePlayerState();
@@ -1041,13 +1052,7 @@ namespace Game.Player.Core {
         public bool IsDead => NetIsDead is { Value: true };
         public bool IsCrouching => netIsCrouching is { Value: true };
         public bool IsGrounded => movementController != null && movementController.IsGrounded;
-        private static bool IsPreMatchMovementLocked => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
-        private static bool IsPostMatchMovementLocked => PostMatchManager.IsPostMatchMovementLockedLocal;
-        private static bool IsPostMatchFlowStarted => PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
-        public static string CurrentGameModeId => MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.selectedGameModeId : string.Empty;
-        public static bool IsGunTagMode => MatchSettingsManager.Instance != null &&
-                                           MatchSettingsManager.Instance.selectedGameModeId == "Gun Tag";
-        public static bool IsTeamBasedMode => MatchSettingsManager.IsTeamBasedMode(CurrentGameModeId);
+
         public SpawnPoint.Team CurrentTeam => playerTeamManager != null && playerTeamManager.netTeam != null
             ? playerTeamManager.netTeam.Value
             : SpawnPoint.Team.TeamA;
@@ -1086,63 +1091,6 @@ namespace Game.Player.Core {
         public int TimeTagged => tagController != null ? tagController.TimeTagged.Value : 0;
         public bool IsTagged => tagController != null && tagController.IsTagged.Value;
 
-        private void ReserveRespawnPoint() {
-            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
-
-            SpawnPoint reservedPoint = null;
-            if(IsTeamBasedMode) {
-                if(SpawnManager.Instance != null) {
-                    reservedPoint = SpawnManager.Instance.ReserveSpawnPoint(OwnerClientId, CurrentTeam);
-                }
-            } else if(SpawnManager.Instance != null) {
-                reservedPoint = SpawnManager.Instance.ReserveSpawnPoint(OwnerClientId);
-            }
-
-            _reservedRespawnPoint = reservedPoint;
-        }
-
-        private bool TryGetReservedRespawnPose(out Vector3 position, out Quaternion rotation) {
-            if(_reservedRespawnPoint != null) {
-                var reservedSpawnTransform = _reservedRespawnPoint.transform;
-                position = reservedSpawnTransform.position;
-                rotation = reservedSpawnTransform.rotation;
-                return true;
-            }
-
-            position = Vector3.zero;
-            rotation = Quaternion.identity;
-            return false;
-        }
-
-        private void GetFallbackRespawnPose(out Vector3 position, out Quaternion rotation) {
-            SpawnPoint point = null;
-            if(SpawnManager.Instance != null) {
-                point = IsTeamBasedMode
-                    ? SpawnManager.Instance.GetNextSpawnForRespawn(CurrentTeam)
-                    : SpawnManager.Instance.GetNextSpawnForRespawn();
-            }
-
-            if(point == null) {
-                position = Vector3.zero;
-                rotation = Quaternion.identity;
-                return;
-            }
-
-            var pointTransform = point.transform;
-            position = pointTransform.position;
-            rotation = pointTransform.rotation;
-        }
-
-        private void ReleaseRespawnReservation() {
-            if(!NetworkAuthority.HasGlobalAuthority(this) || _reservedRespawnPoint == null) return;
-
-            if(SpawnManager.Instance != null) {
-                SpawnManager.Instance.ReleaseReservation(OwnerClientId);
-            }
-
-            _reservedRespawnPoint = null;
-        }
-
         #endregion
 
         #region Network RPCs
@@ -1173,8 +1121,8 @@ namespace Game.Player.Core {
         bool IPlayerMovementContext.SprintInput => sprintInput;
         bool IPlayerMovementContext.CrouchInput => crouchInput;
         Vector3 IPlayerMovementContext.FullVelocity => GetFullVelocity;
-        bool IPlayerMovementContext.IsPreMatchMovementLocked => IsPreMatchMovementLocked;
-        bool IPlayerMovementContext.IsGunTagMode => IsGunTagMode;
+        bool IPlayerMovementContext.IsPreMatchMovementLocked => PlayerMatchRules.IsPreMatchMovementLocked;
+        bool IPlayerMovementContext.IsGunTagMode => PlayerMatchRules.IsGunTagMode;
         NetworkVariable<Vector4> IPlayerMovementContext.PlayerBaseColorNetwork => playerBaseColor;
         UnityEngine.InputSystem.PlayerInput IPlayerInputContext.UnityPlayerInput => unityPlayerInput;
         AudioListener IPlayerInputContext.AudioListener => audioListener;
@@ -1184,19 +1132,23 @@ namespace Game.Player.Core {
         bool IPlayerInputContext.IsMantling => mantleController != null && mantleController.IsMantling;
         bool IPlayerInputContext.CanMantleJump => mantleController != null && mantleController.CanJump;
         bool IPlayerInputContext.IsGrappling => grappleController != null && grappleController.IsGrappling;
-        bool IPlayerInputContext.IsPreMatchMovementLocked => IsPreMatchMovementLocked;
-        bool IPlayerInputContext.IsPostMatchMovementLocked => IsPostMatchMovementLocked;
-        bool IPlayerInputContext.IsPostMatchFlowStarted => IsPostMatchFlowStarted;
+        bool IPlayerInputContext.IsPreMatchMovementLocked => PlayerMatchRules.IsPreMatchMovementLocked;
+        bool IPlayerInputContext.IsPostMatchMovementLocked => PlayerMatchRules.IsPostMatchMovementLocked;
+        bool IPlayerInputContext.IsPostMatchFlowStarted => PlayerMatchRules.IsPostMatchFlowStarted;
+
         bool IPlayerInputContext.SprintInputState {
             get => sprintInput;
             set => sprintInput = value;
         }
+
         bool IPlayerInputContext.CrouchInputState {
             get => crouchInput;
             set => crouchInput = value;
         }
+
         bool IPlayerInputContext.IsSniperZoomActive => lookController != null && lookController.IsSniperZoomActive;
         void IPlayerMovementContext.SetLookTilt(float tilt) => SetLookTilt(tilt);
+
         void IPlayerMovementContext.SetCrouchingAnimation(bool isCrouching) {
             if(animationController != null) animationController.SetCrouching(isCrouching);
         }
@@ -1217,6 +1169,7 @@ namespace Game.Player.Core {
         void IPlayerInputContext.SetLookInput(Vector2 look) => lookInput = look;
         void IPlayerInputContext.TryJump(float height) => TryJump(height);
         void IPlayerInputContext.PickupHopball() => PickupHopball();
+
         void IPlayerInputContext.TryMantle() {
             if(mantleController != null) mantleController.TryMantle();
         }
@@ -1243,8 +1196,11 @@ namespace Game.Player.Core {
         MatchPlayerStateProxy IPlayerStatsContext.PlayerState => PlayerState;
         float IPlayerStatsContext.ObservedServerMovementSpeed => ObservedServerMovementSpeed;
 
-        void IPlayerTagContext.PlayHitEffects(Vector3 hitPoint, float amount) => PlayHitEffectsClientRpc(hitPoint, amount);
-        bool IPlayerTagContext.IsGunTagMode => IsGunTagMode;
+        void IPlayerTagContext.PlayHitEffects(Vector3 hitPoint, float amount) =>
+            PlayHitEffectsClientRpc(hitPoint, amount);
+
+        bool IPlayerTagContext.IsGunTagMode => PlayerMatchRules.IsGunTagMode;
+
         void IPlayerTagContext.UpdateTeamOutlineColour() {
             if(playerTeamManager != null) playerTeamManager.UpdateOutlineColour();
         }
@@ -1267,7 +1223,10 @@ namespace Game.Player.Core {
         CinemachineCamera IPlayerCombatContext.FpCamera => fpCamera;
         WeaponCameraController IPlayerCombatContext.WeaponCameraController => weaponCameraController;
         CinemachineImpulseSource IPlayerCombatContext.ImpulseSource => impulseSource;
-        Vector3 IPlayerCombatContext.FullVelocity => movementController != null ? movementController.FullVelocity : Vector3.zero;
+
+        Vector3 IPlayerCombatContext.FullVelocity =>
+            movementController != null ? movementController.FullVelocity : Vector3.zero;
+
         bool IPlayerCombatContext.IsGrounded => movementController != null && movementController.IsGrounded;
         NetworkVariable<float> IPlayerCombatContext.NetHealth => NetHealth;
         NetworkVariable<bool> IPlayerCombatContext.NetIsDead => NetIsDead;
@@ -1277,81 +1236,111 @@ namespace Game.Player.Core {
         NetworkVariable<int> IPlayerCombatContext.Assists => Assists;
         NetworkVariable<FixedString64Bytes> IPlayerCombatContext.PlayerName => PlayerName;
         bool IPlayerCombatContext.IsHoldingHopball => IsHoldingHopball;
-        bool IPlayerCombatContext.IsGunTagMode => IsGunTagMode;
-        bool IPlayerCombatContext.IsTeamBasedMode => IsTeamBasedMode;
-        bool IPlayerCombatContext.IsPostMatchFlowStarted => IsPostMatchFlowStarted;
-        string IPlayerCombatContext.CurrentGameModeId => CurrentGameModeId;
+        bool IPlayerCombatContext.IsGunTagMode => PlayerMatchRules.IsGunTagMode;
+        bool IPlayerCombatContext.IsTeamBasedMode => PlayerMatchRules.IsTeamBasedMode;
+        bool IPlayerCombatContext.IsPostMatchFlowStarted => PlayerMatchRules.IsPostMatchFlowStarted;
+        string IPlayerCombatContext.CurrentGameModeId => PlayerMatchRules.CurrentGameModeId;
         float IPlayerCombatContext.BaseFov => BaseFov;
         SpawnPoint.Team IPlayerCombatContext.CurrentTeam => CurrentTeam;
         void IPlayerCombatContext.SetOutOfBoundsGraceWindow(float seconds) => SetOutOfBoundsGraceWindow(seconds);
         void IPlayerCombatContext.ResetLookPitchFromRespawn() => ResetLookPitchFromRespawn();
         void IPlayerCombatContext.ClearLookInput() => lookInput = Vector2.zero;
+
         Vector2 IPlayerCombatContext.ResampleHeldMovementInputFromRespawn(string reason) =>
             ResampleHeldMovementInputFromRespawn(reason);
+
         void IPlayerCombatContext.ResetWeaponState(bool resetAllAmmo, bool switchToWeapon0, bool updateHUD) =>
             ResetWeaponState(resetAllAmmo, switchToWeapon0, updateHUD);
+
         void IPlayerCombatContext.ResetVelocity() {
             if(movementController != null) {
                 movementController.ResetVelocity();
             }
         }
+
         void IPlayerCombatContext.SetRenderersEnabled(bool renderersEnabled) {
             if(visualController != null) {
                 visualController.SetRenderersEnabled(renderersEnabled);
             }
         }
+
         void IPlayerCombatContext.InvalidateRendererCache() {
             if(visualController != null) {
                 visualController.InvalidateRendererCache();
             }
         }
+
         void IPlayerCombatContext.ForceRendererBoundsUpdate() {
             if(visualController != null) {
                 visualController.ForceRendererBoundsUpdate();
             }
         }
+
         void IPlayerCombatContext.ApplyDeathShadowState(bool wasHoldingHopball) {
             if(playerShadow != null) {
                 playerShadow.ApplyDeathShadowState(wasHoldingHopball);
             }
         }
+
         void IPlayerCombatContext.ApplyOwnerDefaultShadowState() {
             if(playerShadow != null) {
                 playerShadow.ApplyOwnerDefaultShadowState();
             }
         }
+
         void IPlayerCombatContext.ApplyVisibleShadowState() {
             if(playerShadow != null) {
                 playerShadow.ApplyVisibleShadowState();
             }
         }
+
         void IPlayerCombatContext.ResetSpawnAnimationTime() {
             if(animationController != null) {
                 animationController.ResetSpawnTime();
             }
         }
-        void IPlayerCombatContext.PlayHitEffects(Vector3 hitPoint, float amount) => PlayHitEffectsClientRpc(hitPoint, amount);
+
+        void IPlayerCombatContext.PlayHitEffects(Vector3 hitPoint, float amount) =>
+            PlayHitEffectsClientRpc(hitPoint, amount);
+
         float IPlayerCombatContext.GetOutOfBoundsKillY() => GetOutOfBoundsKillY();
         bool IPlayerCombatContext.IsYLevelOutOfBoundsKillEnabled() => IsYLevelOutOfBoundsKillEnabled();
-        void IPlayerCombatContext.ReserveRespawnPoint() => ReserveRespawnPoint();
+
+        void IPlayerCombatContext.ReserveRespawnPoint() => (_respawnCoordinator ??= new PlayerRespawnCoordinator(this))
+            .ReserveRespawnPoint();
+
         bool IPlayerCombatContext.TryGetReservedRespawnPose(out Vector3 position, out Quaternion rotation) =>
-            TryGetReservedRespawnPose(out position, out rotation);
+            (_respawnCoordinator ??= new PlayerRespawnCoordinator(this)).TryGetReservedRespawnPose(out position,
+                out rotation);
+
         void IPlayerCombatContext.GetFallbackRespawnPose(out Vector3 position, out Quaternion rotation) =>
-            GetFallbackRespawnPose(out position, out rotation);
-        void IPlayerCombatContext.ReleaseRespawnReservation() => ReleaseRespawnReservation();
+            (_respawnCoordinator ??= new PlayerRespawnCoordinator(this)).GetFallbackRespawnPose(out position,
+                out rotation);
+
+        void IPlayerCombatContext.ReleaseRespawnReservation() => (_respawnCoordinator ??=
+            new PlayerRespawnCoordinator(this)).ReleaseRespawnReservation();
 
         Transform IPlayerLookContext.PlayerTransform => PlayerTransform;
         CinemachineCamera IPlayerLookContext.FpCamera => fpCamera;
         Vector2 IPlayerLookContext.LookInput => lookInput;
-        Vector3 IPlayerLookContext.HorizontalVelocity => movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
+
+        Vector3 IPlayerLookContext.HorizontalVelocity =>
+            movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
+
         bool IPlayerLookContext.IsRagdoll => playerRagdoll != null && playerRagdoll.IsRagdoll;
         void IPlayerLookContext.UpdateTurnAnimationFromLook(float yawDelta) => UpdateTurnAnimationFromLook(yawDelta);
-        bool IPlayerVisualContext.IsPostMatchFlowStarted => IsPostMatchFlowStarted;
-        Color IPlayerVisualContext.TaggedGlowColor => playerTeamManager != null ? playerTeamManager.TaggedGlow : Color.white;
+        bool IPlayerVisualContext.IsPostMatchFlowStarted => PlayerMatchRules.IsPostMatchFlowStarted;
+
+        Color IPlayerVisualContext.TaggedGlowColor =>
+            playerTeamManager != null ? playerTeamManager.TaggedGlow : Color.white;
+
         NetworkVariable<int> IPlayerVisualContext.JumpAnimationSequence => jumpAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.LandAnimationSequence => landAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.MantleAnimationSequence => mantleAnimationSequence;
-        NetworkVariable<int> IPlayerMaterialCustomizationContext.PlayerMaterialPacketIndexState => playerMaterialPacketIndex;
+
+        NetworkVariable<int> IPlayerMaterialCustomizationContext.PlayerMaterialPacketIndexState =>
+            playerMaterialPacketIndex;
+
         NetworkVariable<Vector4> IPlayerMaterialCustomizationContext.PlayerBaseColorState => playerBaseColor;
         NetworkVariable<float> IPlayerMaterialCustomizationContext.PlayerSmoothnessState => playerSmoothness;
         NetworkVariable<float> IPlayerMaterialCustomizationContext.PlayerMetallicState => playerMetallic;
@@ -1361,6 +1350,7 @@ namespace Game.Player.Core {
         NetworkVariable<Vector4> IPlayerMaterialCustomizationContext.PlayerEmissionColorState => playerEmissionColor;
         float IPlayerMaterialCustomizationContext.MinHeightStrengthValue => MinHeightStrength;
         float IPlayerMaterialCustomizationContext.MaxHeightStrengthValue => MaxHeightStrength;
+
         void IPlayerMaterialCustomizationContext.ApplyPlayerMaterialCustomization(int packetIndex, Color baseColor,
             float smoothness, float metallic, Color specularColor, float heightStrength, bool emissionEnabled,
             Color emissionColor) {

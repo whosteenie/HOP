@@ -1,0 +1,22 @@
+using Game.Match;
+
+namespace Game.Player.Core {
+    internal sealed class PlayerMatchRules {
+        public static bool IsPreMatchMovementLocked =>
+            MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
+
+        public static bool IsPostMatchMovementLocked => PostMatchManager.IsPostMatchMovementLockedLocal;
+
+        public static bool IsPostMatchFlowStarted =>
+            PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
+
+        public static string CurrentGameModeId => MatchSettingsManager.Instance != null
+            ? MatchSettingsManager.Instance.selectedGameModeId
+            : string.Empty;
+
+        public static bool IsGunTagMode => MatchSettingsManager.Instance != null &&
+                                           MatchSettingsManager.Instance.selectedGameModeId == "Gun Tag";
+
+        public static bool IsTeamBasedMode => MatchSettingsManager.IsTeamBasedMode(CurrentGameModeId);
+    }
+}

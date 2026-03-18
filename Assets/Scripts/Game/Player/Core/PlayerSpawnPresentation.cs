@@ -70,7 +70,7 @@ namespace Game.Player.Core {
 
             EventBus.Publish(new LocalPlayerReadyEvent(_player.OwnerClientId));
 
-            if(PlayerController.IsGunTagMode && _player.TagController != null) {
+            if(PlayerMatchRules.IsGunTagMode && _player.TagController != null) {
                 EventBus.Publish(new UpdateTagStatusEvent(_player.TagController.IsTagged.Value));
             }
 

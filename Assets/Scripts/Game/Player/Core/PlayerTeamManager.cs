@@ -214,7 +214,7 @@ namespace Game.Player.Core {
                 return;
             }
 
-            var currentGameModeId = playerController != null ? PlayerController.CurrentGameModeId : string.Empty;
+            var currentGameModeId = playerController != null ? PlayerMatchRules.CurrentGameModeId : string.Empty;
             if(_gameModeCacheValid && _cachedGameModeId != currentGameModeId) {
                 // Game mode changed - invalidate cache
                 _gameModeCacheValid = false;
@@ -225,8 +225,8 @@ namespace Game.Player.Core {
             // Cache game mode checks
             if(!_gameModeCacheValid) {
                 _cachedGameModeId = currentGameModeId;
-                _cachedIsTeamBased = playerController != null && PlayerController.IsTeamBasedMode;
-                _cachedIsTagMode = playerController != null && PlayerController.IsGunTagMode;
+                _cachedIsTeamBased = playerController != null && PlayerMatchRules.IsTeamBasedMode;
+                _cachedIsTagMode = playerController != null && PlayerMatchRules.IsGunTagMode;
                 _gameModeCacheValid = true;
             }
 
@@ -339,7 +339,7 @@ namespace Game.Player.Core {
             if(_skinned == null || _propertyBlock == null) return;
             if(IsOwner) return; // Don't update for self
 
-            var currentGameModeId = playerController != null ? PlayerController.CurrentGameModeId : string.Empty;
+            var currentGameModeId = playerController != null ? PlayerMatchRules.CurrentGameModeId : string.Empty;
             switch(_gameModeCacheValid) {
                 case true when _cachedGameModeId != currentGameModeId:
                     // Game mode changed - invalidate cache and update outline
@@ -349,8 +349,8 @@ namespace Game.Player.Core {
                 // Cache game mode checks
                 case false:
                     _cachedGameModeId = currentGameModeId;
-                    _cachedIsTeamBased = playerController != null && PlayerController.IsTeamBasedMode;
-                    _cachedIsTagMode = playerController != null && PlayerController.IsGunTagMode;
+                    _cachedIsTeamBased = playerController != null && PlayerMatchRules.IsTeamBasedMode;
+                    _cachedIsTagMode = playerController != null && PlayerMatchRules.IsGunTagMode;
                     _gameModeCacheValid = true;
                     break;
             }
