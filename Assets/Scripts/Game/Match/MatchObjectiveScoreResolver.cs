@@ -17,7 +17,7 @@ namespace Game.Match {
             return true;
         }
 
-        public static bool TryGetTeamScores(string gameModeId, out int teamAScore, out int teamBScore) {
+        private static bool TryGetTeamScores(string gameModeId, out int teamAScore, out int teamBScore) {
             teamAScore = 0;
             teamBScore = 0;
             var request = new ObjectiveTeamScoresRequestedEvent(gameModeId);

@@ -35,10 +35,10 @@ namespace Network.Session {
         /// and resetting public runtime match settings for a given mode.
         /// </summary>
         public static void SetMatchmakerGameHooks(
-            Func<string, int> resolveMaxPlayersForMode,
-            Action<string> resetPublicRuntimeMatchSettings) {
-            SessionMatchmaker.resolveMaxPlayersForMode = resolveMaxPlayersForMode;
-            SessionMatchmaker.resetPublicRuntimeMatchSettings = resetPublicRuntimeMatchSettings;
+            Func<string, int> resolveMaxPlayersHook,
+            Action<string> resetPublicRuntimeMatchSettingsHook) {
+            resolveMaxPlayersForMode = resolveMaxPlayersHook;
+            resetPublicRuntimeMatchSettings = resetPublicRuntimeMatchSettingsHook;
         }
 
         private string _matchmakerTicketId;

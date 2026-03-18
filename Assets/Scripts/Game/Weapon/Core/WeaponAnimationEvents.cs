@@ -1,6 +1,7 @@
 using Diagnostics;
 using Game.Weapon.Manager;
 using UnityEngine;
+// ReSharper disable UnusedMember.Global
 
 namespace Game.Weapon.Core {
     /// <summary>

@@ -1351,7 +1351,7 @@ namespace Game.Player.Core {
         NetworkVariable<int> IPlayerVisualContext.JumpAnimationSequence => jumpAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.LandAnimationSequence => landAnimationSequence;
         NetworkVariable<int> IPlayerVisualContext.MantleAnimationSequence => mantleAnimationSequence;
-        void IPlayerVisualContext.SetWeaponCameraEnabled(bool enabled) => ((IPlayerCombatContext)this).SetWeaponCameraEnabled(enabled);
+        void IPlayerVisualContext.SetWeaponCameraEnabled(bool cameraEnabled) => ((IPlayerCombatContext)this).SetWeaponCameraEnabled(cameraEnabled);
 
         NetworkVariable<int> IPlayerMaterialCustomizationContext.PlayerMaterialPacketIndexState =>
             playerMaterialPacketIndex;

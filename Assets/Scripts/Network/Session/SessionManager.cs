@@ -86,24 +86,24 @@ namespace Network.Session {
         /// session changes modes or clears match state.
         /// </summary>
         public static void SetMatchSettingsHooks(
-            Action resetMatchSettingsForNewMatch,
-            Action<string> setSelectedGameModeId) {
-            SessionManager.resetMatchSettingsForNewMatch = resetMatchSettingsForNewMatch;
-            SessionManager.setSelectedGameModeId = setSelectedGameModeId;
+            Action resetMatchSettingsHook,
+            Action<string> setSelectedGameModeHook) {
+            resetMatchSettingsForNewMatch = resetMatchSettingsHook;
+            setSelectedGameModeId = setSelectedGameModeHook;
         }
 
         /// <summary>
         /// Registers game-specific hooks for joining/leaving voice channels.
         /// </summary>
         public static void SetVoiceHooks(
-            Func<UniTask> leaveVoiceChannelAsync,
-            Action<ulong, string, Func<bool>, Action<UniTask, string>> joinVoiceForSteamLobby,
-            Action<string, Func<bool>, Action<UniTask, string>> joinVoiceForMatch,
-            Func<ISessionContext, string> getActiveVoiceChannelName) {
-            SessionManager.leaveVoiceChannelAsync = leaveVoiceChannelAsync;
-            SessionManager.joinVoiceForSteamLobby = joinVoiceForSteamLobby;
-            SessionManager.joinVoiceForMatch = joinVoiceForMatch;
-            SessionManager.getActiveVoiceChannelName = getActiveVoiceChannelName;
+            Func<UniTask> leaveVoiceChannelHook,
+            Action<ulong, string, Func<bool>, Action<UniTask, string>> joinVoiceForSteamLobbyHook,
+            Action<string, Func<bool>, Action<UniTask, string>> joinVoiceForMatchHook,
+            Func<ISessionContext, string> getActiveVoiceChannelNameHook) {
+            leaveVoiceChannelAsync = leaveVoiceChannelHook;
+            joinVoiceForSteamLobby = joinVoiceForSteamLobbyHook;
+            joinVoiceForMatch = joinVoiceForMatchHook;
+            getActiveVoiceChannelName = getActiveVoiceChannelNameHook;
         }
 
         // ===== UGS Lobby keys (separate namespace from Steam lobby data) =====

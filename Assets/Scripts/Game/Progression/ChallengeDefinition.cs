@@ -7,7 +7,6 @@ namespace Game.Progression {
         Win,
         Damage,
         PlayTime,
-        HypeRank,
         SpeedKill,
         AerialKill,
         WallRunChain,

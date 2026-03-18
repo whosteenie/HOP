@@ -146,11 +146,6 @@ namespace Game.Player.Visual {
             }
         }
 
-        public bool TryGetMainSceneCamera(out Camera mainSceneCamera) {
-            mainSceneCamera = ResolveMainSceneCamera();
-            return mainSceneCamera != null;
-        }
-
         private Camera ResolveMainSceneCamera() {
             if(_mainSceneCamera != null &&
                _mainSceneCamera != _weaponCamera &&

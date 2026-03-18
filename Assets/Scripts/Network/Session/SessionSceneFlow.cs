@@ -51,67 +51,67 @@ namespace Network.Session {
         /// Registers providers for gameplay readiness checks.
         /// </summary>
         public static void SetGameplayReadinessProviders(
-            Func<bool> isLocalPlayerReady,
-            Func<bool> isGameMenuReady,
-            Func<bool> isMatchTimerReady) {
-            SessionSceneFlow.isLocalPlayerReady = isLocalPlayerReady;
-            SessionSceneFlow.isGameMenuReady = isGameMenuReady;
-            SessionSceneFlow.isMatchTimerReady = isMatchTimerReady;
+            Func<bool> localPlayerReadyProvider,
+            Func<bool> gameMenuReadyProvider,
+            Func<bool> matchTimerReadyProvider) {
+            isLocalPlayerReady = localPlayerReadyProvider;
+            isGameMenuReady = gameMenuReadyProvider;
+            isMatchTimerReady = matchTimerReadyProvider;
         }
 
         /// <summary>
         /// Registers providers for scene transition availability and fade in/out behavior.
         /// </summary>
         public static void SetSceneTransitionProviders(
-            Func<bool> hasSceneTransition,
-            Func<int, UniTask> fadeOutProvider,
-            Func<int, UniTask> fadeInProvider) {
-            hasSceneTransitionProvider = hasSceneTransition;
-            SessionSceneFlow.fadeOutProvider = fadeOutProvider;
-            SessionSceneFlow.fadeInProvider = fadeInProvider;
+            Func<bool> hasSceneTransitionHook,
+            Func<int, UniTask> fadeOutHook,
+            Func<int, UniTask> fadeInHook) {
+            hasSceneTransitionProvider = hasSceneTransitionHook;
+            fadeOutProvider = fadeOutHook;
+            fadeInProvider = fadeInHook;
         }
 
         /// <summary>
         /// Registers providers for disconnect FP visuals (duplicate / cleanup).
         /// </summary>
         public static void SetDisconnectVisualProviders(
-            Action<GameObject> captureDisconnectVisuals,
-            Action cleanupDisconnectVisuals) {
-            SessionSceneFlow.captureDisconnectVisuals = captureDisconnectVisuals;
-            SessionSceneFlow.cleanupDisconnectVisuals = cleanupDisconnectVisuals;
+            Action<GameObject> captureDisconnectVisualsHook,
+            Action cleanupDisconnectVisualsHook) {
+            captureDisconnectVisuals = captureDisconnectVisualsHook;
+            cleanupDisconnectVisuals = cleanupDisconnectVisualsHook;
         }
 
         /// <summary>
         /// Registers a provider used to stop all game audio during leave-to-menu flows.
         /// </summary>
-        public static void SetStopAllAudioProvider(Action stopAllAudio) {
-            SessionSceneFlow.stopAllAudio = stopAllAudio;
+        public static void SetStopAllAudioProvider(Action stopAllAudioHook) {
+            stopAllAudio = stopAllAudioHook;
         }
 
         /// <summary>
         /// Registers providers for map lookup and selection for the current mode.
         /// </summary>
         public static void SetMapSelectionProviders(
-            Func<string, (bool ok, string sceneName)> getSceneByMapId,
-            Func<string, (bool ok, string mapId, string sceneName)> selectRandomSceneForMode,
-            Func<(string mapId, string sceneName)> getDefaultMap) {
-            SessionSceneFlow.getSceneByMapId = getSceneByMapId;
-            SessionSceneFlow.selectRandomSceneForMode = selectRandomSceneForMode;
-            SessionSceneFlow.getDefaultMap = getDefaultMap;
+            Func<string, (bool ok, string sceneName)> getSceneByMapIdHook,
+            Func<string, (bool ok, string mapId, string sceneName)> selectRandomSceneForModeHook,
+            Func<(string mapId, string sceneName)> getDefaultMapHook) {
+            getSceneByMapId = getSceneByMapIdHook;
+            selectRandomSceneForMode = selectRandomSceneForModeHook;
+            getDefaultMap = getDefaultMapHook;
         }
 
         /// <summary>
         /// Registers a provider that reports whether the main menu is fully initialized.
         /// </summary>
-        public static void SetMainMenuReadyProvider(Func<bool> isMainMenuReady) {
-            SessionSceneFlow.isMainMenuReady = isMainMenuReady;
+        public static void SetMainMenuReadyProvider(Func<bool> isMainMenuReadyHook) {
+            isMainMenuReady = isMainMenuReadyHook;
         }
 
         /// <summary>
         /// Registers a notifier used to inform the match timer that the game scene has been presented.
         /// </summary>
-        public static void SetScenePresentedNotifier(Action<bool, ulong, string> notifyScenePresented) {
-            SessionSceneFlow.notifyScenePresented = notifyScenePresented;
+        public static void SetScenePresentedNotifier(Action<bool, ulong, string> notifyScenePresentedHook) {
+            notifyScenePresented = notifyScenePresentedHook;
         }
         private sealed class GameplayReadinessLatch {
             private readonly UniTaskCompletionSource<bool> _completion = new();

@@ -3,6 +3,7 @@ using Diagnostics;
 using Game.Player.Contracts;
 using Game.Weapon.Manager;
 using UnityEngine;
+// ReSharper disable UnusedMember.Global
 
 namespace Game.Player.Visual {
     public class PlayerAnimationEvents : MonoBehaviour {
