@@ -1,5 +1,4 @@
 using Game.Match;
-using Game.Player.Core;
 using Game.Weapon.Manager;
 using Network.Components;
 using Unity.Collections;
@@ -17,7 +16,6 @@ namespace Game.Player.Contracts {
         Transform WorldWeaponSocket { get; }
         Animator PlayerAnimator { get; }
         CinemachineCamera FpCamera { get; }
-        WeaponCameraController WeaponCameraController { get; }
         CinemachineImpulseSource ImpulseSource { get; }
         Vector3 FullVelocity { get; }
         bool IsGrounded { get; }
@@ -39,6 +37,7 @@ namespace Game.Player.Contracts {
         void SetOutOfBoundsGraceWindow(float seconds);
         void ResetLookPitchFromRespawn();
         void ClearLookInput();
+        void SetWeaponCameraEnabled(bool enabled);
         Vector2 ResampleHeldMovementInputFromRespawn(string reason = "Unknown");
         void ResetWeaponState(bool resetAllAmmo = false, bool switchToWeapon0 = false, bool updateHUD = false);
         void ResetVelocity();

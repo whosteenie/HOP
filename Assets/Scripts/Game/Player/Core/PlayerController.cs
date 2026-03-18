@@ -1226,7 +1226,6 @@ namespace Game.Player.Core {
         Transform IPlayerCombatContext.WorldWeaponSocket => worldWeaponSocket;
         Animator IPlayerCombatContext.PlayerAnimator => playerAnimator;
         CinemachineCamera IPlayerCombatContext.FpCamera => fpCamera;
-        WeaponCameraController IPlayerCombatContext.WeaponCameraController => weaponCameraController;
         CinemachineImpulseSource IPlayerCombatContext.ImpulseSource => impulseSource;
 
         Vector3 IPlayerCombatContext.FullVelocity =>
@@ -1250,6 +1249,11 @@ namespace Game.Player.Core {
         void IPlayerCombatContext.SetOutOfBoundsGraceWindow(float seconds) => SetOutOfBoundsGraceWindow(seconds);
         void IPlayerCombatContext.ResetLookPitchFromRespawn() => ResetLookPitchFromRespawn();
         void IPlayerCombatContext.ClearLookInput() => lookInput = Vector2.zero;
+        void IPlayerCombatContext.SetWeaponCameraEnabled(bool enabled) {
+            if(weaponCameraController != null) {
+                weaponCameraController.SetWeaponCameraEnabled(enabled);
+            }
+        }
 
         Vector2 IPlayerCombatContext.ResampleHeldMovementInputFromRespawn(string reason) =>
             ResampleHeldMovementInputFromRespawn(reason);

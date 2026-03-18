@@ -5,7 +5,6 @@ using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Contracts;
-using Game.Player.Core;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using Network.Components;
@@ -37,7 +36,6 @@ namespace Game.Player.Combat {
         private GameObject _playerModelRoot;
         private Transform _worldWeaponSocket;
         private Animator _playerAnimator;
-        private WeaponCameraController _weaponCameraController;
         private CinemachineCamera _fpCamera;
         private CinemachineImpulseSource _impulseSource;
 
@@ -105,7 +103,6 @@ namespace Game.Player.Combat {
             if(_playerAnimator == null) _playerAnimator = _playerContext.PlayerAnimator;
             if(_fpCamera == null) _fpCamera = _playerContext.FpCamera;
             if(_impulseSource == null) _impulseSource = _playerContext.ImpulseSource;
-            if(_weaponCameraController == null) _weaponCameraController = _playerContext.WeaponCameraController;
         }
 
         public override void OnNetworkSpawn() {
@@ -389,8 +386,8 @@ namespace Game.Player.Combat {
                     ("player", OwnerClientId),
                     ("enabled", false),
                     ("reason", "DeathEntered"));
-                if(_weaponManager != null && _weaponCameraController != null) {
-                    _weaponCameraController.SetWeaponCameraEnabled(false);
+                if(_weaponManager != null) {
+                    _playerContext?.SetWeaponCameraEnabled(false);
                 }
 
                 EventBus.Publish(new HideHUDEvent());
@@ -595,8 +592,8 @@ namespace Game.Player.Combat {
         [Rpc(SendTo.Everyone)]
         private void ShowRespawnVisualsClientRpc(Vector3 expectedSpawnPosition) {
             if(IsOwner) {
-                if(_weaponManager != null && _weaponCameraController != null) {
-                    _weaponCameraController.SetWeaponCameraEnabled(true);
+                if(_weaponManager != null) {
+                    _playerContext?.SetWeaponCameraEnabled(true);
                 }
 
                 if(_playerModelRoot != null && !_playerModelRoot.activeSelf) {
