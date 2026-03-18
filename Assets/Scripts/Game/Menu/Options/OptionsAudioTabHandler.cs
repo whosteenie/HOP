@@ -56,7 +56,7 @@ namespace Game.Menu.Options {
             ctx.RegisterCleanup(OptionsSettingsHelpers.BindSliderToPercentTextField(_voiceInputVolumeSlider, _voiceInputVolumeValue));
 
             RefreshVoiceDeviceChoices();
-            RefreshVoiceDeviceChoicesDeferred(ctx.Root);
+            RefreshVoiceDevicesDeferred(ctx.Root);
 
             ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_masterVolumeSlider, _masterVolumeValue, 0f, 1f, true));
             ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_musicVolumeSlider, _musicVolumeValue, 0f, 1f, true));
@@ -134,9 +134,9 @@ namespace Game.Menu.Options {
                 _audioMixer.SetFloat("soundFXVolume", OptionsSettingsHelpers.LinearToDb(_sfxVolumeSlider.value));
         }
 
-        public void RefreshVoiceDeviceChoicesForPanel(VisualElement root) {
+        public void RefreshVoiceDevices(VisualElement root) {
             RefreshVoiceDeviceChoices();
-            RefreshVoiceDeviceChoicesDeferred(root);
+            RefreshVoiceDevicesDeferred(root);
         }
 
         private void RefreshVoiceDeviceChoices(string preferredDevice = null) {
@@ -152,7 +152,7 @@ namespace Game.Menu.Options {
             _voiceDeviceDropdown.index = selectedIndex;
         }
 
-        private void RefreshVoiceDeviceChoicesDeferred(VisualElement root) {
+        private void RefreshVoiceDevicesDeferred(VisualElement root) {
             if(root == null) return;
             root.schedule.Execute(() => RefreshVoiceDeviceChoices()).StartingIn(200);
             root.schedule.Execute(() => RefreshVoiceDeviceChoices()).StartingIn(700);

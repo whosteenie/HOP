@@ -14,7 +14,7 @@ namespace Network.Contracts {
         UniTask<bool> CreateSteamSocialLobbyAsync(int maxPlayers);
         void ResetMatchLobbyFollowState();
         void SetNextUgsHeartbeatTime(float value);
-        void UpdateSteamLobbyWithPartyDataIfOwner();
+        void UpdatePartyDataIfOwner();
         void TryJoinVoiceForActiveMatch(string context);
     }
 }

@@ -71,7 +71,7 @@ namespace Game.Menu.Shared {
                 return;
             }
 
-            ApplyDepthOfFieldToActiveSelection();
+            ApplyActiveSelectionDof();
         }
 
         private void RandomizeForMainMenuEntry() {
@@ -119,7 +119,7 @@ namespace Game.Menu.Shared {
         }
 
         [ContextMenu("Deactivate All Registered Background Objects")]
-        public void DeactivateAllRegisteredContextMenu() {
+        public void DeactivateContextMenus() {
             DeactivateAllRegistered();
         }
 
@@ -151,7 +151,7 @@ namespace Game.Menu.Shared {
                 SetSetupCamerasEnabled(selectedSetup, true);
             }
 
-            ApplyDepthOfFieldToActiveSelection();
+            ApplyActiveSelectionDof();
 
             lastSelectedMap = string.IsNullOrWhiteSpace(mapEntry.mapId) ? $"Map {mapIndex + 1}" : mapEntry.mapId;
             lastSelectedSetup = selectedSetup != null ? selectedSetup.name : "(none)";
@@ -198,14 +198,14 @@ namespace Game.Menu.Shared {
             }
         }
 
-        private void ApplyDepthOfFieldToActiveSelection() {
+        private void ApplyActiveSelectionDof() {
             if(!_suppressDepthOfFieldForLoadout) {
                 return;
             }
 
             // If the active background changes while loadout is open, restore prior volumes first.
             RestoreCachedDofStates();
-            var activeMannequinSetup = ResolveActiveMannequinSetupForDof();
+            var activeMannequinSetup = ResolveDofMannequin();
             if(activeMannequinSetup == null) {
                 DevLog.LogWarning("[MainMenuBackgroundRandomizer][DoF] Unable to resolve active mannequin setup for suppression.", this);
                 return;
@@ -239,7 +239,7 @@ namespace Game.Menu.Shared {
                 this);
         }
 
-        private GameObject ResolveActiveMannequinSetupForDof() {
+        private GameObject ResolveDofMannequin() {
             if(_activeSetupRoot != null && _activeSetupRoot.activeInHierarchy) {
                 DevLog.Log(
                     $"[MainMenuBackgroundRandomizer][DoF] Using active setup root '{GetHierarchyPath(_activeSetupRoot.transform)}'.",

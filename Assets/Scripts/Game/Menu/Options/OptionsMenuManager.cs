@@ -413,7 +413,7 @@ namespace Game.Menu.Options {
             if(KeybindManager.Instance != null) KeybindManager.Instance.SaveBindings();
             GameSettings.Save();
             ApplySettingsInternal();
-            if(mainMenuBackgroundSelectionChanged) _gameHandler.ApplyBackgroundPreviewFromCurrent(onlyIfNotRandom: true);
+            if(mainMenuBackgroundSelectionChanged) _gameHandler.ApplyCurrentBackgroundPreview(onlyIfNotRandom: true);
             foreach(var handler in _tabHandlers) {
                 handler.StoreOriginal();
             }
@@ -466,7 +466,7 @@ namespace Game.Menu.Options {
             OnButtonClicked(true);
             OptionsControlsTabHandler.CancelKeybindBindings();
             LoadSettings();
-            _gameHandler.ApplyBackgroundPreviewFromCurrent();
+            _gameHandler.ApplyCurrentBackgroundPreview();
             HideUnsavedChangesDialog();
             NavigateBackFromOptions();
         }
@@ -496,7 +496,7 @@ namespace Game.Menu.Options {
         #region Public
 
         public void OnOptionsPanelShown() {
-            _audioHandler.RefreshVoiceDeviceChoicesForPanel(Root);
+            _audioHandler.RefreshVoiceDevices(Root);
             _gameHandler.RefreshBackgroundChoicesForPanel(preserveCurrentSelection: true);
             var optionsPanel = Root?.Q<VisualElement>("options-panel");
             optionsPanel?.schedule.Execute(() => {

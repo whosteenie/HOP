@@ -11,6 +11,6 @@ namespace Network.Contracts {
         void SetFrontStatus(SessionPhase phase, string message);
         UniTask FadeOutWithFallbackAsync(int fallbackDelayMs = 500);
         UniTask LeaveToMainMenuAsync(bool skipFadeOut = false);
-        void CaptureDuplicateFpVisualsForDisconnect();
+        void CaptureDisconnectFpVisuals();
     }
 }

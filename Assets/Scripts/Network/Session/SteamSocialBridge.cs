@@ -306,7 +306,7 @@ namespace Network.Session {
         }
 
         /// <summary>Pushes party data to Steam lobby if we are the owner.</summary>
-        public static void UpdateSteamLobbyWithPartyDataIfOwner(ISessionContext ctx) {
+        public static void UpdatePartyDataIfOwner(ISessionContext ctx) {
             if(ctx is not { CurrentLobby: not null } || ctx.CurrentLobby.Value.Owner.Id != SteamClient.SteamId) return;
             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
             try {

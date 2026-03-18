@@ -499,7 +499,7 @@ namespace Network.Session {
                 ("mode", mode),
                 ("matchId", assign.MatchId));
 
-            var results = await TryFetchMatchmakingResultsWithRetryAsync(assign.MatchId);
+            var results = await FetchMatchmakingResultsWithRetryAsync(assign.MatchId);
             if(results == null) {
                 CancelMatchmaking();
                 return false;
@@ -509,7 +509,7 @@ namespace Network.Session {
             return false;
         }
 
-        private async UniTask<StoredMatchmakingResults> TryFetchMatchmakingResultsWithRetryAsync(string matchId) {
+        private async UniTask<StoredMatchmakingResults> FetchMatchmakingResultsWithRetryAsync(string matchId) {
             const int maxAttempts = 4;
             var delayMs = 250;
             var ct = _matchmakerCts != null ? _matchmakerCts.Token : _ctx.SessionLifetimeToken;
@@ -723,7 +723,7 @@ namespace Network.Session {
 
             _ctx.ApplyRuntimeMode(mode, "UgsPublicMatchHost");
 
-            var expectedPlayerIds = BuildExpectedPlayerIdsFromMatchResults(results);
+            var expectedPlayerIds = BuildExpectedPlayerIds(results);
             if(expectedPlayerIds != null && Debug.isDebugBuild) {
                 DevLog.Log($"[SessionManager] Expecting {expectedPlayerIds.Count} players for sync");
             }
@@ -762,7 +762,7 @@ namespace Network.Session {
             }
         }
 
-        private static List<string> BuildExpectedPlayerIdsFromMatchResults(StoredMatchmakingResults results) {
+        private static List<string> BuildExpectedPlayerIds(StoredMatchmakingResults results) {
             if(results?.MatchProperties?.Players == null) return null;
             return results.MatchProperties.Players
                 .Select(p => p != null ? p.Id : null)

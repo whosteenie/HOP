@@ -40,7 +40,7 @@ namespace Game.Weapon.Manager {
             ResetAllWeaponAmmoOnAuthority();
         }
 
-        public void PrepareCurrentWeaponForPostMatchPodium() {
+        public void PrepareForPostMatchPodium() {
             if(_root.CurrentWeaponInternal == null) return;
             if(_root.CurrentWeaponIndexInternal < 0) return;
 
@@ -373,7 +373,7 @@ namespace Game.Weapon.Manager {
             if(!HasWeaponAuthority) return;
             _root.ServerAuthoritativeWeaponIndex = weaponIndex;
             ClearServerReloadState();
-            _root.ServerPullOutBlockedUntilTime = Time.time + GetServerPullOutBlockDurationSeconds();
+            _root.ServerPullOutBlockedUntilTime = Time.time + GetPullOutBlockDuration();
         }
 
         private void UpdateServerAmmo(int weaponIndex, int ammo) {
@@ -392,7 +392,7 @@ namespace Game.Weapon.Manager {
                 : _root.CurrentWeaponIndexInternal;
         }
 
-        private float GetServerPullOutBlockDurationSeconds() {
+        private float GetPullOutBlockDuration() {
             return Mathf.Max(0f, _root.KinemationPullOutCompleteDelay);
         }
 

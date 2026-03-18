@@ -258,7 +258,7 @@ namespace Network.Session {
                 actions.SetFrontStatus(SessionPhase.Error, "Disconnected from party.");
 
                 if(currentScene != "MainMenu") {
-                    CaptureDuplicateFpVisualsForDisconnect(ctx);
+                    CaptureDisconnectFpVisuals(ctx);
                     await FadeOutWithFallbackAsync();
                     await actions.LeaveToMainMenuAsync(skipFadeOut: true);
                 } else {
@@ -357,8 +357,8 @@ namespace Network.Session {
         /// Captures duplicate FP visuals that survive NGO despawn for disconnect transition, or hides FP visuals as fallback.
         /// Call from unexpected-disconnect flow before fade/leave.
         /// </summary>
-        public static void CaptureDuplicateFpVisualsForDisconnect(ISessionContext ctx) {
-            if(Debug.isDebugBuild) DevLog.Log("[SessionManager] CaptureDuplicateFpVisualsForDisconnect called");
+        public static void CaptureDisconnectFpVisuals(ISessionContext ctx) {
+            if(Debug.isDebugBuild) DevLog.Log("[SessionManager] CaptureDisconnectFpVisuals called");
             if(!ctx.TryGetNetworkManager("CaptureFp", out var networkManager) || networkManager.LocalClient == null) {
                 if(Debug.isDebugBuild) DevLog.Log("[SessionManager] CaptureFp: early out nm or LocalClient null");
                 return;

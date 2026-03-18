@@ -511,7 +511,7 @@ namespace Game.Player.Combat {
                 _playerContext.ReleaseRespawnReservation();
             }
 
-            DisableRagdollAndTeleportClientRpc(position, rotation);
+            ResetRagdollClientRpc(position, rotation);
 
             const float holdDuration = 0.5f;
             yield return new WaitForSeconds(holdDuration);
@@ -540,7 +540,7 @@ namespace Game.Player.Combat {
             }
 
             SignalFadeInStartClientRpc();
-            RestoreControlAfterFadeInClientRpc();
+            RestoreControlClientRpc();
         }
 
         [Rpc(SendTo.Owner)]
@@ -550,7 +550,7 @@ namespace Game.Player.Combat {
         }
 
         [Rpc(SendTo.Owner)]
-        private void RestoreControlAfterFadeInClientRpc() {
+        private void RestoreControlClientRpc() {
             if(_characterController != null) _characterController.enabled = true;
             FlowLog.Emit(FlowEventIds.PlayerControlState,
                 ("player", OwnerClientId),
@@ -619,7 +619,7 @@ namespace Game.Player.Combat {
         }
 
         [Rpc(SendTo.Everyone)]
-        private void DisableRagdollAndTeleportClientRpc(Vector3 position, Quaternion rotation) {
+        private void ResetRagdollClientRpc(Vector3 position, Quaternion rotation) {
             if(_playerRagdoll != null) {
                 _playerRagdoll.DisableRagdoll();
             }

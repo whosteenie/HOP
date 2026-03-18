@@ -75,7 +75,7 @@ namespace Network.Session {
                             DevLog.LogWarning("[SessionManager] UGS party created, but Steam social lobby creation failed.");
                         }
                     } else {
-                        actions.UpdateSteamLobbyWithPartyDataIfOwner();
+                        actions.UpdatePartyDataIfOwner();
                     }
                 }
 
@@ -239,7 +239,7 @@ namespace Network.Session {
         }
 
         /// <summary>Builds the list of expected UGS player IDs from the party lobby for private match sync.</summary>
-        private static List<string> BuildExpectedPlayerIdsFromPartyLobby(Lobby partyLobby, string fallbackLocalUgsId) {
+        private static List<string> BuildExpectedPlayerIds(Lobby partyLobby, string fallbackLocalUgsId) {
             var expected = new List<string>();
             if(partyLobby is { Players: not null }) {
                 foreach(var player in partyLobby.Players) {
@@ -281,7 +281,7 @@ namespace Network.Session {
                 await hostActions.PreFadePrivateHostAsync();
                 SyncPartyIdFromPartyLobby(ctx);
 
-                var expectedPlayers = BuildExpectedPlayerIdsFromPartyLobby(ctx.UgsPartyLobby, localUgsId);
+                var expectedPlayers = BuildExpectedPlayerIds(ctx.UgsPartyLobby, localUgsId);
                 ctx.SetExpectedGamePlayerCount(expectedPlayers.Count, "UgsPrivateMatchHost");
                 var expectedCsv = string.Join(",", expectedPlayers);
 

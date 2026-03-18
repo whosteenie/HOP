@@ -470,8 +470,8 @@ namespace Network.Session {
             EventBus.Publish(new SessionPropertiesRefreshedEvent());
         }
 
-        private void UpdateSteamLobbyWithPartyDataIfOwner() =>
-            SteamSocialBridge.UpdateSteamLobbyWithPartyDataIfOwner(this);
+        private void UpdatePartyDataIfOwner() =>
+            SteamSocialBridge.UpdatePartyDataIfOwner(this);
 
         #endregion
 
@@ -596,8 +596,8 @@ namespace Network.Session {
                 _customNetworkManager.EnableGameplaySpawning();
         }
 
-        private void CaptureDuplicateFpVisualsForDisconnect() =>
-            SessionSceneFlow.CaptureDuplicateFpVisualsForDisconnect(this);
+        private void CaptureDisconnectFpVisuals() =>
+            SessionSceneFlow.CaptureDisconnectFpVisuals(this);
 
         #region Unity Lifecycle
 
@@ -903,7 +903,7 @@ namespace Network.Session {
 
         void IPartySessionActions.ResetMatchLobbyFollowState() => _matchLobby.ResetFollowState();
         void IPartySessionActions.SetNextUgsHeartbeatTime(float value) => SetNextUgsHeartbeatTime(value);
-        void IPartySessionActions.UpdateSteamLobbyWithPartyDataIfOwner() => UpdateSteamLobbyWithPartyDataIfOwner();
+        void IPartySessionActions.UpdatePartyDataIfOwner() => UpdatePartyDataIfOwner();
         void IPartySessionActions.TryJoinVoiceForActiveMatch(string context) => TryJoinVoiceForActiveMatch(context);
 
         #endregion
@@ -990,7 +990,7 @@ namespace Network.Session {
             FadeOutWithFallbackAsync(fallbackDelayMs);
 
         UniTask ISceneFlowActions.LeaveToMainMenuAsync(bool skipFadeOut) => LeaveToMainMenuAsync(skipFadeOut);
-        void ISceneFlowActions.CaptureDuplicateFpVisualsForDisconnect() => CaptureDuplicateFpVisualsForDisconnect();
+        void ISceneFlowActions.CaptureDisconnectFpVisuals() => CaptureDisconnectFpVisuals();
 
         #endregion
 

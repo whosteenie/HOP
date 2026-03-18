@@ -161,7 +161,7 @@ namespace Game.Menu.Options {
         /// When called after Apply with a non-Random selection, only applies if not Random (matches original behavior).
         /// When called after Load (e.g. discard), always applies to restore display.
         /// </summary>
-        public void ApplyBackgroundPreviewFromCurrent(bool onlyIfNotRandom = false) {
+        public void ApplyCurrentBackgroundPreview(bool onlyIfNotRandom = false) {
             if(_mainMenuBackgroundDropdown == null) return;
             var selection = NormalizeBackgroundSelection(_mainMenuBackgroundDropdown.value);
             if(onlyIfNotRandom && MainMenuBackgroundRandomizer.IsRandomSelection(selection)) return;

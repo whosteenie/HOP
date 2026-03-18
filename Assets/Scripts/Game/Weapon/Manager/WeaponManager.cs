@@ -306,7 +306,7 @@ namespace Game.Weapon.Manager {
         private void OnPostMatchBlackoutReady(PostMatchBlackoutReadyEvent _) {
             _switch.PrepareForPostMatchPresentation();
             if(!IsOwner) return;
-            _authority.PrepareCurrentWeaponForPostMatchPodium();
+            _authority.PrepareForPostMatchPodium();
         }
 
         private void OnMatchStarted(MatchStartedEvent _) {

@@ -148,7 +148,7 @@ namespace Game.Menu.Shared {
         private void RefreshRespawnFadeOverlay() {
             if(!Network.Session.SessionManager.IsGameplaySceneName(_cachedSceneName)) return;
 
-            _respawnFadeOverlay = ResolveRespawnFadeOverlayFromScene();
+            _respawnFadeOverlay = ResolveRespawnFadeOverlay();
             if(_respawnFadeOverlay != null) {
                 _respawnOverlayState = _respawnFadeOverlay.ClassListContains("visible")
                     ? OverlayVisualState.Opaque
@@ -156,7 +156,7 @@ namespace Game.Menu.Shared {
             }
         }
 
-        private static VisualElement ResolveRespawnFadeOverlayFromScene() {
+        private static VisualElement ResolveRespawnFadeOverlay() {
             var documents = FindObjectsByType<UIDocument>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach(var doc in documents) {
                 if(doc == null || !doc.isActiveAndEnabled) continue;

@@ -47,7 +47,7 @@ namespace Network.Session {
         public static Func<ISessionContext, (bool allowed, string reason)> BackfillEligibilityProvider { get; set; }
 
         /// <summary>Build options to set readyToLoad=1 on the local player. Used by SessionManager.</summary>
-        private static UpdatePlayerOptions BuildReadyToLoadUpdatePlayerOptions() {
+        private static UpdatePlayerOptions BuildReadyPlayerOptions() {
             return new UpdatePlayerOptions {
                 Data = new Dictionary<string, PlayerDataObject> {
                     [UgsMemberReadyKey] = new(PlayerDataObject.VisibilityOptions.Member, "1")
@@ -87,7 +87,7 @@ namespace Network.Session {
             var localUgsId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localUgsId)) return;
             try {
-                var opts = BuildReadyToLoadUpdatePlayerOptions();
+                var opts = BuildReadyPlayerOptions();
                 var updated = await LobbyService.Instance.UpdatePlayerAsync(ctx.UgsMatchLobby.Id, localUgsId, opts);
                 ctx.SetUgsMatchLobby(updated);
                 snapshotActions.UgsLocalReadySubmitted = true;
@@ -943,7 +943,7 @@ namespace Network.Session {
             }
 
             try {
-                var opts = BuildReadyToLoadUpdatePlayerOptions();
+                var opts = BuildReadyPlayerOptions();
                 var updatedLobby = await LobbyService.Instance.UpdatePlayerAsync(ctx.UgsMatchLobby.Id, localUgsId, opts);
                 ctx.SetUgsMatchLobby(updatedLobby);
                 actions.UgsLocalReadySubmitted = true;
@@ -1096,7 +1096,7 @@ namespace Network.Session {
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
                     DevLog.LogWarning($"[SessionManager] Failed to subscribe to party lobby events ({context}): {ex.Message}");
-                SchedulePartyLobbyEventsSubscriptionRetry(ctx, actions, context);
+                SchedulePartyLobbyRetry(ctx, actions, context);
             } finally {
                 _isSubscribingPartyLobbyEvents = false;
             }
@@ -1138,7 +1138,7 @@ namespace Network.Session {
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
                     DevLog.LogWarning($"[SessionManager] Failed to subscribe to match lobby events ({context}): {ex.Message}");
-                ScheduleMatchLobbyEventsSubscriptionRetry(ctx, actions, context);
+                ScheduleMatchLobbyRetry(ctx, actions, context);
             } finally {
                 _isSubscribingMatchLobbyEvents = false;
             }
@@ -1214,23 +1214,23 @@ namespace Network.Session {
             }
         }
 
-        private void SchedulePartyLobbyEventsSubscriptionRetry(ISessionContext ctx, ILobbyEventActions actions, string context) {
+        private void SchedulePartyLobbyRetry(ISessionContext ctx, ILobbyEventActions actions, string context) {
             if(ctx.IsLeaving || ctx.IsShuttingDown) return;
             if(_isRetryingPartyLobbyEventsSubscription) return;
             _partyLobbyEventsSubscriptionRetryAttempt = 0;
             _isRetryingPartyLobbyEventsSubscription = true;
-            ctx.LaunchSessionTask(RetryEnsurePartyLobbySubscriptionAsync(ctx, actions, context), "PartyLobbyEvents/RetryEnsure");
+            ctx.LaunchSessionTask(RetryPartyLobbySubscriptionAsync(ctx, actions, context), "PartyLobbyEvents/RetryEnsure");
         }
 
-        private void ScheduleMatchLobbyEventsSubscriptionRetry(ISessionContext ctx, ILobbyEventActions actions, string context) {
+        private void ScheduleMatchLobbyRetry(ISessionContext ctx, ILobbyEventActions actions, string context) {
             if(ctx.IsLeaving || ctx.IsShuttingDown) return;
             if(_isRetryingMatchLobbyEventsSubscription) return;
             _matchLobbyEventsSubscriptionRetryAttempt = 0;
             _isRetryingMatchLobbyEventsSubscription = true;
-            ctx.LaunchSessionTask(RetryEnsureMatchLobbySubscriptionAsync(ctx, actions, context), "MatchLobbyEvents/RetryEnsure");
+            ctx.LaunchSessionTask(RetryMatchLobbySubscriptionAsync(ctx, actions, context), "MatchLobbyEvents/RetryEnsure");
         }
 
-        private async UniTask RetryEnsurePartyLobbySubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
+        private async UniTask RetryPartyLobbySubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
             try {
                 while(!ctx.IsLeaving && !ctx.IsShuttingDown) {
                     if(ctx.UgsPartyLobby == null || string.IsNullOrEmpty(ctx.UgsPartyLobby.Id)) return;
@@ -1253,7 +1253,7 @@ namespace Network.Session {
             }
         }
 
-        private async UniTask RetryEnsureMatchLobbySubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
+        private async UniTask RetryMatchLobbySubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
             try {
                 while(!ctx.IsLeaving && !ctx.IsShuttingDown) {
                     if(ctx.UgsMatchLobby == null || string.IsNullOrEmpty(ctx.UgsMatchLobby.Id)) return;
