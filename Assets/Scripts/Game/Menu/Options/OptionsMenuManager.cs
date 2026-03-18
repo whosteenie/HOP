@@ -140,6 +140,9 @@ namespace Game.Menu.Options {
             _controlsHandler.SetupKeybinds(this);
             SetupManagerCallbacks();
             SetupSettingDescriptions();
+
+            BindApplyButtonEnabledToChanges();
+            UpdateApplyButtonEnabledState();
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {
@@ -345,6 +348,7 @@ namespace Game.Menu.Options {
 
         private void SetupManagerCallbacks() {
             EventCallback<ClickEvent> applyHandler = _ => {
+                if(_applyButton == null || !_applyButton.enabledInHierarchy) return;
                 OnButtonClicked();
                 ApplySettings();
             };
@@ -378,11 +382,17 @@ namespace Game.Menu.Options {
         }
 
         private void RegisterHoverCallback(Button button) {
-            EventCallback<MouseEnterEvent> enterHandler = evt => MouseEnterCallback?.Invoke(evt);
+            EventCallback<MouseEnterEvent> enterHandler = evt => {
+                if(button == null || !button.enabledInHierarchy) return;
+                MouseEnterCallback?.Invoke(evt);
+            };
             button.RegisterCallback(enterHandler);
             RegisterCleanup(() => button.UnregisterCallback(enterHandler));
             if(MouseHoverCallback == null) return;
-            EventCallback<MouseOverEvent> hoverHandler = evt => MouseHoverCallback(evt);
+            EventCallback<MouseOverEvent> hoverHandler = evt => {
+                if(button == null || !button.enabledInHierarchy) return;
+                MouseHoverCallback(evt);
+            };
             button.RegisterCallback(hoverHandler);
             RegisterCleanup(() => button.UnregisterCallback(hoverHandler));
         }
@@ -402,6 +412,7 @@ namespace Game.Menu.Options {
                 handler.RefreshDisplay();
             }
             _controlsHandler.LoadKeybindDisplayStrings();
+            UpdateApplyButtonEnabledState();
         }
 
         private void ApplySettings() {
@@ -418,6 +429,7 @@ namespace Game.Menu.Options {
                 handler.StoreOriginal();
             }
             _controlsHandler.LoadKeybindDisplayStrings();
+            UpdateApplyButtonEnabledState();
         }
 
         private void ApplySettingsInternal() {
@@ -432,6 +444,42 @@ namespace Game.Menu.Options {
             }
 
             return false;
+        }
+
+        private void UpdateApplyButtonEnabledState() {
+            if(_applyButton == null) return;
+            _applyButton.SetEnabled(HasUnsavedChanges());
+        }
+
+        private void BindApplyButtonEnabledToChanges() {
+            if(Root == null) return;
+
+            // Sliders / dropdowns / text fields cover almost all option controls.
+            foreach(var s in Root.Query<Slider>().ToList()) {
+                if(s == null) continue;
+                EventCallback<ChangeEvent<float>> handler = _ => UpdateApplyButtonEnabledState();
+                s.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => s.UnregisterCallback(handler));
+            }
+
+            foreach(var d in Root.Query<DropdownField>().ToList()) {
+                if(d == null) continue;
+                EventCallback<ChangeEvent<string>> handler = _ => UpdateApplyButtonEnabledState();
+                d.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => d.UnregisterCallback(handler));
+            }
+
+            foreach(var t in Root.Query<TextField>().ToList()) {
+                if(t == null) continue;
+                EventCallback<ChangeEvent<string>> handler = _ => UpdateApplyButtonEnabledState();
+                t.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => t.UnregisterCallback(handler));
+            }
+
+            // Fallback for checkbox-style buttons (UI Toolkit "Button with checked class").
+            EventCallback<ClickEvent> clickHandler = _ => UpdateApplyButtonEnabledState();
+            Root.RegisterCallback(clickHandler);
+            RegisterCleanup(() => Root.UnregisterCallback(clickHandler));
         }
 
         #endregion
@@ -511,6 +559,9 @@ namespace Game.Menu.Options {
                     _tabControls?.MarkDirtyRepaint();
                 });
             });
+
+            // Ensure Apply reflects current state any time the panel is shown.
+            UpdateApplyButtonEnabledState();
         }
 
         #endregion

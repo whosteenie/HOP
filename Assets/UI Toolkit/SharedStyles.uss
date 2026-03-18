@@ -105,15 +105,22 @@
     transition-duration: var(--dur-fast);
 }
 
-.menu-chip-enabled:hover {
+.menu-chip-enabled:enabled:hover {
     background-color: var(--color-accent-bg-soft);
     border-color: var(--color-accent-border-strong);
     color: var(--color-white);
 }
 
-.menu-chip:active {
+.menu-chip:enabled:active {
     background-color: var(--color-accent-bg-mid);
     border-color: var(--color-accent-border-pressed);
+}
+
+/* Guardrail: if Unity still applies :hover to disabled, force base style. */
+.menu-chip-enabled.unity-disabled:hover {
+    background-color: var(--color-bg-surface);
+    border-color: var(--color-accent-border);
+    color: var(--color-text-primary);
 }
 
 .button-row {

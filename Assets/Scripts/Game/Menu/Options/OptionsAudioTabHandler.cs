@@ -5,6 +5,7 @@ using Game.Social;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
+using Unity.Services.Vivox;
 using UnityUtils;
 
 namespace Game.Menu.Options {
@@ -29,6 +30,8 @@ namespace Game.Menu.Options {
         private float _originalVoiceVolume;
         private float _originalVoiceInputVolume;
         private string _originalVoiceDevice = "";
+
+        private Action _runtimePreviewCleanup;
 
         public OptionsAudioTabHandler(AudioMixer audioMixer) {
             _audioMixer = audioMixer;
@@ -63,6 +66,15 @@ namespace Game.Menu.Options {
             ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_sfxVolumeSlider, _sfxVolumeValue, 0f, 1f, true));
             ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_voiceVolumeSlider, _voiceVolumeValue, 0f, 1f, true));
             ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_voiceInputVolumeSlider, _voiceInputVolumeValue, 0f, 1f, true));
+
+            // Live preview: update runtime audio as the user drags sliders.
+            // Persisting still only happens on Apply (OptionsMenuManager -> Save()).
+            _runtimePreviewCleanup?.Invoke();
+            _runtimePreviewCleanup = BindRuntimePreviewCallbacks();
+            ctx.RegisterCleanup(() => {
+                _runtimePreviewCleanup?.Invoke();
+                _runtimePreviewCleanup = null;
+            });
         }
 
         public void Load(SettingsData data) {
@@ -157,6 +169,60 @@ namespace Game.Menu.Options {
             root.schedule.Execute(() => RefreshVoiceDeviceChoices()).StartingIn(200);
             root.schedule.Execute(() => RefreshVoiceDeviceChoices()).StartingIn(700);
             root.schedule.Execute(() => RefreshVoiceDeviceChoices()).StartingIn(1500);
+        }
+
+        private Action BindRuntimePreviewCallbacks() {
+            var cleanups = new List<Action>();
+
+            if(_masterVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = _ => ApplyToRuntime();
+                _masterVolumeSlider.RegisterValueChangedCallback(handler);
+                cleanups.Add(() => _masterVolumeSlider.UnregisterCallback(handler));
+            }
+
+            if(_musicVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = _ => ApplyToRuntime();
+                _musicVolumeSlider.RegisterValueChangedCallback(handler);
+                cleanups.Add(() => _musicVolumeSlider.UnregisterCallback(handler));
+            }
+
+            if(_sfxVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = _ => ApplyToRuntime();
+                _sfxVolumeSlider.RegisterValueChangedCallback(handler);
+                cleanups.Add(() => _sfxVolumeSlider.UnregisterCallback(handler));
+            }
+
+            // Voice preview: apply to Vivox runtime immediately, but only persist on Apply.
+            if(_voiceVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => TryApplyVivoxVoiceVolumesPreview(outputVolume01: evt.newValue);
+                _voiceVolumeSlider.RegisterValueChangedCallback(handler);
+                cleanups.Add(() => _voiceVolumeSlider.UnregisterCallback(handler));
+            }
+
+            if(_voiceInputVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => TryApplyVivoxVoiceVolumesPreview(inputVolume01: evt.newValue);
+                _voiceInputVolumeSlider.RegisterValueChangedCallback(handler);
+                cleanups.Add(() => _voiceInputVolumeSlider.UnregisterCallback(handler));
+            }
+
+            return () => {
+                foreach(var c in cleanups) c?.Invoke();
+                cleanups.Clear();
+            };
+        }
+
+        private static void TryApplyVivoxVoiceVolumesPreview(float? outputVolume01 = null, float? inputVolume01 = null) {
+            // Avoid saving/publishing SocialSettings while dragging; just preview in Vivox.
+            if(VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) return;
+            if(VivoxService.Instance == null) return;
+
+            if(outputVolume01.HasValue) {
+                VivoxService.Instance.SetOutputDeviceVolume((int)(Mathf.Clamp01(outputVolume01.Value) * 100));
+            }
+
+            if(inputVolume01.HasValue) {
+                VivoxService.Instance.SetInputDeviceVolume((int)(Mathf.Clamp01(inputVolume01.Value) * 100));
+            }
         }
 
         private static bool FloatChanged(float? a, float b) => a.HasValue && !Mathf.Approximately(a.Value, b);

@@ -54,7 +54,7 @@ namespace Game.Hopball {
         [SerializeField] private bool enableHopballFloatMotion = true;
 
         [SerializeField] private float hopballFloatAmplitude = 0.008f;
-        [SerializeField] private float hopballFloatCyclesPerSecond = 0.06f;
+        [SerializeField] private float hopballFloatCyclesPerSecond = 0.085f;
         [SerializeField, Range(0f, 1f)] private float hopballFloatApexDwell = 0.35f;
 
         [SerializeField] private Vector3 fpEquippedLocalPosition = Vector3.zero;
