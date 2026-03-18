@@ -153,8 +153,6 @@ namespace Game.Weapon.Manager {
         public void SetupFpWeaponSkinnedMeshRenderers(GameObject fpWeaponInstance) {
             if(fpWeaponInstance == null) return;
 
-            _root.PlayerRendererRef.SetFpWeaponSkinnedRenderersEnabled(true, fpWeaponInstance);
-
             var skinnedRenderers = fpWeaponInstance.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             foreach(var skinnedRenderer in skinnedRenderers) {
                 if(skinnedRenderer == null) continue;

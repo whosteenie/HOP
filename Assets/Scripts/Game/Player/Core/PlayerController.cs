@@ -29,7 +29,7 @@ namespace Game.Player.Core {
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext,
         IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext,
-        IPlayerCombatContext, IPlayerMaterialCustomizationContext {
+        IPlayerCombatContext, IPlayerMaterialCustomizationContext, IWeaponManagerOwnerContext {
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -1368,6 +1368,19 @@ namespace Game.Player.Core {
         GameObject IPlayerMovementContext.GetCurrentFpWeapon() {
             return weaponManager != null ? weaponManager.GetCurrentFpWeapon() : null;
         }
+
+        Transform IWeaponManagerOwnerContext.Transform => transform;
+        Transform IWeaponManagerOwnerContext.FpCameraTransform => FpCameraTransform;
+        CinemachineCamera IWeaponManagerOwnerContext.FpCamera => fpCamera;
+        Camera IWeaponManagerOwnerContext.WeaponCamera => weaponCamera;
+        Transform IWeaponManagerOwnerContext.WorldWeaponSocket => worldWeaponSocket;
+        Animator IWeaponManagerOwnerContext.PlayerAnimator => playerAnimator;
+        Game.Weapon.Core.Weapon IWeaponManagerOwnerContext.WeaponComponent => weaponComponent;
+        NetworkVariable<int> IWeaponManagerOwnerContext.PrimaryWeaponIndexState => primaryWeaponIndex;
+        NetworkVariable<int> IWeaponManagerOwnerContext.SecondaryWeaponIndexState => secondaryWeaponIndex;
+        NetworkVariable<bool> IWeaponManagerOwnerContext.NetIsDeadState => NetIsDead;
+        bool IWeaponManagerOwnerContext.IsRagdoll => playerRagdoll != null && playerRagdoll.IsRagdoll;
+        bool IWeaponManagerOwnerContext.IsHoldingHopball => IsHoldingHopball;
 
         #endregion
     }

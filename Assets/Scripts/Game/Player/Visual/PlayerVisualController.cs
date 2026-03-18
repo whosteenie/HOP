@@ -95,6 +95,8 @@ namespace Game.Player.Visual {
             if(evt.PlayerNetworkObjectId != _playerContext.NetworkObjectId) return;
             if(evt.FpWeaponInstance == null) return;
 
+            _playerRenderer?.SetFpWeaponRenderersEnabled(true, evt.FpWeaponInstance);
+            _playerRenderer?.SetFpWeaponSkinnedRenderersEnabled(true, evt.FpWeaponInstance);
             ApplyMaterialToFpArms(evt.FpWeaponInstance);
             UpdateFpArmTagGlow(_playerContext.IsTagged, evt.FpWeaponInstance);
         }

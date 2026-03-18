@@ -161,7 +161,7 @@ namespace Game.Weapon.Core {
                 }
             }
 
-            if(WeaponManager.IsFriendlyFireServer(shooterController, victim)) {
+            if(WeaponManager.IsFriendlyFireServer(shooterController.OwnerClientId, victim.OwnerClientId)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, "friendly fire rejected");
                 return;
             }
