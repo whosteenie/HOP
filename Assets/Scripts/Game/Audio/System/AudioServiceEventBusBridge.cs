@@ -4,13 +4,13 @@ using UnityEngine;
 namespace Game.Audio.System {
     [DisallowMultipleComponent]
     public sealed class AudioServiceEventBusBridge : MonoBehaviour {
-        private static NetworkAudioRelay LocalRelay { get; set; }
+        private static ILocalAudioRelay LocalRelay { get; set; }
 
-        public static void RegisterLocalRelay(NetworkAudioRelay relay) {
+        internal static void RegisterLocalRelay(ILocalAudioRelay relay) {
             LocalRelay = relay;
         }
 
-        public static void UnregisterLocalRelay(NetworkAudioRelay relay) {
+        internal static void UnregisterLocalRelay(ILocalAudioRelay relay) {
             if(LocalRelay == relay) {
                 LocalRelay = null;
             }

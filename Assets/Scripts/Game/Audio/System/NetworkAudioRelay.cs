@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Game.Audio.System {
     [DisallowMultipleComponent]
-    public sealed class NetworkAudioRelay : NetworkBehaviour {
+    public sealed class NetworkAudioRelay : NetworkBehaviour, ILocalAudioRelay {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             if(IsOwner) {
