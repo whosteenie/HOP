@@ -22,6 +22,10 @@ namespace Game.Match {
             return proxy;
         }
 
+        public static System.Collections.Generic.IEnumerable<MatchPlayerStateProxy> GetAllStates() {
+            return StateByClientId.Values;
+        }
+
         public NetworkVariable<ulong> representedClientId = new(ulong.MaxValue);
 
         public NetworkVariable<float> netHealth = new(100f);
@@ -57,6 +61,7 @@ namespace Game.Match {
         public NetworkVariable<int> timeTagged = new();
 
         public NetworkVariable<bool> isTagged = new();
+        public NetworkVariable<int> teamId = new((int)SpawnPoint.Team.None);
 
         private bool _sessionOwnerCallbacksRegistered;
         private ulong _registeredClientId = ulong.MaxValue;
@@ -82,6 +87,7 @@ namespace Game.Match {
             tagged.Value = 0;
             timeTagged.Value = 0;
             isTagged.Value = false;
+            teamId.Value = (int)SpawnPoint.Team.None;
         }
 
         public override void OnNetworkSpawn() {

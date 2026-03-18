@@ -103,6 +103,7 @@ namespace Game.Player.Core {
 
             netTeam.OnValueChanged -= OnTeamChanged;
             netTeam.OnValueChanged += OnTeamChanged;
+            SubmitTeamStateToMatch();
 
             // Delay outline update to ensure all teams are synced
             StartCoroutine(DelayedOutlineUpdate());
@@ -138,12 +139,23 @@ namespace Game.Player.Core {
         // Called whenever NetTeam changes (including on spawn)
         // --------------------------------------------------------------------
         private void OnTeamChanged(SpawnPoint.Team previous, SpawnPoint.Team current) {
+            SubmitTeamStateToMatch();
             UpdateOutlineColour();
 
             // If this is the local player's team changing, update all other players' outlines
             if(IsOwner) {
                 UpdateAllPlayerOutlines();
             }
+        }
+
+        private void SubmitTeamStateToMatch() {
+            if(!IsOwner || playerController == null || playerController.NetworkObject == null ||
+               MatchPlayerStateAuthority.Instance == null) {
+                return;
+            }
+
+            MatchPlayerStateAuthority.Instance.RequestTeamSyncServerRpc(playerController.NetworkObject,
+                (int)netTeam.Value);
         }
 
         // --------------------------------------------------------------------
