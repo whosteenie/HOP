@@ -98,7 +98,7 @@ namespace Game.UI.Screens.Scoreboard {
             VisualElement yourTeamRows,
             VisualElement scoreboardContainer, VisualElement tdmScoreboardContainer, Label enemyScoreValue,
             Label yourScoreValue,
-            MatchSettingsManager matchSettings, ScoreboardRowFactory rowFactory,
+            MatchSettingsManager matchSettings, PlayerController localController, ScoreboardRowFactory rowFactory,
             VisualElement root, Object logContext) {
             if(scoreboardContainer == null || tdmScoreboardContainer == null || enemyTeamRows == null ||
                yourTeamRows == null) {
@@ -115,11 +115,6 @@ namespace Game.UI.Screens.Scoreboard {
             enemyTeamRows.Clear();
             yourTeamRows.Clear();
 
-            var networkManager = NetworkManager.Singleton;
-            if(networkManager == null || networkManager.LocalClient == null) return false;
-            var localPlayer = networkManager.LocalClient.PlayerObject;
-            if(localPlayer == null) return false;
-            var localController = localPlayer.GetComponent<PlayerController>();
             var localTeamMgr = localController != null ? localController.TeamManager : null;
 
             if(localTeamMgr == null) return false;

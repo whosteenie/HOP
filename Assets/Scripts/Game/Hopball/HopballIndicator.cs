@@ -35,6 +35,7 @@ namespace Game.Hopball {
     private Camera _localCamera;
     private Transform _targetTransform; // Player head or hopball transform
     private CharacterController _targetCharacterController;
+    private PlayerController _localPlayerController;
     private Vector3 _targetWorldPosition;
     private bool _isDropped;
     private bool _isOffScreen;
@@ -108,7 +109,7 @@ namespace Game.Hopball {
             return;
         }
 
-        var localController = localPlayer.GetComponent<PlayerController>();
+        var localController = GetLocalPlayerController(localPlayer);
         if(localController == null) return;
         var localTeamMgr = localController.TeamManager;
         var holderTeamMgr = holderController.TeamManager;
@@ -147,6 +148,20 @@ namespace Game.Hopball {
         if(dropped) {
             diamondIndicator.color = droppedColor;
         }
+    }
+
+    private PlayerController GetLocalPlayerController(NetworkObject localPlayer) {
+        if(localPlayer == null) {
+            _localPlayerController = null;
+            return null;
+        }
+
+        if(_localPlayerController != null && _localPlayerController.NetworkObject == localPlayer) {
+            return _localPlayerController;
+        }
+
+        _localPlayerController = localPlayer.GetComponent<PlayerController>();
+        return _localPlayerController;
     }
 
     /// <summary>

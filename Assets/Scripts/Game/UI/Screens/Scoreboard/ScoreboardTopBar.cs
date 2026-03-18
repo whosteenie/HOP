@@ -102,7 +102,7 @@ namespace Game.UI.Screens.Scoreboard {
             var isTeamBased = MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
             var controllers = registry.GetAllPlayers();
             if(isTeamBased)
-                UpdateTeamBasedScore(controllers, matchSettings);
+                UpdateTeamBasedScore(controllers, matchSettings, localController);
             else
                 UpdateFfaScore(controllers, playerData, matchSettings, localController);
         }
@@ -118,14 +118,9 @@ namespace Game.UI.Screens.Scoreboard {
         }
 
         private void UpdateTeamBasedScore(IReadOnlyCollection<PlayerController> allControllers,
-            MatchSettingsManager matchSettings) {
+            MatchSettingsManager matchSettings, PlayerController localController) {
             if(allControllers == null) throw new ArgumentNullException(nameof(allControllers));
-            if(matchSettings == null) return;
-            var networkManager = NetworkManager.Singleton;
-            if(networkManager == null || networkManager.LocalClient == null) return;
-            var localPlayer = networkManager.LocalClient.PlayerObject;
-            if(localPlayer == null) return;
-            var localController = localPlayer.GetComponent<PlayerController>();
+            if(matchSettings == null || localController == null) return;
             var localTeamMgr = localController != null ? localController.TeamManager : null;
 
             if(localTeamMgr == null) return;
