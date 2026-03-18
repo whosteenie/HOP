@@ -51,6 +51,7 @@ namespace Game.Player.Core {
         private MaterialPropertyBlock _tagPropertyBlock; // Reusable property block for tagged players
         private PlayerTagController _tagController;
         private Camera _mainCamera; // Cached main camera reference
+        private Coroutine _pendingTeamSyncRoutine;
 
         private string _cachedGameModeId;
         private bool _cachedIsTeamBased;
@@ -103,7 +104,7 @@ namespace Game.Player.Core {
 
             netTeam.OnValueChanged -= OnTeamChanged;
             netTeam.OnValueChanged += OnTeamChanged;
-            SubmitTeamStateToMatch();
+            QueueTeamStateSyncToMatch();
 
             // Delay outline update to ensure all teams are synced
             StartCoroutine(DelayedOutlineUpdate());
@@ -132,6 +133,10 @@ namespace Game.Player.Core {
 
         public override void OnNetworkDespawn() {
             netTeam.OnValueChanged -= OnTeamChanged;
+            if(_pendingTeamSyncRoutine != null) {
+                StopCoroutine(_pendingTeamSyncRoutine);
+                _pendingTeamSyncRoutine = null;
+            }
             base.OnNetworkDespawn();
         }
 
@@ -139,7 +144,7 @@ namespace Game.Player.Core {
         // Called whenever NetTeam changes (including on spawn)
         // --------------------------------------------------------------------
         private void OnTeamChanged(SpawnPoint.Team previous, SpawnPoint.Team current) {
-            SubmitTeamStateToMatch();
+            QueueTeamStateSyncToMatch();
             UpdateOutlineColour();
 
             // If this is the local player's team changing, update all other players' outlines
@@ -148,14 +153,47 @@ namespace Game.Player.Core {
             }
         }
 
-        private void SubmitTeamStateToMatch() {
-            if(!IsOwner || playerController == null || playerController.NetworkObject == null ||
-               MatchPlayerStateAuthority.Instance == null) {
+        private void QueueTeamStateSyncToMatch() {
+            if(!IsOwner) {
                 return;
             }
 
-            MatchPlayerStateAuthority.Instance.RequestTeamSyncServerRpc(playerController.NetworkObject,
-                (int)netTeam.Value);
+            if(TrySubmitTeamStateToMatch()) {
+                return;
+            }
+
+            if(_pendingTeamSyncRoutine == null && isActiveAndEnabled) {
+                _pendingTeamSyncRoutine = StartCoroutine(WaitAndSubmitTeamStateToMatch());
+            }
+        }
+
+        private IEnumerator WaitAndSubmitTeamStateToMatch() {
+            while(isActiveAndEnabled && IsSpawned) {
+                if(TrySubmitTeamStateToMatch()) {
+                    _pendingTeamSyncRoutine = null;
+                    yield break;
+                }
+
+                yield return null;
+            }
+
+            _pendingTeamSyncRoutine = null;
+        }
+
+        private bool TrySubmitTeamStateToMatch() {
+            if(!IsOwner || playerController == null || playerController.NetworkObject == null ||
+               !playerController.NetworkObject.IsSpawned) {
+                return false;
+            }
+
+            var authority = MatchPlayerStateAuthority.Instance;
+            if(authority == null || authority.NetworkObject == null || !authority.IsSpawned ||
+               !authority.NetworkObject.IsSpawned) {
+                return false;
+            }
+
+            authority.RequestTeamSyncServerRpc(playerController.NetworkObject, (int)netTeam.Value);
+            return true;
         }
 
         // --------------------------------------------------------------------
