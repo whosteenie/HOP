@@ -22,10 +22,6 @@ namespace Game.Menu.Main {
 
         private bool _isHost;
 
-        protected override void Awake() {
-            base.Awake();
-        }
-
         protected override void OnInitialize() {
             FindUIElements();
             SetupGamemodeDropdown();

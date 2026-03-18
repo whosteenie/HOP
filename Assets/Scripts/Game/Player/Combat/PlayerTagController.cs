@@ -213,7 +213,7 @@ namespace Game.Player.Combat {
         /// </summary>
         [Rpc(SendTo.Everyone)]
         // ReSharper disable once MemberCanBeMadeStatic.Global
-        public void BroadcastTagTransferFromHopClientRpc(ulong taggedClientId) {
+        private void BroadcastTagTransferFromHopClientRpc(ulong taggedClientId) {
             var taggedName = "Unknown";
 
             if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggedClientId, out _)) {
@@ -232,8 +232,8 @@ namespace Game.Player.Combat {
         /// Plays UI sound when this player gets tagged (called on the victim's client).
         /// </summary>
         [Rpc(SendTo.Owner)]
-        // ReSharper disable once MemberCanBeMadeStatic.Global
-        public void PlayTaggedSoundClientRpc() {
+        // ReSharper disable once MemberCanBeMadeStatic.Local
+        private void PlayTaggedSoundClientRpc() {
             if(AudioService.Instance != null) {
                 AudioService.Instance.Play("ui.tag.tagged", Vector3.zero);
             }
@@ -283,7 +283,7 @@ namespace Game.Player.Combat {
         }
 
         private void OnPlayerTagBootstrapSnapshotRequested(PlayerTagBootstrapSnapshotRequestedEvent evt) {
-            if(evt == null || !IsSpawned || _playerContext == null || !_playerContext.IsGunTagMode) return;
+            if(evt == null || !IsSpawned || _playerContext is not { IsGunTagMode: true }) return;
             EventBus.Publish(new PlayerTagBootstrapStateReportedEvent(_playerContext.OwnerClientId, IsTagged.Value));
         }
 

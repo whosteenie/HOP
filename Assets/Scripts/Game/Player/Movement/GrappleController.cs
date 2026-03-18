@@ -115,11 +115,7 @@ namespace Game.Player.Movement {
         /// Gets the current grapple cooldown based on whether the player is tagged in Gun Tag mode.
         /// </summary>
         private float GetCurrentCooldown() {
-            if(_playerContext is { IsGunTagMode: true, IsTagged: true }) {
-                return TaggedPlayerCooldown;
-            }
-
-            return GrappleCooldown;
+            return _playerContext is { IsGunTagMode: true, IsTagged: true } ? TaggedPlayerCooldown : GrappleCooldown;
         }
         
         /// <summary>

@@ -18,7 +18,8 @@ namespace Game.Hopball {
         AntiCheatLogger.LogAuthorityViolate($"Hopball.{action}", OwnerClientId);
         return false;
     }
-    public static HopballController Instance { get; private set; }
+
+    private static HopballController Instance { get; set; }
 
     public readonly int IntensityID = Shader.PropertyToID("_EmissionIntensity");
     public readonly int DissolveAmountID = Shader.PropertyToID("_DissolveAmount");
@@ -604,13 +605,13 @@ namespace Game.Hopball {
 
         if(ignore) {
             return;
-        } else {
-            foreach(var col in _ignoredPlayerColliders) {
-                if(col != null) Physics.IgnoreCollision(hopballCollider, col, false);
-            }
-
-            _ignoredPlayerColliders.Clear();
         }
+
+        foreach(var col in _ignoredPlayerColliders) {
+            if(col != null) Physics.IgnoreCollision(hopballCollider, col, false);
+        }
+
+        _ignoredPlayerColliders.Clear();
     }
 
     private void NotifyVisualStateChanged(bool forceBroadcast) {

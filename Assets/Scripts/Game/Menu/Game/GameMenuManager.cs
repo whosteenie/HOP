@@ -160,10 +160,6 @@ namespace Game.Menu.Game {
             base.OnDisable();
         }
 
-        protected override void OnDestroy() {
-            base.OnDestroy();
-        }
-
         protected override void OnInitialize() {
             FindUIElements();
             if(_modalHost == null && Root != null) {

@@ -606,15 +606,13 @@ namespace Game.Hopball {
         public void RegisterPlayerController(ulong ownerClientId, Collider playerCollider) {
             if(playerCollider == null) return;
             _registeredPlayerColliders[ownerClientId] = playerCollider;
-            CurrentHopballController?.OnPlayerColliderRegistered(playerCollider);
+            if(CurrentHopballController != null) CurrentHopballController.OnPlayerColliderRegistered(playerCollider);
         }
 
         public void UnregisterPlayerController(ulong ownerClientId) {
-            if(!_registeredPlayerColliders.TryGetValue(ownerClientId, out var playerCollider)) return;
-            _registeredPlayerColliders.Remove(ownerClientId);
-            if(playerCollider != null) {
-                CurrentHopballController?.OnPlayerColliderUnregistered(playerCollider);
-            }
+            if(!_registeredPlayerColliders.Remove(ownerClientId, out var playerCollider)) return;
+            if(playerCollider == null) return;
+            if(CurrentHopballController != null) CurrentHopballController.OnPlayerColliderUnregistered(playerCollider);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
