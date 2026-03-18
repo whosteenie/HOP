@@ -210,14 +210,17 @@ namespace Game.Weapon.Core {
         private void ValidateComponents() {
             if(OwnerContext == null) {
                 if(ownerContextSource != null) {
-                    var ownerContext = (IWeaponOwnerContext)ownerContextSource;
+                    // ReSharper disable once UsePatternMatching
+                    var ownerContext = ownerContextSource as IWeaponOwnerContext;
                     if(ownerContext != null) {
                         OwnerContext = ownerContext;
                     }
                 } else {
                     foreach(var candidate in GetComponentsInParent<MonoBehaviour>(true)) {
                         if(candidate == null) continue;
-                        var resolvedContext = (IWeaponOwnerContext)candidate;
+                        // ReSharper disable once UseNegatedPatternMatching
+                        var resolvedContext = candidate as IWeaponOwnerContext;
+                        if(resolvedContext == null) continue;
                         ownerContextSource = candidate;
                         OwnerContext = resolvedContext;
                         break;

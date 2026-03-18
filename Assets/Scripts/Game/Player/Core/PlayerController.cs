@@ -1249,9 +1249,9 @@ namespace Game.Player.Core {
         void IPlayerCombatContext.SetOutOfBoundsGraceWindow(float seconds) => SetOutOfBoundsGraceWindow(seconds);
         void IPlayerCombatContext.ResetLookPitchFromRespawn() => ResetLookPitchFromRespawn();
         void IPlayerCombatContext.ClearLookInput() => lookInput = Vector2.zero;
-        void IPlayerCombatContext.SetWeaponCameraEnabled(bool enabled) {
+        void IPlayerCombatContext.SetWeaponCameraEnabled(bool cameraEnabled) {
             if(weaponCameraController != null) {
-                weaponCameraController.SetWeaponCameraEnabled(enabled);
+                weaponCameraController.SetWeaponCameraEnabled(cameraEnabled);
             }
         }
 

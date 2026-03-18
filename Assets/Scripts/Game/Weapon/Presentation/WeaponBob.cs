@@ -146,7 +146,9 @@ namespace Game.Weapon.Presentation {
                 var behaviours = current.GetComponents<MonoBehaviour>();
                 foreach(var behaviour in behaviours) {
                     if(behaviour == null) continue;
-                    var bobContext = (IWeaponBobContext)behaviour;
+                    // ReSharper disable once UseNegatedPatternMatching
+                    var bobContext = behaviour as IWeaponBobContext;
+                    if(bobContext == null) continue;
                     _context = bobContext;
                     return;
                 }

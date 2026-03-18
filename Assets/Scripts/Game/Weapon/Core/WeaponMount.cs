@@ -7,6 +7,7 @@ using UnityEngine.Rendering.Universal;
 namespace Game.Weapon.Core {
     internal sealed class WeaponMount {
         private readonly Weapon _weapon;
+        private Camera _cachedMainSceneCamera;
 
         public WeaponMount(Weapon weapon) {
             _weapon = weapon;
@@ -398,16 +399,35 @@ namespace Game.Weapon.Core {
                 remapDepth));
         }
 
-        private static bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
+        private bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
             mainSceneCamera = null;
 
-            mainSceneCamera = FindCandidateMainSceneCamera(weaponCamera);
-
-            if(mainSceneCamera == weaponCamera) {
-                mainSceneCamera = null;
+            if(IsUsableMainSceneCamera(_cachedMainSceneCamera, weaponCamera)) {
+                mainSceneCamera = _cachedMainSceneCamera;
+                return true;
             }
 
+            _cachedMainSceneCamera = FindCandidateMainSceneCamera(weaponCamera);
+            mainSceneCamera = _cachedMainSceneCamera;
+
+            if(mainSceneCamera != weaponCamera) return mainSceneCamera != null;
+            _cachedMainSceneCamera = null;
+            mainSceneCamera = null;
+
             return mainSceneCamera != null;
+        }
+
+        private static bool IsUsableMainSceneCamera(Camera camera, Camera weaponCamera) {
+            if(camera == null || camera == weaponCamera || !camera.isActiveAndEnabled) {
+                return false;
+            }
+
+            if(camera.CompareTag("MainCamera")) {
+                return true;
+            }
+
+            var cameraData = camera.GetUniversalAdditionalCameraData();
+            return cameraData != null && cameraData.renderType == CameraRenderType.Base;
         }
 
         private static Camera FindCandidateMainSceneCamera(Camera weaponCamera) {
