@@ -258,8 +258,8 @@ namespace Network.Session {
                 actions.SetFrontStatus(SessionPhase.Error, "Disconnected from party.");
 
                 if(currentScene != "MainMenu") {
-                    CaptureDisconnectFpVisuals(ctx);
-                    await FadeOutWithFallbackAsync();
+                    actions.CaptureDisconnectFpVisuals();
+                    await actions.FadeOutWithFallbackAsync();
                     await actions.LeaveToMainMenuAsync(skipFadeOut: true);
                 } else {
                     if(Debug.isDebugBuild) {
