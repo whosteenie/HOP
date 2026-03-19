@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Diagnostics;
 using Events;
+using Network.Contracts;
 using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
@@ -292,8 +293,10 @@ namespace Game.Match {
             // We allow an early-join grace window so stale expected players (alt+F4 during connect)
             // do not block match start forever.
             var expectedPlayers = 1;
-            if(SessionManager.Instance != null) {
-                expectedPlayers = Mathf.Max(1, SessionManager.Instance.ExpectedGamePlayerCount);
+            var session = SessionManager.Instance;
+            if(session != null) {
+                ISessionContext sessionCtx = session;
+                expectedPlayers = Mathf.Max(1, sessionCtx.ExpectedGamePlayerCount);
             }
 
             const float expectedJoinGraceSeconds = 30f;

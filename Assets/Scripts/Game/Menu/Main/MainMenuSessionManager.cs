@@ -7,6 +7,7 @@ using Diagnostics;
 using Events;
 using Game.Progression;
 using Game.Settings;
+using Network.Contracts;
 using Network.Steam;
 using Game.Social;
 using Game.UI.Core; // Added
@@ -257,9 +258,10 @@ namespace Game.Menu.Main {
                 return;
             }
 
+            ISessionContext sessionCtx = session;
             var canInvite = session.CurrentPartySize < 10 &&
                             session.IsLocalPartyLeaderResolved &&
-                            !session.IsSearching;
+                            !sessionCtx.IsSearching;
             var shouldShowSeparator = canInvite || session.HasRealPartyMembers;
 
             if(_inviteButton != null) {
@@ -273,13 +275,17 @@ namespace Game.Menu.Main {
         }
 
         private void Update() {
-            if(SessionManager.Instance == null) return;
+            var session = SessionManager.Instance;
+            if(session == null) return;
+
+            // Cache interface reference for orphaned interface properties
+            ISessionContext sessionCtx = session;
 
             // Handle Matchmaking Status & Locking
-            var isSearching = SessionManager.Instance.IsSearching;
-            var showStatus = SessionManager.Instance.ShowMatchmakingStatus;
-            var isPartyMember = SessionManager.Instance.IsPartyMemberResolved;
-            var sessionBusy = SessionManager.Instance.IsSessionBusy;
+            var isSearching = sessionCtx.IsSearching;
+            var showStatus = session.ShowMatchmakingStatus;
+            var isPartyMember = session.IsPartyMemberResolved;
+            var sessionBusy = sessionCtx.IsSessionBusy;
 
             var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
 
@@ -397,7 +403,7 @@ namespace Game.Menu.Main {
                         }
 
                         if(uiManager.QueueTimerLabel != null) {
-                            var elapsed = Time.time - SessionManager.Instance.MatchmakingStartTime;
+                            var elapsed = Time.time - sessionCtx.MatchmakingStartTime;
                             var elapsedSeconds = Mathf.Max(0, Mathf.FloorToInt(elapsed));
                             if(_lastQueueTimerSeconds != elapsedSeconds) {
                                 var minutes = elapsedSeconds / 60;

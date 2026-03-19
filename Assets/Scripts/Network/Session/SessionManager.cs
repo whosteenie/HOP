@@ -125,7 +125,7 @@ namespace Network.Session {
         /// <summary>True when we intentionally left (LeaveLobby etc.); used to skip disconnect capture in OnNetworkDespawn.</summary>
         public bool IsExpectedDisconnect { get; private set; }
 
-        public bool IsSearching {
+        private bool IsSearching {
             get {
                 return Phase switch {
                     SessionPhase.Searching or SessionPhase.CreatingLobby or SessionPhase.JoiningLobby
@@ -160,7 +160,7 @@ namespace Network.Session {
             }
         }
 
-        public bool IsSessionBusy {
+        private bool IsSessionBusy {
             get {
                 var nm = _networkManager != null ? _networkManager : NetworkManager.Singleton;
                 var shuttingDown = nm != null && nm.ShutdownInProgress;
@@ -168,7 +168,7 @@ namespace Network.Session {
             }
         }
 
-        public int ExpectedGamePlayerCount => Mathf.Max(1, _expectedGamePlayerCount);
+        private int ExpectedGamePlayerCount => Mathf.Max(1, _expectedGamePlayerCount);
 
         private CancellationToken SessionLifetimeToken =>
             _sessionLifetimeCts != null ? _sessionLifetimeCts.Token : CancellationToken.None;
@@ -512,7 +512,7 @@ namespace Network.Session {
         #endregion
 
         // ===== Matchmaker (delegated to SessionMatchmakerService; state for JoinPublicMatchByIdAsync/query) =====
-        public float MatchmakingStartTime { get; private set; }
+        private float MatchmakingStartTime { get; set; }
 
         private void SetMatchmakingStartTime(float value) => MatchmakingStartTime = value;
 
