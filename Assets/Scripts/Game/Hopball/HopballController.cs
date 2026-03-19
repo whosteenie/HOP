@@ -120,9 +120,7 @@ namespace Game.Hopball {
         }
     }
 
-    public delegate void HopballVisualStateChanged(HopballVisualState state);
-
-    public static event HopballVisualStateChanged VisualStateChanged;
+    public static event Action<HopballVisualState> VisualStateChanged;
 
     public readonly struct HopballVisualState {
         public readonly Vector3 EffectScale;
