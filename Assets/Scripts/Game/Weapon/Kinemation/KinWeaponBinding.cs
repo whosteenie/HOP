@@ -5,11 +5,18 @@ using UnityEngine;
 namespace Game.Weapon.Kinemation {
     [Serializable]
     internal class KinWeaponBinding {
-        internal WeaponData WeaponData;
-        internal GameObject KinWeaponPrefab;
-        internal bool UseCustomViewmodelPose;
-        internal Vector3 ViewmodelLocalPosition;
-        internal Vector3 ViewmodelLocalEulerAngles;
+        [SerializeField] private WeaponData weaponData;
+        [SerializeField] private GameObject kinemationWeaponPrefab;
+        [SerializeField] private bool useCustomViewmodelPose;
+        [SerializeField] private Vector3 viewmodelLocalPosition;
+        [SerializeField] private Vector3 viewmodelLocalEulerAngles;
+
+        internal WeaponData WeaponData => weaponData;
+        internal GameObject KinWeaponPrefab => kinemationWeaponPrefab;
+        internal bool UseCustomViewmodelPose => useCustomViewmodelPose;
+        internal Vector3 ViewmodelLocalPosition => viewmodelLocalPosition;
+        internal Vector3 ViewmodelLocalEulerAngles => viewmodelLocalEulerAngles;
+
         [Tooltip("Optional grapple clip override for this weapon.")]
         public AnimationClip grappleClip;
     }

@@ -563,8 +563,9 @@ namespace Game.Weapon.Manager {
             }
 
             if(storedIndex < 0 || storedIndex >= options.Count) {
-                DevLog.LogError($"[WeaponManager] {slotLabel} weapon index {storedIndex} out of range [0..{options.Count - 1}].");
-                return null;
+                DevLog.LogWarning(
+                    $"[WeaponManager] {slotLabel} weapon index {storedIndex} out of range [0..{options.Count - 1}]. Falling back to index 0.");
+                storedIndex = 0;
             }
 
             var weaponData = options[storedIndex];

@@ -19,11 +19,11 @@ namespace Game.Settings {
 
         [Serializable]
         private sealed class ProtectedEnvelope {
-            internal int V = 1;
-            internal string Salt;
-            internal string Iv;
-            internal string Payload;
-            internal string SIG;
+            public int V = 1;
+            public string Salt;
+            public string Iv;
+            public string Payload;
+            public string SIG;
         }
 
         private const string Header = "HOPSEC1";
