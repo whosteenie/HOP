@@ -36,12 +36,12 @@ namespace Game.Weapon.Kinemation {
         private readonly KinDrakeKarVisuals _drakeKar;
         private readonly KinDriverAudio _audio;
         private readonly KinGrappleClavicle _grappleClavicle;
-        private readonly FuncBool _tryCacheActiveWeapon;
+        private readonly Func<bool> _tryCacheActiveWeapon;
 
         public KinEquipReloadPlayback(IKinDriverResolverContext context,
             KinActiveWeaponResolver resolver, KinReloadEquipTracker tracker,
             KinDrakeKarVisuals drakeKar, KinDriverAudio audio, KinGrappleClavicle grappleClavicle,
-            FuncBool tryCacheActiveWeapon) {
+            Func<bool> tryCacheActiveWeapon) {
             _context = context;
             _resolver = resolver;
             _tracker = tracker;
@@ -67,7 +67,7 @@ namespace Game.Weapon.Kinemation {
             _grappleClavicle.ApplyGrappleWeaponIndex();
         }
 
-        public void PlayFireAnimation(int authoritativeAmmoBeforeShot, FuncBool isAnyReloadClipActive) {
+        public void PlayFireAnimation(int authoritativeAmmoBeforeShot, Func<bool> isAnyReloadClipActive) {
             if(!_tryCacheActiveWeapon()) return;
             var activeWeapon = _resolver.ActiveWeapon;
             if(activeWeapon == null) return;

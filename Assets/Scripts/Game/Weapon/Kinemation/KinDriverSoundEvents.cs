@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Diagnostics;
 using Game.Weapon.Core;
@@ -19,19 +20,19 @@ namespace Game.Weapon.Kinemation {
             _audio = audio;
         }
 
-        public bool IsKinemationSoundRoutingEnabled(FuncBool tryCacheActiveWeapon) {
+        public bool IsKinemationSoundRoutingEnabled(Func<bool> tryCacheActiveWeapon) {
             if(!_context.RouteWeaponSoundEventsToAudioService) return false;
             return tryCacheActiveWeapon() && _resolver.ActiveWeapon != null && _resolver.ActiveWeapon.weaponSettings != null;
         }
 
-        public int GetKinemationSoundClipCount(FuncBool tryCacheActiveWeapon) {
+        public int GetKinemationSoundClipCount(Func<bool> tryCacheActiveWeapon) {
             if(!tryCacheActiveWeapon() || _resolver.ActiveWeapon == null || _resolver.ActiveWeapon.weaponSettings == null)
                 return 0;
             var eventSounds = _resolver.ActiveWeapon.weaponSettings.weaponEventSounds;
             return eventSounds != null ? eventSounds.Count : 0;
         }
 
-        public bool IsLikelyReloadEventSoundClip(int clipIndex, FuncBool tryCacheActiveWeapon) {
+        public bool IsLikelyReloadEventSoundClip(int clipIndex, Func<bool> tryCacheActiveWeapon) {
             if(!tryCacheActiveWeapon() || _resolver.ActiveWeapon == null || _resolver.ActiveWeapon.weaponSettings == null)
                 return false;
             var eventSounds = _resolver.ActiveWeapon.weaponSettings.weaponEventSounds;
@@ -47,7 +48,7 @@ namespace Game.Weapon.Kinemation {
             return false;
         }
 
-        public void NotifyWeaponEventSoundEvent(int clipIndex, FuncBool isRoutingEnabled) {
+        public void NotifyWeaponEventSoundEvent(int clipIndex, Func<bool> isRoutingEnabled) {
             if(!isRoutingEnabled()) return;
             if(clipIndex < 0) return;
             var activeWeapon = _resolver.ActiveWeapon;
@@ -88,6 +89,4 @@ namespace Game.Weapon.Kinemation {
                 data);
         }
     }
-
-    internal delegate bool FuncBool();
 }
