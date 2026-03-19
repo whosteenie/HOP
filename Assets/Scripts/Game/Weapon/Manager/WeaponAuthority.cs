@@ -1,5 +1,6 @@
 using Diagnostics;
 using Events;
+using Game.Weapon.Contracts;
 using Game.Weapon.Core;
 using Network.AntiCheat;
 using Network.Core;
@@ -191,7 +192,8 @@ namespace Game.Weapon.Manager {
                 if(WeaponCombatAuthority.Instance != null && _root.NetworkObject != null &&
                    _root.NetworkObject.IsSpawned) {
                     WeaponCombatAuthority.Instance.RequestWeaponStateSyncServerRpc(
-                        new NetworkObjectReference(_root.NetworkObject), weaponIndex, reason, localAmmoAfterEvent);
+                        new NetworkObjectReference(_root.NetworkObject), weaponIndex,
+                        (WeaponAmmoSyncReason)reason, localAmmoAfterEvent);
                 } else {
                     _root.ReportWeaponStateSyncServerRpc(weaponIndex, reason, localAmmoAfterEvent);
                 }

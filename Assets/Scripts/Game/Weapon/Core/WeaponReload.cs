@@ -1,6 +1,6 @@
 using Diagnostics;
 using Events;
-using Game.Weapon.Manager;
+using Game.Weapon.Contracts;
 using UnityEngine;
 
 namespace Game.Weapon.Core {
@@ -23,7 +23,7 @@ namespace Game.Weapon.Core {
         }
 
         public void StartReload() {
-            if(_weapon.CurrentWeaponData && _weapon.Manager != null && !_weapon.Manager.IsPullingOut &&
+            if(_weapon.CurrentWeaponData && _weapon.Manager is { IsPullingOut: false } &&
                _weapon.KinDriver == null) {
                 DevLog.LogError(
                     $"[Weapon][KIN-Strict] Reload blocked: missing KinFpWeaponDriver for '{(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}'.",
@@ -38,7 +38,7 @@ namespace Game.Weapon.Core {
 
             _weapon.ReloadExpectedCompleteTime = Time.time + Weapon.KinemationReloadFallbackSeconds;
             _weapon.KinemationReloadFallbackDeadline = _weapon.ReloadExpectedCompleteTime;
-            _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.ReloadStarted);
+            _weapon.SyncServerWeaponStateInternal(WeaponAmmoSyncReason.ReloadStarted);
             _weapon.PlayReloadEffectsInternal();
         }
 
@@ -83,7 +83,7 @@ namespace Game.Weapon.Core {
             }
 
             _weapon.ExitReloadAnimationInternal();
-            _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.ReloadCanceled);
+            _weapon.SyncServerWeaponStateInternal(WeaponAmmoSyncReason.ReloadCanceled);
         }
 
         public void ResetWeapon() {
@@ -99,7 +99,7 @@ namespace Game.Weapon.Core {
                 _weapon.KinDriver.ResetReloadTracking();
             }
 
-            _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
+            _weapon.SyncServerWeaponStateInternal(WeaponAmmoSyncReason.RefillCurrentWeapon);
         }
 
         public void PrepareForPostMatchPodium() {
@@ -115,7 +115,7 @@ namespace Game.Weapon.Core {
             }
 
             _weapon.PublishAmmoToHudInternal();
-            _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
+            _weapon.SyncServerWeaponStateInternal(WeaponAmmoSyncReason.RefillCurrentWeapon);
         }
 
         public void RunReloadWatchdog() {
@@ -184,7 +184,7 @@ namespace Game.Weapon.Core {
 
             _weapon.ExitReloadAnimationInternal();
             _weapon.PublishAmmoToHudInternal();
-            _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.ReloadCompleted);
+            _weapon.SyncServerWeaponStateInternal(WeaponAmmoSyncReason.ReloadCompleted);
         }
 
         private void HandleSingleRoundReload() {
@@ -195,7 +195,7 @@ namespace Game.Weapon.Core {
 
             _weapon.CurrentAmmo = Mathf.Min(_weapon.CurrentAmmo + 1, magCapacity);
             _weapon.PublishAmmoToHudInternal(magCapacity);
-            _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.ReloadSingleRound);
+            _weapon.SyncServerWeaponStateInternal(WeaponAmmoSyncReason.ReloadSingleRound);
         }
 
         private void CompleteKinemationPartialReload() {
@@ -208,7 +208,7 @@ namespace Game.Weapon.Core {
             }
 
             _weapon.ExitReloadAnimationInternal();
-            _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.ReloadCanceled);
+            _weapon.SyncServerWeaponStateInternal(WeaponAmmoSyncReason.ReloadCanceled);
 
             if(_weapon.CurrentWeaponData != null) {
                 _weapon.PublishAmmoToHudInternal();

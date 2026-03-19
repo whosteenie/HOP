@@ -227,7 +227,8 @@ namespace Game.Weapon.Manager {
             _authority.ValidateServerHitClaim(weaponIndex, shotId, out reason);
         public bool TryComputeServerDamage(int weaponIndex, Vector3 hitPoint, out float damage, out string reason) =>
             _authority.TryComputeServerDamage(weaponIndex, hitPoint, out damage, out reason);
-        public void ReportWeaponStateSync(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
+
+        private void ReportWeaponStateSync(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
             _authority.ReportWeaponStateSync(weaponIndex, reason, localAmmoAfterEvent);
         public void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime) =>
             _authority.ReportShotFired(weaponIndex, shotId, clientShotTime);
@@ -260,7 +261,7 @@ namespace Game.Weapon.Manager {
             }
         }
 
-        public static bool IsFriendlyFireServer(ulong shooterClientId, ulong victimClientId) {
+        private static bool IsFriendlyFireServer(ulong shooterClientId, ulong victimClientId) {
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings == null || !matchSettings.IsCurrentModeTeamBased()) return false;
             if(!MatchPlayerStateProxy.TryGetForPlayer(shooterClientId, out var shooterState)) return false;
@@ -277,14 +278,28 @@ namespace Game.Weapon.Manager {
             ResetAllWeaponAmmoOnAuthority();
         }
 
+        Camera IWeaponManagerFacade.WeaponCamera => WeaponCameraRef;
+        bool IWeaponManagerFacade.IsPostMatchFlowActive => IsPostMatchFlowActive;
+
+        void IWeaponManagerFacade.ReportWeaponStateSync(int weaponIndex, WeaponAmmoSyncReason reason,
+            int localAmmoAfterEvent) {
+            ReportWeaponStateSync(weaponIndex, (AmmoSyncReason)reason, localAmmoAfterEvent);
+        }
+
+        bool IWeaponManagerFacade.IsFriendlyFireAgainst(ulong victimClientId) {
+            return IsFriendlyFireServer(OwnerClientId, victimClientId);
+        }
+
         #endregion
 
         #region Internal Facade
 
         internal void OnWeaponIndexChangedInternal(int oldValue, int newValue) => _loadout.OnWeaponIndexChanged();
-        internal void UpdateServerWeaponState(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
+
+        private void UpdateServerWeaponState(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
             _authority.UpdateServerWeaponState(weaponIndex, reason, localAmmoAfterEvent);
-        internal void ResetAllWeaponAmmoOnAuthority() => _authority.ResetAllWeaponAmmoOnAuthority();
+
+        private void ResetAllWeaponAmmoOnAuthority() => _authority.ResetAllWeaponAmmoOnAuthority();
         internal GameObject ActivateFpWeaponInternal(int weaponIndex, WeaponData data, bool triggerPullOutAnimation) =>
             _fpPresentation.ActivateFpWeapon(weaponIndex, data, triggerPullOutAnimation);
         internal void InstantiateFpWeaponInstancesInternal() => _fpPresentation.InstantiateFpWeaponInstances();

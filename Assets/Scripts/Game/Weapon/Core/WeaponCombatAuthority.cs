@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Diagnostics;
 using Game.Weapon.Contracts;
-using Game.Weapon.Manager;
 using Network.AntiCheat;
 using Network.Core;
 using Unity.Netcode;
@@ -161,7 +160,7 @@ namespace Game.Weapon.Core {
                 }
             }
 
-            if(WeaponManager.IsFriendlyFireServer(shooterParticipant.OwnerClientId, victim.OwnerClientId)) {
+            if(shooterWeaponManager.IsFriendlyFireAgainst(victim.OwnerClientId)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, "friendly fire rejected");
                 return;
             }
@@ -238,7 +237,7 @@ namespace Game.Weapon.Core {
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         public void RequestWeaponStateSyncServerRpc(NetworkObjectReference playerRef, int weaponIndex,
-            WeaponManager.AmmoSyncReason reason, int localAmmoAfterEvent, RpcParams rpcParams = default) {
+            WeaponAmmoSyncReason reason, int localAmmoAfterEvent, RpcParams rpcParams = default) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
                 return;
             }

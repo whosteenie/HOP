@@ -38,7 +38,7 @@ namespace Game.Weapon.Kinemation {
             var eventSounds = _resolver.ActiveWeapon.weaponSettings.weaponEventSounds;
             if(eventSounds == null || clipIndex < 0 || clipIndex >= eventSounds.Count) return false;
             var data = _resolver.GetActiveWeaponData();
-            if(data != null && data.KinemationReloadEventSoundIndices is { Length: > 0 }) {
+            if(data is { KinemationReloadEventSoundIndices: { Length: > 0 } }) {
                 foreach(var idx in data.KinemationReloadEventSoundIndices) {
                     if(idx == clipIndex) return true;
                 }

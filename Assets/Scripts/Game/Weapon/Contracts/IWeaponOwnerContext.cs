@@ -2,6 +2,14 @@ using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Weapon.Contracts {
+    public enum WeaponAmmoSyncReason : byte {
+        ReloadStarted,
+        ReloadSingleRound,
+        ReloadCompleted,
+        ReloadCanceled,
+        RefillCurrentWeapon
+    }
+
     public interface IWeaponDamageRelay {
         void SendHitConfirmToOwner(bool wasKill);
     }
@@ -21,10 +29,17 @@ namespace Game.Weapon.Contracts {
 
     public interface IWeaponManagerFacade {
         int CurrentWeaponIndex { get; }
+        bool IsPullingOut { get; }
+        bool IsPostMatchFlowActive { get; }
+        Camera WeaponCamera { get; }
         bool RegisterServerShot(int weaponIndex, ulong shotId, float clientShotTime, out string reason);
         bool ValidateServerHitClaim(int weaponIndex, ulong shotId, out string reason);
         bool TryComputeServerDamage(int weaponIndex, Vector3 hitPoint, out float damage, out string reason);
         string GetWeaponIdByIndex(int index);
+        bool IsFriendlyFireAgainst(ulong victimClientId);
+        void HandlePullOutCompleted();
+        void ReportWeaponStateSync(int weaponIndex, WeaponAmmoSyncReason reason, int localAmmoAfterEvent);
+        void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime);
         void RegisterServerShotAndLogOnAuthority(int weaponIndex, ulong shotId, float clientShotTime);
         void ProcessWeaponSwitchRequest(int newIndex);
         void UpdateServerWeaponState(int weaponIndex, byte reason, int localAmmoAfterEvent);

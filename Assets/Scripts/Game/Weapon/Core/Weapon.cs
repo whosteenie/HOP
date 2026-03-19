@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Diagnostics;
 using Events;
 using Game.Weapon.Contracts;
-using Game.Weapon.Manager;
 using Network.Core;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -100,7 +99,7 @@ namespace Game.Weapon.Core {
 
         internal IWeaponOwnerContext OwnerContext { get; private set; }
 
-        internal WeaponManager Manager { get; private set; }
+        internal IWeaponManagerFacade Manager { get; private set; }
 
         private WeaponDamageRelay DamageRelay { get; set; }
 
@@ -238,7 +237,7 @@ namespace Game.Weapon.Core {
             EnemyLayerMask = OwnerContext.EnemyLayer;
             WorldLayerMask = OwnerContext.WorldLayer;
             if(DamageRelay == null) DamageRelay = OwnerContext.DamageRelay as WeaponDamageRelay;
-            if(Manager == null) Manager = OwnerContext.WeaponManager as WeaponManager;
+            if(Manager == null) Manager = OwnerContext.WeaponManager;
 
             LastFireTime = Time.time;
 
@@ -335,7 +334,7 @@ namespace Game.Weapon.Core {
             _reload.CancelReloadForWeaponSwitch();
         }
 
-        private void SyncServerWeaponState(WeaponManager.AmmoSyncReason reason) {
+        private void SyncServerWeaponState(WeaponAmmoSyncReason reason) {
             if(Manager != null) Manager.ReportWeaponStateSync(Manager.CurrentWeaponIndex, reason, currentAmmo);
         }
 
@@ -405,7 +404,7 @@ namespace Game.Weapon.Core {
             return GetCurrentMagCapacity();
         }
 
-        internal void SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason reason) {
+        internal void SyncServerWeaponStateInternal(WeaponAmmoSyncReason reason) {
             SyncServerWeaponState(reason);
         }
 

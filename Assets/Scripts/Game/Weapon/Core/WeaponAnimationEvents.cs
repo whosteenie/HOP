@@ -1,5 +1,6 @@
 using Diagnostics;
-using Game.Weapon.Manager;
+using System.Linq;
+using Game.Weapon.Contracts;
 using UnityEngine;
 // ReSharper disable UnusedMember.Global
 
@@ -9,8 +10,10 @@ namespace Game.Weapon.Core {
     /// Allows animation events to communicate with the weapon system.
     /// </summary>
     public class WeaponAnimationEvents : MonoBehaviour {
-        private WeaponManager ResolveWeaponManager() {
-            var weaponManager = GetComponentInParent<WeaponManager>();
+        private IWeaponManagerFacade ResolveWeaponManager() {
+            var weaponManager = GetComponentsInParent<MonoBehaviour>(true)
+                .OfType<IWeaponManagerFacade>()
+                .FirstOrDefault();
             if(weaponManager != null) {
                 return weaponManager;
             }
