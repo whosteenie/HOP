@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Diagnostics;
 using Game.Match;
 using Game.Progression;
+using Game.Weapon.Contracts;
 using Unity.Netcode;
 using UnityEngine;
 using Random = UnityEngine.Random;

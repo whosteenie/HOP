@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Diagnostics;
+using Game.Weapon.Contracts;
 using Game.Weapon.Manager;
 using Network.AntiCheat;
 using Network.Core;
@@ -259,7 +260,7 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            weaponManager.UpdateServerWeaponState(weaponIndex, reason, localAmmoAfterEvent);
+            weaponManager.UpdateServerWeaponState(weaponIndex, (byte)reason, localAmmoAfterEvent);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]

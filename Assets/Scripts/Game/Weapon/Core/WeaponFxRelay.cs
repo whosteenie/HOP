@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Weapon.Contracts;
 using Network.AntiCheat;
 using Network.Core;
 using Unity.Netcode;
@@ -6,14 +7,14 @@ using UnityEngine;
 
 namespace Game.Weapon.Core {
     [DefaultExecutionOrder(7005)] // Run after UpperBodyPitch + SpineProxy LateUpdate passes.
-    public class WeaponFxRelay : NetworkBehaviour {
+    public class WeaponFxRelay : NetworkBehaviour, IWeaponFxRelay {
         [HideInInspector, SerializeField] private MonoBehaviour ownerContextSource;
         private IWeaponOwnerContext _ownerContext;
         private NetworkObject _playerNetworkObject;
         private readonly List<PendingRemoteShotFx> _pendingRemoteShotFx = new();
 
         private struct PendingRemoteShotFx {
-            internal Weapon Weapon;
+            internal IWeaponFacade Weapon;
             internal Vector3 EndPoint;
             internal Vector3 HitNormal;
             internal Vector3 ShooterVelocity;

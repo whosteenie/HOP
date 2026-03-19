@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Diagnostics;
 using Events;
-using Game.Weapon.Kinemation;
+using Game.Weapon.Contracts;
 using Game.Weapon.Manager;
 using Network.Core;
 using Unity.Cinemachine;
@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEngine.VFX;
 
 namespace Game.Weapon.Core {
-    public class Weapon : NetworkBehaviour {
+    public class Weapon : NetworkBehaviour, IWeaponFacade {
         public const float MaxDamageMultiplier = 3f;
 
         [Header("References")]
@@ -104,7 +104,7 @@ namespace Game.Weapon.Core {
 
         private WeaponDamageRelay DamageRelay { get; set; }
 
-        internal KinFpWeaponDriver KinDriver { get; set; }
+        internal IWeaponViewmodelDriver KinDriver { get; set; }
 
         internal GameObject CurrentFpWeaponInstance { get; set; }
 
@@ -237,8 +237,8 @@ namespace Game.Weapon.Core {
             if(_playerAnimator == null) _playerAnimator = OwnerContext.PlayerAnimator;
             EnemyLayerMask = OwnerContext.EnemyLayer;
             WorldLayerMask = OwnerContext.WorldLayer;
-            if(DamageRelay == null) DamageRelay = OwnerContext.DamageRelay;
-            if(Manager == null) Manager = OwnerContext.WeaponManager;
+            if(DamageRelay == null) DamageRelay = OwnerContext.DamageRelay as WeaponDamageRelay;
+            if(Manager == null) Manager = OwnerContext.WeaponManager as WeaponManager;
 
             LastFireTime = Time.time;
 

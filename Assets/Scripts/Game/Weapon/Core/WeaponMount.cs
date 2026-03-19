@@ -1,6 +1,6 @@
 using Diagnostics;
 using Game.Match;
-using Game.Weapon.Kinemation;
+using Game.Weapon.Contracts;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
@@ -81,9 +81,7 @@ namespace Game.Weapon.Core {
                 ? worldWeaponInstance.GetComponent<WorldWeaponBinding>()
                 : null;
             _weapon.CurrentMagCapacity = magCapacity;
-            _weapon.KinDriver = fpWeaponInstance != null
-                ? fpWeaponInstance.GetComponent<KinFpWeaponDriver>()
-                : null;
+            _weapon.KinDriver = ResolveViewmodelDriver(fpWeaponInstance);
 
             if(_weapon.KinDriver != null) {
                 var fpLayer = _weapon.OwnerContext is { IsOwner: true }
@@ -467,6 +465,21 @@ namespace Game.Weapon.Core {
             }
 
             return path;
+        }
+
+        private static IWeaponViewmodelDriver ResolveViewmodelDriver(GameObject fpWeaponInstance) {
+            if(fpWeaponInstance == null) return null;
+
+            var components = fpWeaponInstance.GetComponentsInChildren<MonoBehaviour>(true);
+            foreach(var component in components) {
+                // ReSharper disable once UsePatternMatching
+                var viewmodelDriver = component as IWeaponViewmodelDriver;
+                if(viewmodelDriver != null) {
+                    return viewmodelDriver;
+                }
+            }
+
+            return null;
         }
     }
 }

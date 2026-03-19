@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Diagnostics;
 using Events;
 using Game.Match;
+using Game.Weapon.Contracts;
 using Game.Weapon.Core;
 using Game.Weapon.Kinemation;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
@@ -11,7 +12,7 @@ using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Weapon.Manager {
-    public class WeaponManager : NetworkBehaviour, IKinWeaponRuntimeContext {
+    public class WeaponManager : NetworkBehaviour, IWeaponRuntimeContext, IWeaponManagerFacade {
         public enum AmmoSyncReason : byte {
             ReloadStarted,
             ReloadSingleRound,
@@ -241,7 +242,8 @@ namespace Game.Weapon.Manager {
         public void HandlePullOutCompleted() => _switch.HandlePullOutCompleted();
         public void HandleThirdPersonPullOutCompleted() => _switch.HandleThirdPersonPullOutCompleted();
         public void HandleKinemationEquipCompleted() => _switch.HandleKinemationEquipCompleted();
-        WeaponData IKinWeaponRuntimeContext.GetCurrentWeaponData() => CurrentWeaponInternal != null ? CurrentWeaponInternal.CurrentWeaponData : null;
+        IWeaponDataRuntime IWeaponRuntimeContext.GetCurrentWeaponData() =>
+            CurrentWeaponInternal != null ? CurrentWeaponInternal.CurrentWeaponData : null;
         public void TriggerPullOutAnimation() => _switch.TriggerPullOutAnimation();
         public void CancelPendingPullOutForPostMatch() => _switch.CancelPendingPullOutForPostMatch();
         public void RestoreAfterHopballDrop() => _switch.RestoreAfterHopballDrop();
@@ -264,6 +266,15 @@ namespace Game.Weapon.Manager {
             if(!MatchPlayerStateProxy.TryGetForPlayer(shooterClientId, out var shooterState)) return false;
             if(!MatchPlayerStateProxy.TryGetForPlayer(victimClientId, out var victimState)) return false;
             return shooterState.teamId.Value == victimState.teamId.Value;
+        }
+
+        void IWeaponManagerFacade.UpdateServerWeaponState(int weaponIndex, byte reason, int localAmmoAfterEvent) {
+            var parsedReason = (AmmoSyncReason)reason;
+            UpdateServerWeaponState(weaponIndex, parsedReason, localAmmoAfterEvent);
+        }
+
+        void IWeaponManagerFacade.ResetAllWeaponAmmoOnAuthority() {
+            ResetAllWeaponAmmoOnAuthority();
         }
 
         #endregion

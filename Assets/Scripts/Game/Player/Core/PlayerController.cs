@@ -8,6 +8,7 @@ using Game.Player.Contracts;
 using Game.Player.Input;
 using Game.Player.Movement;
 using Game.Player.Visual;
+using Game.Weapon.Contracts;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using Network.Components;
@@ -1395,13 +1396,13 @@ namespace Game.Player.Core {
         LayerMask IWeaponOwnerContext.WorldLayer => worldLayer;
         NetworkObject IWeaponOwnerContext.NetworkObject => NetworkObject;
         ulong IWeaponOwnerContext.OwnerClientId => OwnerClientId;
-        WeaponDamageRelay IWeaponOwnerContext.DamageRelay => damageRelay;
+        IWeaponDamageRelay IWeaponOwnerContext.DamageRelay => damageRelay;
 
-        WeaponFxRelay IWeaponOwnerContext.FxRelay => fxRelay;
+        IWeaponFxRelay IWeaponOwnerContext.FxRelay => fxRelay;
 
         // No longer exposed via IWeaponOwnerContext; audio is event-driven.
-        WeaponManager IWeaponOwnerContext.WeaponManager => weaponManager;
-        Game.Weapon.Core.Weapon IWeaponOwnerContext.CurrentWeapon => CurrentWeapon;
+        IWeaponManagerFacade IWeaponOwnerContext.WeaponManager => weaponManager;
+        IWeaponFacade IWeaponOwnerContext.CurrentWeapon => CurrentWeapon;
 
         NetworkVariable<float> IWeaponOwnerContext.ReplicatedDamageMultiplierState =>
             ResolvePlayerState() != null ? ResolvePlayerState().replicatedDamageMultiplier : MissingFloatState;
@@ -1410,8 +1411,8 @@ namespace Game.Player.Core {
         bool IWeaponCombatParticipant.IsDead => IsDead;
         ulong IWeaponCombatParticipant.OwnerClientId => OwnerClientId;
         NetworkObject IWeaponCombatParticipant.NetworkObject => NetworkObject;
-        WeaponManager IWeaponCombatParticipant.WeaponManager => weaponManager;
-        WeaponDamageRelay IWeaponCombatParticipant.DamageRelay => damageRelay;
+        IWeaponManagerFacade IWeaponCombatParticipant.WeaponManager => weaponManager;
+        IWeaponDamageRelay IWeaponCombatParticipant.DamageRelay => damageRelay;
 
         bool IWeaponCombatParticipant.ApplyDamageServerAuth(float damage, Vector3 hitPoint, Vector3 hitDirection,
             ulong attackerClientId, string bodyPartTag, bool isHeadshot, string weaponId) {

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Diagnostics;
-using Game.Weapon.Core;
+using Game.Weapon.Contracts;
 
 namespace Game.Weapon.Kinemation {
     /// <summary>Pending weapon fire/event sound queues and reload-event clip detection for KIN viewmodel sound routing.</summary>
@@ -38,8 +38,8 @@ namespace Game.Weapon.Kinemation {
             var eventSounds = _resolver.ActiveWeapon.weaponSettings.weaponEventSounds;
             if(eventSounds == null || clipIndex < 0 || clipIndex >= eventSounds.Count) return false;
             var data = _resolver.GetActiveWeaponData();
-            if(data != null && data.kinemationReloadEventSoundIndices is { Length: > 0 }) {
-                foreach(var idx in data.kinemationReloadEventSoundIndices) {
+            if(data != null && data.KinemationReloadEventSoundIndices is { Length: > 0 }) {
+                foreach(var idx in data.KinemationReloadEventSoundIndices) {
                     if(idx == clipIndex) return true;
                 }
                 return false;
@@ -79,14 +79,13 @@ namespace Game.Weapon.Kinemation {
             return !string.IsNullOrWhiteSpace(soundId);
         }
 
-        private static void ReportMissingReloadSoundIndexConfig(WeaponData data) {
+        private static void ReportMissingReloadSoundIndexConfig(IWeaponDataRuntime data) {
             if(data == null) return;
-            if(!MissingKinemationReloadSoundIndexWarnings.Add(data.GetInstanceID())) return;
-            var label = string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
+            if(!MissingKinemationReloadSoundIndexWarnings.Add(data.InstanceId)) return;
+            var label = string.IsNullOrWhiteSpace(data.WeaponName) ? data.AssetName : data.WeaponName;
             DevLog.LogError(
                 $"[KinFpWeaponDriver] WeaponData '{label}' has no kinemationReloadEventSoundIndices configured. " +
-                "Reload event SFX stopping is strict and requires explicit index assignment.",
-                data);
+                "Reload event SFX stopping is strict and requires explicit index assignment.");
         }
     }
 }

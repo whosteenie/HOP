@@ -1,10 +1,11 @@
 using System.Collections.Generic;
+using Game.Weapon.Contracts;
 using UnityEngine;
 using UnityEngine.Serialization;
 
 namespace Game.Weapon.Core {
     [CreateAssetMenu(fileName = "New Weapon", menuName = "Weapon Data")]
-    public class WeaponData : ScriptableObject {
+    public class WeaponData : ScriptableObject, IWeaponDataRuntime {
         public enum WeaponSlotType {
             Primary = 0,
             Secondary = 1
@@ -99,6 +100,13 @@ namespace Game.Weapon.Core {
         private string legacyFireMode = "";
 
         public int WeaponSlotIndex => (int)weaponSlot;
+
+        int IWeaponDataRuntime.InstanceId => GetInstanceID();
+        string IWeaponDataRuntime.AssetName => name;
+        string IWeaponDataRuntime.WeaponName => weaponName;
+        int IWeaponDataRuntime.KinemationSpecialHandling => (int)kinemationSpecialHandling;
+        int IWeaponDataRuntime.KinemationGrappleWeaponIndex => (int)kinemationGrappleWeaponIndex;
+        int[] IWeaponDataRuntime.KinemationReloadEventSoundIndices => kinemationReloadEventSoundIndices;
 
         private void OnValidate() {
             MigrateLegacyFireMode();

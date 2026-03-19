@@ -1,8 +1,9 @@
 using System;
+using Game.Weapon.Contracts;
 using Unity.Netcode;
 
 namespace Game.Weapon.Core {
-    public class WeaponDamageRelay : NetworkBehaviour {
+    public class WeaponDamageRelay : NetworkBehaviour, IWeaponDamageRelay {
         /// <summary>
         /// Shooter-side callback (client) to play hit/kill UI, etc.
         /// Only invoked on the LOCAL shooter after the server confirms.

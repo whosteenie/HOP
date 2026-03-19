@@ -1,7 +1,7 @@
 using System.Collections;
 using Diagnostics;
 using Events;
-using Game.Weapon.Kinemation;
+using Game.Weapon.Contracts;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.VFX;
@@ -184,7 +184,7 @@ namespace Game.Weapon.Core {
 
         public void ExitReloadAnimation() {
             if(_weapon.KinDriver != null) {
-                KinFpWeaponDriver.PlayReloadCompleteAnimation();
+                _weapon.KinDriver.PlayReloadCompleteAnimation();
             }
         }
 

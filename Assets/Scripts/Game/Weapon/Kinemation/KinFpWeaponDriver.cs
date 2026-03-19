@@ -1,13 +1,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using Events;
+using Game.Weapon.Contracts;
 using Game.Weapon.Core;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using UnityEngine;
 
 namespace Game.Weapon.Kinemation {
     [DisallowMultipleComponent]
-    public sealed class KinFpWeaponDriver : MonoBehaviour, IKinDriverResolverContext {
+    public sealed class KinFpWeaponDriver : MonoBehaviour, IKinDriverResolverContext, IWeaponViewmodelDriver {
         #region Serialized config
 
         [Header("KINEMATION")]
@@ -35,7 +36,7 @@ namespace Game.Weapon.Kinemation {
         private FPSPlayer _fpsPlayer;
         private Animator _fpsAnimator;
         private int _renderLayer = -1;
-        private IKinWeaponRuntimeContext _weaponRuntimeContext;
+        private IWeaponRuntimeContext _weaponRuntimeContext;
 
         #endregion
 
@@ -62,7 +63,7 @@ namespace Game.Weapon.Kinemation {
         Animator IKinDriverResolverContext.FpsAnimator => _fpsAnimator;
         int IKinDriverResolverContext.RenderLayer => _renderLayer;
 
-        IKinWeaponRuntimeContext IKinDriverResolverContext.WeaponRuntimeContext =>
+        IWeaponRuntimeContext IKinDriverResolverContext.WeaponRuntimeContext =>
             _weaponRuntimeContext = ResolveWeaponRuntimeContext();
 
         bool IKinDriverResolverContext.WeaponSoundPlaybackDisabled =>
@@ -134,7 +135,7 @@ namespace Game.Weapon.Kinemation {
 
         public void PlayReloadAnimation() => _playback?.PlayReloadAnimation();
 
-        public static void PlayReloadCompleteAnimation() {
+        public void PlayReloadCompleteAnimation() {
         }
 
         public void SyncLocomotion(Vector2 moveInput, bool sprinting, bool tacticalSprinting, bool isGrounded,
@@ -252,10 +253,10 @@ namespace Game.Weapon.Kinemation {
             _fpsAnimator = fpsAnimator;
         }
 
-        private IKinWeaponRuntimeContext ResolveWeaponRuntimeContext() {
+        private IWeaponRuntimeContext ResolveWeaponRuntimeContext() {
             if(_weaponRuntimeContext != null) return _weaponRuntimeContext;
             _weaponRuntimeContext = GetComponentsInParent<MonoBehaviour>(true)
-                .OfType<IKinWeaponRuntimeContext>()
+                .OfType<IWeaponRuntimeContext>()
                 .FirstOrDefault();
             return _weaponRuntimeContext;
         }

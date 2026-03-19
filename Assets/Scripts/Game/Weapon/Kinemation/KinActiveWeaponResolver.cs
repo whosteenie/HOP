@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Diagnostics;
+using Game.Weapon.Contracts;
 using Game.Weapon.Core;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
@@ -8,12 +9,6 @@ using UnityEngine;
 using UnityEngine.VFX;
 
 namespace Game.Weapon.Kinemation {
-    /// <summary>Small runtime surface Kinemation needs from the weapon system.</summary>
-    internal interface IKinWeaponRuntimeContext {
-        WeaponData GetCurrentWeaponData();
-        void HandleKinemationEquipCompleted();
-    }
-
     /// <summary>Context the resolver needs from the driver (player instance, layer, weapon state, sound flags for relay attach).</summary>
     internal interface IKinDriverResolverContext {
         GameObject PlayerInstance { get; }
@@ -21,7 +16,7 @@ namespace Game.Weapon.Kinemation {
         FPSPlayer FpsPlayer { get; }
         Animator FpsAnimator { get; }
         int RenderLayer { get; }
-        IKinWeaponRuntimeContext WeaponRuntimeContext { get; }
+        IWeaponRuntimeContext WeaponRuntimeContext { get; }
         bool WeaponSoundPlaybackDisabled { get; }
         bool DisableKinemationPlayerSounds { get; }
         bool RouteWeaponSoundEventsToAudioService { get; }
@@ -132,25 +127,25 @@ namespace Game.Weapon.Kinemation {
             return weapons[0];
         }
 
-        public WeaponData GetActiveWeaponData() {
+        public IWeaponDataRuntime GetActiveWeaponData() {
             return _context.WeaponRuntimeContext?.GetCurrentWeaponData();
         }
 
         public WeaponData.KinemationSpecialHandling GetActiveWeaponHandling() {
             var data = GetActiveWeaponData();
             if(data == null) return WeaponData.KinemationSpecialHandling.Null;
-            if(data.kinemationSpecialHandling == WeaponData.KinemationSpecialHandling.Null) {
+            if(data.KinemationSpecialHandling == (int)WeaponData.KinemationSpecialHandling.Null) {
                 ReportMissingAssignment(data, MissingKinemationSpecialHandlingWarnings,
                     nameof(WeaponData.kinemationSpecialHandling), "Drake/Kar special handling is disabled until assigned.");
             }
-            return data.kinemationSpecialHandling;
+            return (WeaponData.KinemationSpecialHandling)data.KinemationSpecialHandling;
         }
 
         public int GetGrappleWeaponIndex() {
             var data = GetActiveWeaponData();
             if(data == null) return -1;
-            if(data.kinemationGrappleWeaponIndex != WeaponData.KinemationGrappleWeaponIndex.Null)
-                return (int)data.kinemationGrappleWeaponIndex;
+            if(data.KinemationGrappleWeaponIndex != (int)WeaponData.KinemationGrappleWeaponIndex.Null)
+                return data.KinemationGrappleWeaponIndex;
             ReportMissingAssignment(data, MissingKinemationGrappleIndexWarnings,
                 nameof(WeaponData.kinemationGrappleWeaponIndex), "Grapple animation index is invalid until assigned.");
             return -1;
@@ -275,16 +270,16 @@ namespace Game.Weapon.Kinemation {
             DevLog.LogError($"[KinFpWeaponDriver] Weapon '{label}' has invalid part reference '{partFieldName}' (assigned '{configuredPart.name}', outside active weapon hierarchy).", ActiveWeapon);
         }
 
-        private static void ReportMissingAssignment(WeaponData data, HashSet<int> cache, string fieldName, string impact) {
+        private static void ReportMissingAssignment(IWeaponDataRuntime data, HashSet<int> cache, string fieldName, string impact) {
             if(data == null || cache == null) return;
-            if(!cache.Add(data.GetInstanceID())) return;
-            var label = string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
-            DevLog.LogError($"[KinFpWeaponDriver] WeaponData '{label}' has {fieldName}=NULL. {impact}", data);
+            if(!cache.Add(data.InstanceId)) return;
+            var label = string.IsNullOrWhiteSpace(data.WeaponName) ? data.AssetName : data.WeaponName;
+            DevLog.LogError($"[KinFpWeaponDriver] WeaponData '{label}' has {fieldName}=NULL. {impact}");
         }
 
         private string GetActiveWeaponLabel() {
             var data = GetActiveWeaponData();
-            if(data != null) return string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
+            if(data != null) return string.IsNullOrWhiteSpace(data.WeaponName) ? data.AssetName : data.WeaponName;
             return ActiveWeapon != null ? ActiveWeapon.name : "(unknown)";
         }
     }
