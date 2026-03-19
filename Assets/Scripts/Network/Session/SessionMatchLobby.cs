@@ -1029,11 +1029,13 @@ namespace Network.Session {
                     case DaSessionJoinResult.RateLimited:
                         ScheduleDistributedAuthorityJoinRetry(ctx, actions, sessionCode, isPrivateMatch);
                         return;
-                    default:
+                    case DaSessionJoinResult.Failed:
                         DevLog.LogError("[SessionManager] Failed to start DA match client after cleanup.");
                         ResetDistributedAuthorityJoinRetryState();
                         await actions.LeaveToMainMenuAsync();
                         return;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
             } finally {
                 if(shouldResetClientStartFlag) actions.UgsClientStartedForMatch = false;

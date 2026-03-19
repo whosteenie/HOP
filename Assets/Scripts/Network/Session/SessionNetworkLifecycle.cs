@@ -112,8 +112,7 @@ namespace Network.Session {
                 partyId = ctx.CurrentPartyId ?? "",
                 isPrivateMatch = isPrivateMatch,
                 steamId = GetSteamIdProvider != null ? GetSteamIdProvider() : 0UL,
-                ugsPlayerId = GetUgsPlayerIdProvider != null ? GetUgsPlayerIdProvider() : "",
-                displayName = GetDisplayNameProvider != null ? GetDisplayNameProvider() : "Player"
+                ugsPlayerId = GetUgsPlayerIdProvider != null ? GetUgsPlayerIdProvider() : ""
             };
             networkManager.NetworkConfig.ConnectionData = ConnectionPayload.Encode(payload);
         }

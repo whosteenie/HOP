@@ -540,7 +540,7 @@ namespace Network.Session {
         /// Loads the gameplay scene as host: selects map for current mode, sets phase to LoadingScene, loads scene via NetworkManager.
         /// </summary>
         public static bool TryLoadGameplaySceneAsHost(ISessionContext ctx, IHostMapSceneActions actions, string contextLabel) {
-            if(!actions.TryGetNetworkManager(contextLabel, out _))
+            if(!actions.TryGetNetworkManager(contextLabel))
                 return false;
             SelectMapForHost(ctx, actions, contextLabel);
             if(string.IsNullOrWhiteSpace(ctx.SelectedMapSceneName)) {

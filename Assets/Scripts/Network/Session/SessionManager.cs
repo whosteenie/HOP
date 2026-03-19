@@ -1012,8 +1012,10 @@ namespace Network.Session {
 
         #region IHostMapSceneActions
 
-        bool IHostMapSceneActions.TryGetNetworkManager(string context, out NetworkManager networkManager) =>
-            TryGetNetworkManager(context, out networkManager);
+        bool IHostMapSceneActions.TryGetNetworkManager(string context) {
+            TryGetNetworkManager(context, out var nm);
+            return nm != null;
+        }
 
         void IHostMapSceneActions.SetSelectedMap(string mapId, string sceneName) => SetSelectedMap(mapId, sceneName);
         void IHostMapSceneActions.SetSelectedMapFromId(string mapId) => SetSelectedMapFromId(mapId);

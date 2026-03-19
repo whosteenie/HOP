@@ -9,7 +9,6 @@ namespace Network.Core {
         public bool isPrivateMatch;
         public ulong steamId;
         public string ugsPlayerId;
-        public string displayName;
 
         public static byte[] Encode(ConnectionPayload payload) {
             if(payload == null) return Array.Empty<byte>();

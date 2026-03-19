@@ -32,12 +32,12 @@ namespace Network.Core {
         /// This allows the network stack to remain agnostic of Game.* types.
         /// </summary>
         public static void SetGameHooks(
-            System.Action<ulong, ConnectionPayload> onClientApproved,
-            System.Action<System.Collections.Generic.List<ulong>> prepareBatchSpawns,
-            System.Func<ulong, NetworkObject, NetworkObject> spawnPlayerForClient) {
-            CustomNetworkManager.onClientApproved = onClientApproved;
-            CustomNetworkManager.prepareBatchSpawns = prepareBatchSpawns;
-            CustomNetworkManager.spawnPlayerForClient = spawnPlayerForClient;
+            System.Action<ulong, ConnectionPayload> onClientApprovedHook,
+            System.Action<System.Collections.Generic.List<ulong>> prepareBatchSpawnsHook,
+            System.Func<ulong, NetworkObject, NetworkObject> spawnPlayerForClientHook) {
+            onClientApproved = onClientApprovedHook;
+            prepareBatchSpawns = prepareBatchSpawnsHook;
+            spawnPlayerForClient = spawnPlayerForClientHook;
         }
 
         private void Awake() {

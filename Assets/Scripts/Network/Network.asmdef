@@ -2,8 +2,8 @@
   "name": "Network",
   "rootNamespace": "",
   "references": [
-    "Diagnostics",
-    "Events",
+    "GUID:fa17f2291b2127a4e87b6e8f667dc7ed",
+    "GUID:d0301eb75be1c4f4cbe7588619144f2b",
     "UniTask",
     "UnityUtils",
     "Unity.Netcode.Runtime",
