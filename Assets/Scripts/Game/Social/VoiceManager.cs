@@ -32,6 +32,7 @@ namespace Game.Social {
         private float _nextChannelRouteSyncTime;
         private float _nextRouteSyncLogTime;
         private bool _isRouteSyncInProgress;
+        private bool _isShuttingDown;
         private Camera _camera;
         private const int MaxJoinAttempts = 3;
         private const int ClaimsMismatchRetryDelayMs = 350;
@@ -81,11 +82,14 @@ namespace Game.Social {
         }
 
         private void OnDestroy() {
+            _isShuttingDown = true;
             EventBus.Unsubscribe<SocialSettingsChangedEvent>(OnSocialSettingsChanged);
             EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnMuteChangedEvent);
-            if(VivoxService.Instance == null) return;
-            VivoxService.Instance.ParticipantAddedToChannel -= OnParticipantAddedToChannel;
-            VivoxService.Instance.ParticipantRemovedFromChannel -= OnParticipantRemoved;
+            if(VivoxService.Instance != null) {
+                VivoxService.Instance.ParticipantAddedToChannel -= OnParticipantAddedToChannel;
+                VivoxService.Instance.ParticipantRemovedFromChannel -= OnParticipantRemoved;
+            }
+            _channelOperationGate.Dispose();
         }
 
         private async Task InitializeVivoxAsync() {
@@ -249,6 +253,7 @@ namespace Game.Social {
         }
 
         public async Task<bool> EnsureChannelJoinedAsync(string channelName, bool positional = true, string context = "Unknown") {
+            if(_isShuttingDown) return false;
             if(string.IsNullOrEmpty(channelName)) {
                 return false;
             }
@@ -262,8 +267,10 @@ namespace Game.Social {
                 return false;
             }
 
-            await _channelOperationGate.WaitAsync();
+            var gateEntered = false;
             try {
+                await _channelOperationGate.WaitAsync();
+                gateEntered = true;
                 if(IsChannelActive(channelName)) {
                     _currentChannelName = channelName;
                     _claimsMismatchRetryCooldownUntil = 0f;
@@ -341,6 +348,7 @@ namespace Game.Social {
                 }
                 return false;
             } catch(Exception e) {
+                if(_isShuttingDown) return false;
                 if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
                     DevLog.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
                 }
@@ -351,18 +359,29 @@ namespace Game.Social {
 
                 return false;
             } finally {
-                _channelOperationGate.Release();
+                if(gateEntered && !_isShuttingDown) {
+                    _channelOperationGate.Release();
+                }
             }
         }
 
         public async Task LeaveChannelAsync() {
-            await _channelOperationGate.WaitAsync();
+            if(_isShuttingDown) return;
+
+            var gateEntered = false;
             try {
+                await _channelOperationGate.WaitAsync();
+                gateEntered = true;
                 if(!IsLoggedIn && string.IsNullOrEmpty(_currentChannelName)) return;
                 await LeaveCurrentChannelAsync("LeaveChannelAsync");
                 DevLog.Log("[VoiceManager] Channel left.");
+            } catch(ObjectDisposedException) {
+                if(_isShuttingDown) return;
+                throw;
             } finally {
-                _channelOperationGate.Release();
+                if(gateEntered && !_isShuttingDown) {
+                    _channelOperationGate.Release();
+                }
             }
         }
 
