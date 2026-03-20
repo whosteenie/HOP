@@ -287,6 +287,8 @@ namespace Network.Session {
 
                 var sessionCode = await hostActions.CreateDaSessionAsync(maxPlayers, true, "StartPrivateMatchAsync");
                 if(string.IsNullOrEmpty(sessionCode)) {
+                    DevLog.LogWarning(
+                        $"[SessionManager] StartPrivateMatchAsync abort: DA session code was empty. mode='{mode}' maxPlayers={maxPlayers} expectedPlayers={expectedPlayers.Count} partyId='{ctx.CurrentPartyId}'.");
                     await hostActions.LeaveToMainMenuAsync();
                     return;
                 }

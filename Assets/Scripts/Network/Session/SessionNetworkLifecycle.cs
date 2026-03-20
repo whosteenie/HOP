@@ -92,16 +92,12 @@ namespace Network.Session {
         private static void BeginDaStartupWindow(string contextLabel) {
             distributedAuthorityStartupDepth = Math.Max(0, distributedAuthorityStartupDepth) + 1;
             distributedAuthorityStartupUntilTime = Time.unscaledTime + DistributedAuthorityStartupDisconnectGraceSeconds;
-            if(Debug.isDebugBuild)
-                DevLog.Log($"[SessionManager] DA startup window begin ({contextLabel}). depth={distributedAuthorityStartupDepth}");
         }
 
         private static void EndDaStartupWindow(string contextLabel) {
             distributedAuthorityStartupDepth = Math.Max(0, distributedAuthorityStartupDepth - 1);
             if(distributedAuthorityStartupDepth == 0)
                 distributedAuthorityStartupUntilTime = 0f;
-            if(Debug.isDebugBuild)
-                DevLog.Log($"[SessionManager] DA startup window end ({contextLabel}). depth={distributedAuthorityStartupDepth}");
         }
 
         /// <summary>Applies connection payload and session metadata to the NetworkManager. Call after cleanup, before create/join.</summary>
@@ -167,6 +163,8 @@ namespace Network.Session {
             int maxPlayers,
             bool isPrivateMatch,
             string contextLabel) {
+            var startupTraceId = Guid.NewGuid().ToString("N").Substring(0, 8);
+            var startupBeginTime = Time.realtimeSinceStartup;
             BeginDaStartupWindow(contextLabel);
             try {
                 await lifecycleActions.CleanupNetworkAsync();
@@ -178,13 +176,27 @@ namespace Network.Session {
                         var options = BuildDaSessionOptions(ctx, maxPlayers, isPrivateMatch);
                         var hostSession = await MultiplayerService.Instance.CreateSessionAsync(options);
                         daActions.BindActiveSession(hostSession);
+                        if(Debug.isDebugBuild) {
+                            var elapsedMs = Mathf.RoundToInt((Time.realtimeSinceStartup - startupBeginTime) * 1000f);
+                            DevLog.Log(
+                                $"[SessionManager] DA create success trace={startupTraceId} context={contextLabel} attempt={attempt}/{maxAttempts} elapsedMs={elapsedMs} sessionId='{hostSession.Id}' code='{hostSession.Code}'.");
+                        }
                         return hostSession.Code;
                     } catch(Exception ex) when(attempt < maxAttempts && IsRetryableDaStartupException(ex)) {
-                        DevLog.LogWarning(
-                            $"[SessionManager] DA create canceled during {contextLabel} (attempt {attempt}/{maxAttempts}). Retrying...");
+                        if(Debug.isDebugBuild) {
+                            var elapsedMs = Mathf.RoundToInt((Time.realtimeSinceStartup - startupBeginTime) * 1000f);
+                            DevLog.LogWarning(
+                                $"[SessionManager] DA create retry trace={startupTraceId} context={contextLabel} attempt={attempt}/{maxAttempts} elapsedMs={elapsedMs} reason={GetExceptionTypeChain(ex)}");
+                        }
                         await UniTask.Delay(350, cancellationToken: ctx.SessionLifetimeToken);
                     } catch(Exception ex) {
-                        DevLog.LogError($"[SessionManager] Failed to create DA session during {contextLabel}: {ex}");
+                        var elapsedMs = Mathf.RoundToInt((Time.realtimeSinceStartup - startupBeginTime) * 1000f);
+                        DevLog.LogError(
+                            $"[SessionManager] DA create failure trace={startupTraceId} context={contextLabel} attempt={attempt}/{maxAttempts} elapsedMs={elapsedMs} " +
+                            $"mode='{ctx.SelectedGameMode}' private={isPrivateMatch} maxPlayers={maxPlayers} partyId='{ctx.CurrentPartyId}' " +
+                            $"network={BuildNetworkSnapshot(ctx, $"CreateDaSessionAsync:{contextLabel}")} " +
+                            $"startupDepth={distributedAuthorityStartupDepth} startupWindowActive={IsDaStartupInFlight} " +
+                            $"exTypes={GetExceptionTypeChain(ex)} exMessages={GetExceptionMessageChain(ex)}");
                         daActions.UnbindActiveSession();
                         return null;
                     }
@@ -194,6 +206,40 @@ namespace Network.Session {
             } finally {
                 EndDaStartupWindow(contextLabel);
             }
+        }
+
+        private static string BuildNetworkSnapshot(ISessionContext ctx, string context) {
+            if(ctx == null) return "ctx=null";
+            if(!ctx.TryGetNetworkManager(context, out var networkManager) || networkManager == null) {
+                return "nm=null";
+            }
+
+            return $"listening={networkManager.IsListening},shutdownInProgress={networkManager.ShutdownInProgress}," +
+                   $"isServer={networkManager.IsServer},isClient={networkManager.IsClient},localClientId={networkManager.LocalClientId}";
+        }
+
+        private static string GetExceptionTypeChain(Exception ex) {
+            if(ex == null) return "None";
+            var typeChain = ex.GetType().Name;
+            var current = ex.InnerException;
+            while(current != null) {
+                typeChain += " -> " + current.GetType().Name;
+                current = current.InnerException;
+            }
+
+            return typeChain;
+        }
+
+        private static string GetExceptionMessageChain(Exception ex) {
+            if(ex == null) return "None";
+            var messageChain = ex.Message;
+            var current = ex.InnerException;
+            while(current != null) {
+                messageChain += " | " + current.Message;
+                current = current.InnerException;
+            }
+
+            return messageChain;
         }
 
         /// <summary>
