@@ -23,7 +23,6 @@ using SessionManager = Network.Session.SessionManager;
 namespace Game.Player.Core {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
-    [RequireComponent(typeof(PlayerHillTracker))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public class PlayerController : NetworkBehaviour, IPlayerMovementContext, IPlayerVisualContext, IPlayerInputContext,
         IPlayerLookContext, IPlayerRagdollContext, IPlayerDeathCameraContext, IPlayerStatsContext, IPlayerTagContext,
@@ -104,7 +103,6 @@ namespace Game.Player.Core {
         [SerializeField] private PlayerCombatController combatController;
         [SerializeField] private PlayerAnimationController animationController;
         [SerializeField] private PlayerTagController tagController;
-        [SerializeField] private PlayerPodiumController podiumController;
         [SerializeField] private PlayerTeamManager playerTeamManager;
         [SerializeField] private WeaponCameraController weaponCameraController;
         [SerializeField] private DeathCameraController deathCameraController;
@@ -351,7 +349,6 @@ namespace Game.Player.Core {
             combatController = combatController ? combatController : GetComponent<PlayerCombatController>();
             animationController = animationController ? animationController : GetComponent<PlayerAnimationController>();
             tagController = tagController ? tagController : GetComponent<PlayerTagController>();
-            podiumController = podiumController ? podiumController : GetComponent<PlayerPodiumController>();
             playerTeamManager = playerTeamManager ? playerTeamManager : GetComponent<PlayerTeamManager>();
             weaponCameraController =
                 weaponCameraController ? weaponCameraController : GetComponent<WeaponCameraController>();
@@ -919,7 +916,6 @@ namespace Game.Player.Core {
         public PlayerStatsController StatsController => statsController;
         public PlayerCombatController CombatController => combatController;
         public PlayerTagController TagController => tagController;
-        public PlayerPodiumController PodiumController => podiumController;
         public PlayerTeamManager TeamManager => playerTeamManager;
         public MantleController MantleController => mantleController;
         public DeathCameraController DeathCameraController => deathCameraController;
