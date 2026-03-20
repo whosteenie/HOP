@@ -1344,12 +1344,12 @@ namespace Game.Player.Core {
         float IPlayerMaterialCustomizationContext.MinHeightStrengthValue => MinHeightStrength;
         float IPlayerMaterialCustomizationContext.MaxHeightStrengthValue => MaxHeightStrength;
 
-        void IPlayerMaterialCustomizationContext.ApplyPlayerMaterialCustomization(int packetIndex, Color baseColor,
-            float smoothness, float metallic, Color specularColor, float heightStrength, bool emissionEnabled,
-            Color emissionColor) {
+        void IPlayerMaterialCustomizationContext.ApplyPlayerMaterialCustomization(
+            in PlayerMaterialCustomizationRequest request) {
             if(visualController == null) return;
-            visualController.ApplyPlayerMaterialCustomization(packetIndex, baseColor, smoothness, metallic,
-                specularColor, heightStrength, emissionEnabled, emissionColor);
+            visualController.ApplyPlayerMaterialCustomization(request.PacketIndex, request.BaseColor,
+                request.Smoothness, request.Metallic, request.SpecularColor, request.HeightStrength,
+                request.EmissionEnabled, request.EmissionColor);
         }
 
         GameObject IPlayerMovementContext.GetCurrentFpWeapon() {

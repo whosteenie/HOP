@@ -67,16 +67,17 @@ namespace Game.Player.Visual {
                 _player.PlayerEmissionColorState.Value.z,
                 _player.PlayerEmissionColorState.Value.w);
 
-            _player.ApplyPlayerMaterialCustomization(
-                _player.PlayerMaterialPacketIndexState.Value,
-                baseColor,
-                _player.PlayerSmoothnessState.Value,
-                _player.PlayerMetallicState.Value,
-                specularColor,
-                Mathf.Clamp(_player.PlayerHeightStrengthState.Value, _player.MinHeightStrengthValue,
-                    _player.MaxHeightStrengthValue),
-                _player.PlayerEmissionEnabledState.Value,
-                emissionColor);
+            _player.ApplyPlayerMaterialCustomization(new PlayerMaterialCustomizationRequest {
+                PacketIndex = _player.PlayerMaterialPacketIndexState.Value,
+                BaseColor = baseColor,
+                Smoothness = _player.PlayerSmoothnessState.Value,
+                Metallic = _player.PlayerMetallicState.Value,
+                SpecularColor = specularColor,
+                HeightStrength = Mathf.Clamp(_player.PlayerHeightStrengthState.Value,
+                    _player.MinHeightStrengthValue, _player.MaxHeightStrengthValue),
+                EmissionEnabled = _player.PlayerEmissionEnabledState.Value,
+                EmissionColor = emissionColor
+            });
         }
 
         public void LoadMaterialCustomizationFromPrefs() {
