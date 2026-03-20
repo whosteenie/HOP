@@ -283,14 +283,15 @@ namespace Game.Weapon.Core {
             }
 
             if(_weapon.OwnerContext is { IsOwner: true, FxRelay: not null }) {
-                _weapon.OwnerContext.FxRelay.RequestShotFx(
-                    endPoint,
-                    hitNormal,
-                    madeImpact,
-                    hitPlayer,
-                    hitPlayerRef,
-                    true,
-                    shooterVelocityAtShot);
+                _weapon.OwnerContext.FxRelay.RequestShotFx(new ShotFxRequest {
+                    EndPoint = endPoint,
+                    HitNormal = hitNormal,
+                    MadeImpact = madeImpact,
+                    HitPlayer = hitPlayer,
+                    HitPlayerRef = hitPlayerRef,
+                    PlayMuzzleFlash = true,
+                    ShooterVelocity = shooterVelocityAtShot
+                });
             }
 
             return hitPlayer;

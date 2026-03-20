@@ -80,13 +80,11 @@ namespace Game.Weapon.Core {
             _pendingRemoteShotFx.Clear();
         }
 
-        public void RequestShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact,
-            bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash = true,
-            Vector3 shooterVelocity = default) {
+        public void RequestShotFx(in ShotFxRequest request) {
             if(_ownerContext is not { IsOwner: true } || !_playerNetworkObject.IsSpawned) return;
 
-            RequestShotFxServerRpc(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
-                shooterVelocity);
+            RequestShotFxServerRpc(request.EndPoint, request.HitNormal, request.MadeImpact, request.HitPlayer,
+                request.HitPlayerRef, request.PlayMuzzleFlash, request.ShooterVelocity);
         }
 
         private void QueueRemoteShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact, bool hitPlayer,

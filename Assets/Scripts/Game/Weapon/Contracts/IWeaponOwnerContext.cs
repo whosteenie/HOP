@@ -14,10 +14,18 @@ namespace Game.Weapon.Contracts {
         void SendHitConfirmToOwner(bool wasKill);
     }
 
+    public struct ShotFxRequest {
+        public Vector3 EndPoint { get; set; }
+        public Vector3 HitNormal { get; set; }
+        public bool MadeImpact { get; set; }
+        public bool HitPlayer { get; set; }
+        public NetworkObjectReference HitPlayerRef { get; set; }
+        public bool PlayMuzzleFlash { get; set; }
+        public Vector3 ShooterVelocity { get; set; }
+    }
+
     public interface IWeaponFxRelay {
-        void RequestShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact,
-            bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash = true,
-            Vector3 shooterVelocity = default);
+        void RequestShotFx(in ShotFxRequest request);
     }
 
     public interface IWeaponFacade {
