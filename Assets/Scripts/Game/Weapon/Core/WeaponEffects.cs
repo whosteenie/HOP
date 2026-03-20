@@ -86,15 +86,14 @@ namespace Game.Weapon.Core {
             _weapon.WorldLightOffTime = Time.time + Weapon.MuzzleLightTime;
         }
 
-        public void SpawnTracerLocal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
-            NetworkObjectReference hitPlayerRef = default, Vector3 shooterVelocity = default) {
+        public void SpawnTracerLocal(in TracerSpawnRequest request) {
             if(!_weapon.CurrentWeaponData || !_weapon.CurrentWeaponData.bulletTrail) return;
 
             var trail = GetTrailFromPool();
             if(trail == null) return;
 
-            trail.transform.position = start;
-            trail.transform.rotation = Quaternion.LookRotation(end - start);
+            trail.transform.position = request.Start;
+            trail.transform.rotation = Quaternion.LookRotation(request.End - request.Start);
             trail.gameObject.SetActive(true);
             trail.enabled = true;
             trail.emitting = true;
@@ -105,25 +104,33 @@ namespace Game.Weapon.Core {
                 trailAudioSource.enabled = false;
             }
 
-            if(!madeImpact && _weapon.OwnerContext is { IsOwner: true }) {
-                EventBus.Publish(new RequestNetworkWorldSoundIdEvent("weapons.bullet.trail", start, allowOverlap: true));
+            if(!request.MadeImpact && _weapon.OwnerContext is { IsOwner: true }) {
+                EventBus.Publish(new RequestNetworkWorldSoundIdEvent("weapons.bullet.trail", request.Start, allowOverlap: true));
             }
 
-            _weapon.StartCoroutine(SpawnTrail(trail, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef, shooterVelocity));
+            _weapon.StartCoroutine(SpawnTrail(trail, request.End, request.HitNormal, request.MadeImpact, request.HitPlayer, request.HitPlayerRef,
+                request.ShooterVelocity));
         }
 
-        public IEnumerator SpawnOwnerTracerLocalAfterViewUpdate(Vector3 fallbackStart, Vector3 end, Vector3 hitNormal,
-            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, Vector3 shooterVelocity) {
+        public IEnumerator SpawnOwnerTracerLocalAfterViewUpdate(TracerSpawnRequest request) {
             yield return new WaitForEndOfFrame();
 
-            var start = fallbackStart;
+            var start = request.Start;
             if(_weapon.OwnerContext is { IsOwner: true }) {
                 if(!_weapon.TryGetTracerStartPositionInternal(out start)) {
-                    start = fallbackStart;
+                    start = request.Start;
                 }
             }
 
-            SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef, shooterVelocity);
+            SpawnTracerLocal(new TracerSpawnRequest {
+                Start = start,
+                End = request.End,
+                HitNormal = request.HitNormal,
+                MadeImpact = request.MadeImpact,
+                HitPlayer = request.HitPlayer,
+                HitPlayerRef = request.HitPlayerRef,
+                ShooterVelocity = request.ShooterVelocity
+            });
         }
 
         public void PlayFireSound() {

@@ -454,17 +454,12 @@ namespace Game.Weapon.Core {
             _effects.PrewarmKinemationMuzzleFx();
         }
 
-        internal void SpawnTracerLocalInternal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact,
-            bool hitPlayer, NetworkObjectReference hitPlayerRef = default, Vector3 shooterVelocity = default) {
-            _effects.SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
-                shooterVelocity);
+        internal void SpawnTracerLocalInternal(in TracerSpawnRequest request) {
+            _effects.SpawnTracerLocal(request);
         }
 
-        internal IEnumerator SpawnOwnerTracerAfterViewUpdateInternal(Vector3 fallbackStart, Vector3 end,
-            Vector3 hitNormal, bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef,
-            Vector3 shooterVelocity) {
-            return _effects.SpawnOwnerTracerLocalAfterViewUpdate(fallbackStart, end, hitNormal, madeImpact,
-                hitPlayer, hitPlayerRef, shooterVelocity);
+        internal IEnumerator SpawnOwnerTracerAfterViewUpdateInternal(TracerSpawnRequest request) {
+            return _effects.SpawnOwnerTracerLocalAfterViewUpdate(request);
         }
 
         internal bool TryGetStrictWorldMuzzleTransformInternal(out Transform muzzleTransform, string context,
@@ -516,10 +511,8 @@ namespace Game.Weapon.Core {
             _effects.PlayNetworkedMuzzleFlash(endPoint);
         }
 
-        public void SpawnTracerLocal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
-            NetworkObjectReference hitPlayerRef = default, Vector3 shooterVelocity = default) {
-            _effects.SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
-                shooterVelocity);
+        public void SpawnTracerLocal(in TracerSpawnRequest request) {
+            _effects.SpawnTracerLocal(request);
         }
 
         [Rpc(SendTo.Everyone)]

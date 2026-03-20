@@ -994,7 +994,7 @@ namespace Network.Session {
         }
 
         public async UniTask StartMatchClientAsync(ISessionContext ctx, IMatchSnapshotActions actions,
-            in StartMatchClientRequest request) {
+            StartMatchClientRequest request) {
             if(ctx.UgsMatchLobby == null || actions.UgsClientStartedForMatch || !actions.UgsLocalReadySubmitted) return;
             if(ctx.IsLeaving || ctx.IsShuttingDown) return;
 

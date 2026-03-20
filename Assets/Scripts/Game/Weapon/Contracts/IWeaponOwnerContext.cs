@@ -46,6 +46,16 @@ namespace Game.Weapon.Contracts {
         public float ClientShotTime { get; set; }
     }
 
+    public struct TracerSpawnRequest {
+        public Vector3 Start { get; set; }
+        public Vector3 End { get; set; }
+        public Vector3 HitNormal { get; set; }
+        public bool MadeImpact { get; set; }
+        public bool HitPlayer { get; set; }
+        public NetworkObjectReference HitPlayerRef { get; set; }
+        public Vector3 ShooterVelocity { get; set; }
+    }
+
     public interface IWeaponFxRelay {
         void RequestShotFx(in ShotFxRequest request);
     }
@@ -53,8 +63,7 @@ namespace Game.Weapon.Contracts {
     public interface IWeaponFacade {
         bool TryGetRemoteWorldMuzzlePosition(out Vector3 muzzlePosition);
         void PlayNetworkedMuzzleFlash(Vector3 endPoint);
-        void SpawnTracerLocal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
-            NetworkObjectReference hitPlayerRef = default, Vector3 shooterVelocity = default);
+        void SpawnTracerLocal(in TracerSpawnRequest request);
     }
 
     public interface IWeaponManagerFacade {

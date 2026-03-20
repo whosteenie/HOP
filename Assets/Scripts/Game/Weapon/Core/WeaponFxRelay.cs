@@ -72,8 +72,15 @@ namespace Game.Weapon.Core {
 
                 var hasStartPoint = weapon.TryGetRemoteWorldMuzzlePosition(out var startPoint);
                 if(hasStartPoint) {
-                    weapon.SpawnTracerLocal(startPoint, pending.EndPoint, pending.HitNormal, pending.MadeImpact,
-                        pending.HitPlayer, pending.HitPlayerRef, pending.ShooterVelocity);
+                    weapon.SpawnTracerLocal(new TracerSpawnRequest {
+                        Start = startPoint,
+                        End = pending.EndPoint,
+                        HitNormal = pending.HitNormal,
+                        MadeImpact = pending.MadeImpact,
+                        HitPlayer = pending.HitPlayer,
+                        HitPlayerRef = pending.HitPlayerRef,
+                        ShooterVelocity = pending.ShooterVelocity
+                    });
                 }
             }
 

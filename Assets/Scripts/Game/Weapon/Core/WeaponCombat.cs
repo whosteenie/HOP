@@ -266,24 +266,20 @@ namespace Game.Weapon.Core {
                 hitPlayer = hitPlayer && registeredDamage;
             }
 
+            var tracerRequest = new TracerSpawnRequest {
+                Start = tracerStartPosition,
+                End = endPoint,
+                HitNormal = hitNormal,
+                MadeImpact = madeImpact,
+                HitPlayer = hitPlayer,
+                HitPlayerRef = hitPlayerRef,
+                ShooterVelocity = shooterVelocityAtShot
+            };
+
             if(_weapon.OwnerContext is { IsOwner: true }) {
-                _weapon.StartCoroutine(_weapon.SpawnOwnerTracerAfterViewUpdateInternal(
-                    tracerStartPosition,
-                    endPoint,
-                    hitNormal,
-                    madeImpact,
-                    hitPlayer,
-                    hitPlayerRef,
-                    shooterVelocityAtShot));
+                _weapon.StartCoroutine(_weapon.SpawnOwnerTracerAfterViewUpdateInternal(tracerRequest));
             } else {
-                _weapon.SpawnTracerLocalInternal(
-                    tracerStartPosition,
-                    endPoint,
-                    hitNormal,
-                    madeImpact,
-                    hitPlayer,
-                    hitPlayerRef,
-                    shooterVelocityAtShot);
+                _weapon.SpawnTracerLocalInternal(tracerRequest);
             }
 
             if(_weapon.OwnerContext is { IsOwner: true, FxRelay: not null }) {
