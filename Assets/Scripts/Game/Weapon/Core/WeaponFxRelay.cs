@@ -15,13 +15,7 @@ namespace Game.Weapon.Core {
 
         private struct PendingRemoteShotFx {
             internal IWeaponFacade Weapon;
-            internal Vector3 EndPoint;
-            internal Vector3 HitNormal;
-            internal Vector3 ShooterVelocity;
-            internal bool MadeImpact;
-            internal bool HitPlayer;
-            internal NetworkObjectReference HitPlayerRef;
-            internal bool PlayMuzzleFlash;
+            internal ShotFxRequest Request;
         }
 
         private void Awake() {
@@ -66,20 +60,21 @@ namespace Game.Weapon.Core {
                 var weapon = pending.Weapon;
                 if(weapon == null) continue;
 
-                if(pending.PlayMuzzleFlash) {
-                    weapon.PlayNetworkedMuzzleFlash(pending.EndPoint);
+                var request = pending.Request;
+                if(request.PlayMuzzleFlash) {
+                    weapon.PlayNetworkedMuzzleFlash(request.EndPoint);
                 }
 
                 var hasStartPoint = weapon.TryGetRemoteWorldMuzzlePosition(out var startPoint);
                 if(hasStartPoint) {
                     weapon.SpawnTracerLocal(new TracerSpawnRequest {
                         Start = startPoint,
-                        End = pending.EndPoint,
-                        HitNormal = pending.HitNormal,
-                        MadeImpact = pending.MadeImpact,
-                        HitPlayer = pending.HitPlayer,
-                        HitPlayerRef = pending.HitPlayerRef,
-                        ShooterVelocity = pending.ShooterVelocity
+                        End = request.EndPoint,
+                        HitNormal = request.HitNormal,
+                        MadeImpact = request.MadeImpact,
+                        HitPlayer = request.HitPlayer,
+                        HitPlayerRef = request.HitPlayerRef,
+                        ShooterVelocity = request.ShooterVelocity
                     });
                 }
             }
@@ -94,8 +89,7 @@ namespace Game.Weapon.Core {
                 request.HitPlayerRef, request.PlayMuzzleFlash, request.ShooterVelocity);
         }
 
-        private void QueueRemoteShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
-            NetworkObjectReference hitPlayerRef, bool playMuzzleFlash, Vector3 shooterVelocity) {
+        private void QueueRemoteShotFx(in ShotFxRequest request) {
             ValidateComponents();
             if(_playerNetworkObject == null) return;
             if(_playerNetworkObject.IsOwner) return;
@@ -104,13 +98,7 @@ namespace Game.Weapon.Core {
 
             _pendingRemoteShotFx.Add(new PendingRemoteShotFx {
                 Weapon = weapon,
-                EndPoint = endPoint,
-                HitNormal = hitNormal,
-                ShooterVelocity = shooterVelocity,
-                MadeImpact = madeImpact,
-                HitPlayer = hitPlayer,
-                HitPlayerRef = hitPlayerRef,
-                PlayMuzzleFlash = playMuzzleFlash
+                Request = request
             });
         }
 
@@ -140,8 +128,15 @@ namespace Game.Weapon.Core {
         [Rpc(SendTo.Everyone)]
         private void BroadcastShotFxClientRpc(Vector3 endPoint, Vector3 hitNormal, bool madeImpact,
             bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash, Vector3 shooterVelocity) {
-            QueueRemoteShotFx(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
-                shooterVelocity);
+            QueueRemoteShotFx(new ShotFxRequest {
+                EndPoint = endPoint,
+                HitNormal = hitNormal,
+                MadeImpact = madeImpact,
+                HitPlayer = hitPlayer,
+                HitPlayerRef = hitPlayerRef,
+                PlayMuzzleFlash = playMuzzleFlash,
+                ShooterVelocity = shooterVelocity
+            });
         }
     }
 }
