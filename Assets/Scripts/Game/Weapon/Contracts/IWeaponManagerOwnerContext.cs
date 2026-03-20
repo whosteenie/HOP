@@ -2,7 +2,7 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Weapon.Manager {
+namespace Game.Weapon.Contracts {
     public interface IWeaponManagerOwnerContext {
         bool IsOwner { get; }
         bool IsHoldingHopball { get; }
@@ -16,7 +16,7 @@ namespace Game.Weapon.Manager {
         Camera WeaponCamera { get; }
         Transform WorldWeaponSocket { get; }
         Animator PlayerAnimator { get; }
-        Game.Weapon.Core.Weapon WeaponComponent { get; }
+        IWeaponFacade WeaponComponent { get; }
         NetworkVariable<int> PrimaryWeaponIndexState { get; }
         NetworkVariable<int> SecondaryWeaponIndexState { get; }
         NetworkVariable<bool> NetIsDeadState { get; }

@@ -414,7 +414,7 @@ namespace Game.Weapon.Manager {
             }
 
             if(CurrentWeaponInternal == null && OwnerContext != null) {
-                CurrentWeaponInternal = OwnerContext.WeaponComponent;
+                CurrentWeaponInternal = OwnerContext.WeaponComponent as Weapon.Core.Weapon;
             }
 
             if(FpCameraRef == null && OwnerContext != null) {

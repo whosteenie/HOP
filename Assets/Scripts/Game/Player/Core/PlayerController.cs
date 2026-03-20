@@ -1362,7 +1362,7 @@ namespace Game.Player.Core {
         Camera IWeaponManagerOwnerContext.WeaponCamera => weaponCamera;
         Transform IWeaponManagerOwnerContext.WorldWeaponSocket => worldWeaponSocket;
         Animator IWeaponManagerOwnerContext.PlayerAnimator => playerAnimator;
-        Game.Weapon.Core.Weapon IWeaponManagerOwnerContext.WeaponComponent => weaponComponent;
+        IWeaponFacade IWeaponManagerOwnerContext.WeaponComponent => weaponComponent;
         NetworkVariable<int> IWeaponManagerOwnerContext.PrimaryWeaponIndexState => primaryWeaponIndex;
         NetworkVariable<int> IWeaponManagerOwnerContext.SecondaryWeaponIndexState => secondaryWeaponIndex;
         NetworkVariable<bool> IWeaponManagerOwnerContext.NetIsDeadState => NetIsDead;
