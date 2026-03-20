@@ -138,9 +138,8 @@ namespace Game.Weapon.Kinemation {
         public void PlayReloadCompleteAnimation() {
         }
 
-        public void SyncLocomotion(Vector2 moveInput, bool sprinting, bool tacticalSprinting, bool isGrounded,
-            float lookPitchDegrees) =>
-            _locomotionSync?.SyncLocomotion(moveInput, sprinting, tacticalSprinting, isGrounded, lookPitchDegrees);
+        public void SyncLocomotion(in LocomotionSyncRequest request) =>
+            _locomotionSync?.SyncLocomotion(request);
 
         public void SyncActiveAmmo(int authoritativeAmmo) => _playback?.SyncActiveAmmo(authoritativeAmmo);
 

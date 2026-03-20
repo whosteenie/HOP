@@ -1,4 +1,5 @@
 using System.Reflection;
+using Game.Weapon.Contracts;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using UnityEngine;
 
@@ -33,8 +34,13 @@ namespace Game.Weapon.Kinemation {
             _syncAirborneState = syncAirborneState;
         }
 
-        public void SyncLocomotion(Vector2 moveInput, bool sprinting, bool tacticalSprinting, bool isGrounded,
-            float lookPitchDegrees) {
+        public void SyncLocomotion(in LocomotionSyncRequest request) {
+            var moveInput = request.MoveInput;
+            var sprinting = request.Sprinting;
+            var tacticalSprinting = request.TacticalSprinting;
+            var isGrounded = request.IsGrounded;
+            var lookPitchDegrees = request.LookPitchDegrees;
+
             var fpsPlayer = _context.FpsPlayer;
             var fpsAnimator = _context.FpsAnimator;
             if(fpsPlayer == null) return;

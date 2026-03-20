@@ -2,6 +2,14 @@ using System.Collections.Generic;
 using UnityEngine;
 
 namespace Game.Weapon.Contracts {
+    public struct LocomotionSyncRequest {
+        public Vector2 MoveInput { get; set; }
+        public bool Sprinting { get; set; }
+        public bool TacticalSprinting { get; set; }
+        public bool IsGrounded { get; set; }
+        public float LookPitchDegrees { get; set; }
+    }
+
     public interface IWeaponDataRuntime {
         int InstanceId { get; }
         string AssetName { get; }
@@ -21,8 +29,7 @@ namespace Game.Weapon.Contracts {
         void ClearPendingWeaponSoundEvents();
         Transform GetMuzzleTransform();
         void SyncActiveAmmo(int authoritativeAmmo);
-        void SyncLocomotion(Vector2 moveInput, bool sprinting, bool tacticalSprinting, bool isGrounded,
-            float lookPitchDegrees);
+        void SyncLocomotion(in LocomotionSyncRequest request);
         void NotifyReloadCanceledByShot();
         void AbortReloadAndSyncAmmo(int authoritativeAmmo);
         void ResetReloadTracking();

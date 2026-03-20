@@ -50,13 +50,13 @@ namespace Game.Weapon.Core {
 
             var lookPitch = ownerContext.CurrentPitch;
 
-            kinemationDriver.SyncLocomotion(
-                moveInput,
-                sprintInput,
-                tacticalSprinting: false,
-                isGrounded: treatedGrounded,
-                lookPitchDegrees: lookPitch
-            );
+            kinemationDriver.SyncLocomotion(new LocomotionSyncRequest {
+                MoveInput = moveInput,
+                Sprinting = sprintInput,
+                TacticalSprinting = false,
+                IsGrounded = treatedGrounded,
+                LookPitchDegrees = lookPitch
+            });
         }
 
         public void TryPrewarmKinemationMuzzleIfNeeded() {
