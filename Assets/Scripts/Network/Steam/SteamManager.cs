@@ -62,6 +62,9 @@ namespace Network.Steam {
             if(!IsInitialized) return;
             SteamClient.Shutdown();
             IsInitialized = false;
+#if UNITY_EDITOR
+            if(!Application.isPlaying) return;
+#endif
             DevLog.Log("[SteamManager] Steamworks shutdown.");
         }
 
