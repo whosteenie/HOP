@@ -392,7 +392,10 @@ namespace Game.Player.Core {
             _weaponPresentation ??= new PlayerWeaponPresentation(this);
             _spawnPresentation ??= new PlayerSpawnPresentation(this);
             _presentationState ??= new PlayerPresentationState(this);
-            _respawnCoordinator ??= new PlayerRespawnCoordinator(this);
+            _respawnCoordinator ??= new PlayerRespawnCoordinator(
+                () => NetworkAuthority.HasGlobalAuthority(this),
+                () => OwnerClientId,
+                () => CurrentTeam);
         }
 
         private void Awake() {
@@ -1289,19 +1292,31 @@ namespace Game.Player.Core {
         float IPlayerCombatContext.GetOutOfBoundsKillY() => GetOutOfBoundsKillY();
         bool IPlayerCombatContext.IsYLevelOutOfBoundsKillEnabled() => IsYLevelOutOfBoundsKillEnabled();
 
-        void IPlayerCombatContext.ReserveRespawnPoint() => (_respawnCoordinator ??= new PlayerRespawnCoordinator(this))
+        void IPlayerCombatContext.ReserveRespawnPoint() => (_respawnCoordinator ??= new PlayerRespawnCoordinator(
+                () => NetworkAuthority.HasGlobalAuthority(this),
+                () => OwnerClientId,
+                () => CurrentTeam))
             .ReserveRespawnPoint();
 
         bool IPlayerCombatContext.TryGetReservedRespawnPose(out Vector3 position, out Quaternion rotation) =>
-            (_respawnCoordinator ??= new PlayerRespawnCoordinator(this)).TryGetReservedRespawnPose(out position,
+            (_respawnCoordinator ??= new PlayerRespawnCoordinator(
+                () => NetworkAuthority.HasGlobalAuthority(this),
+                () => OwnerClientId,
+                () => CurrentTeam)).TryGetReservedRespawnPose(out position,
                 out rotation);
 
         void IPlayerCombatContext.GetFallbackRespawnPose(out Vector3 position, out Quaternion rotation) =>
-            (_respawnCoordinator ??= new PlayerRespawnCoordinator(this)).GetFallbackRespawnPose(out position,
+            (_respawnCoordinator ??= new PlayerRespawnCoordinator(
+                () => NetworkAuthority.HasGlobalAuthority(this),
+                () => OwnerClientId,
+                () => CurrentTeam)).GetFallbackRespawnPose(out position,
                 out rotation);
 
         void IPlayerCombatContext.ReleaseRespawnReservation() => (_respawnCoordinator ??=
-            new PlayerRespawnCoordinator(this)).ReleaseRespawnReservation();
+            new PlayerRespawnCoordinator(
+                () => NetworkAuthority.HasGlobalAuthority(this),
+                () => OwnerClientId,
+                () => CurrentTeam)).ReleaseRespawnReservation();
 
         Transform IPlayerLookContext.PlayerTransform => PlayerTransform;
         CinemachineCamera IPlayerLookContext.FpCamera => fpCamera;
