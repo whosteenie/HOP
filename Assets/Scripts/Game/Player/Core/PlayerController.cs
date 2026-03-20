@@ -1347,9 +1347,7 @@ namespace Game.Player.Core {
         void IPlayerMaterialCustomizationContext.ApplyPlayerMaterialCustomization(
             in PlayerMaterialCustomizationRequest request) {
             if(visualController == null) return;
-            visualController.ApplyPlayerMaterialCustomization(request.PacketIndex, request.BaseColor,
-                request.Smoothness, request.Metallic, request.SpecularColor, request.HeightStrength,
-                request.EmissionEnabled, request.EmissionColor);
+            visualController.ApplyPlayerMaterialCustomization(request);
         }
 
         GameObject IPlayerMovementContext.GetCurrentFpWeapon() {

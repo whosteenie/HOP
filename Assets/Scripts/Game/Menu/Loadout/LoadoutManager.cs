@@ -1142,16 +1142,16 @@ namespace Game.Menu.Loadout {
                 return;
             }
 
-            var generatedMaterial = PlayerMaterialGenerator.GenerateMaterial(
-                packet,
-                baseColor,
-                smoothness,
-                metallic,
-                specularColor,
-                heightStrength,
-                emissionEnabled,
-                emissionColor
-            );
+            var generatedMaterial = PlayerMaterialGenerator.GenerateMaterial(packet,
+                new PlayerMaterialGenerationRequest {
+                    BaseColor = baseColor,
+                    Smoothness = smoothness,
+                    Metallic = metallic,
+                    SpecularColor = specularColor,
+                    HeightStrength = heightStrength,
+                    EmissionEnabled = emissionEnabled,
+                    EmissionColor = emissionColor
+                });
 
             var materials = skinnedRenderer.sharedMaterials;
             if(materials.Length > 1) {
@@ -1314,16 +1314,16 @@ namespace Game.Menu.Loadout {
                 return;
             }
 
-            var generatedMaterial = PlayerMaterialGenerator.GenerateMaterial(
-                packet,
-                baseColor,
-                smoothness,
-                metallic,
-                specularColor,
-                heightStrength,
-                emissionEnabled,
-                emissionColor
-            );
+            var generatedMaterial = PlayerMaterialGenerator.GenerateMaterial(packet,
+                new PlayerMaterialGenerationRequest {
+                    BaseColor = baseColor,
+                    Smoothness = smoothness,
+                    Metallic = metallic,
+                    SpecularColor = specularColor,
+                    HeightStrength = heightStrength,
+                    EmissionEnabled = emissionEnabled,
+                    EmissionColor = emissionColor
+                });
 
             var materials = skinnedRenderer.sharedMaterials;
             if(materials.Length > 1) {

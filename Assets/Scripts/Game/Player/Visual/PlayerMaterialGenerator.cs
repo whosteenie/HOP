@@ -4,6 +4,16 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Game.Player.Visual {
+    public struct PlayerMaterialGenerationRequest {
+        public Color BaseColor { get; set; }
+        public float Smoothness { get; set; }
+        public float Metallic { get; set; }
+        public Color? SpecularColor { get; set; }
+        public float? HeightStrength { get; set; }
+        public bool EmissionEnabled { get; set; }
+        public Color? EmissionColor { get; set; }
+    }
+
     /// <summary>
     /// Static utility for generating URP/Lit materials from material packets and customization values.
     /// Handles material caching to avoid creating duplicate materials.
@@ -35,31 +45,25 @@ namespace Game.Player.Visual {
         /// Materials are cached by their parameters to avoid duplicates.
         /// </summary>
         /// <param name="packet">The material packet containing textures and settings</param>
-        /// <param name="baseColor">Base color tint (applied to base map or used directly if no map)</param>
-        /// <param name="smoothness">Smoothness value (0-1), controls reflectivity</param>
-        /// <param name="metallic">Metallic value (0-1), only used if packet uses metallic workflow</param>
-        /// <param name="specularColor">Specular color, only used if packet uses specular workflow</param>
-        /// <param name="heightStrength">Height map strength override (0-1), uses packet default if null</param>
-        /// <param name="emissionEnabled"></param>
-        /// <param name="emissionColor"></param>
-        public static Material GenerateMaterial(PlayerMaterialPacket packet, Color baseColor, float smoothness, 
-            float metallic = 0f, Color? specularColor = null, float? heightStrength = null,
-            bool emissionEnabled = false, Color? emissionColor = null) {
+        /// <param name="request">Generation request containing customization overrides.</param>
+        public static Material GenerateMaterial(PlayerMaterialPacket packet, in PlayerMaterialGenerationRequest request) {
             if(packet == null) {
                 DevLog.LogWarning("[PlayerMaterialGenerator] Packet is null, using default material.");
-                return CreateDefaultMaterial(baseColor, smoothness, metallic, emissionEnabled, emissionColor);
+                return CreateDefaultMaterial(in request);
             }
 
             // Use packet defaults if not provided
-            var finalSpecularColor = specularColor ?? packet.defaultSpecularColor;
+            var finalSpecularColor = request.SpecularColor ?? packet.defaultSpecularColor;
             var finalNormalStrength = packet.normalMapStrength;
-            var finalHeightStrength = heightStrength ?? packet.heightMapStrength;
-            var finalEmissionColor = emissionColor ?? packet.defaultEmissionColor;
+            var finalHeightStrength = request.HeightStrength ?? packet.heightMapStrength;
+            var finalEmissionColor = request.EmissionColor ?? packet.defaultEmissionColor;
             var supportsEmission = packet.emissionMap != null;
-            var finalEmissionEnabled = emissionEnabled && (supportsEmission || finalEmissionColor.maxColorComponent > 0.001f);
+            var finalEmissionEnabled = request.EmissionEnabled &&
+                                       (supportsEmission || finalEmissionColor.maxColorComponent > 0.001f);
 
             // Create cache key
-            var cacheKey = GetCacheKey(packet, baseColor, smoothness, metallic, finalSpecularColor, finalHeightStrength, finalEmissionEnabled, finalEmissionColor);
+            var cacheKey = GetCacheKey(packet, request.BaseColor, request.Smoothness, request.Metallic,
+                finalSpecularColor, finalHeightStrength, finalEmissionEnabled, finalEmissionColor);
 
             // Check cache
             if(MaterialCache.TryGetValue(cacheKey, out var cachedMaterial) && cachedMaterial != null) {
@@ -70,11 +74,17 @@ namespace Game.Player.Visual {
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if(shader == null) {
                 DevLog.LogError("[PlayerMaterialGenerator] URP/Lit shader not found! Falling back to default material.");
-                return CreateDefaultMaterial(baseColor, smoothness, metallic, finalEmissionEnabled, finalEmissionColor);
+                return CreateDefaultMaterial(new PlayerMaterialGenerationRequest {
+                    BaseColor = request.BaseColor,
+                    Smoothness = request.Smoothness,
+                    Metallic = request.Metallic,
+                    EmissionEnabled = finalEmissionEnabled,
+                    EmissionColor = finalEmissionColor
+                });
             }
 
             var material = new Material(shader) {
-                name = $"PlayerMaterial_{packet.packetName}_{baseColor}_{smoothness}_{metallic}"
+                name = $"PlayerMaterial_{packet.packetName}_{request.BaseColor}_{request.Smoothness}_{request.Metallic}"
             };
 
             // Set workflow mode
@@ -89,7 +99,7 @@ namespace Game.Player.Visual {
             }
 
             // Base Color (tints the base map, or is the color if no map)
-            material.SetColor(BaseColorId, baseColor);
+            material.SetColor(BaseColorId, request.BaseColor);
 
             // Normal Map
             if(packet.normalMap != null) {
@@ -125,12 +135,12 @@ namespace Game.Player.Visual {
             }
 
             // Smoothness (used in both workflows)
-            material.SetFloat(SmoothnessId, smoothness);
+            material.SetFloat(SmoothnessId, request.Smoothness);
 
             // Workflow-specific properties
             if(packet.useMetallicWorkflow) {
                 // Metallic workflow: Set metallic value
-                material.SetFloat(MetallicId, metallic);
+                material.SetFloat(MetallicId, request.Metallic);
             } else {
                 // Specular workflow: Set specular color (no metallic slider)
                 material.SetColor(SpecularColorId, finalSpecularColor);
@@ -185,7 +195,7 @@ namespace Game.Player.Visual {
         /// <summary>
         /// Creates a default URP/Lit material with just base color, smoothness, and metallic (no textures).
         /// </summary>
-        private static Material CreateDefaultMaterial(Color baseColor, float smoothness, float metallic, bool emissionEnabled = false, Color? emissionColor = null) {
+        private static Material CreateDefaultMaterial(in PlayerMaterialGenerationRequest request) {
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if(shader == null) {
                 DevLog.LogError("[PlayerMaterialGenerator] URP/Lit shader not found! Creating fallback material.");
@@ -193,23 +203,23 @@ namespace Game.Player.Visual {
             }
 
             var material = new Material(shader) {
-                name = $"PlayerMaterial_Default_{baseColor}_{smoothness}_{metallic}"
+                name = $"PlayerMaterial_Default_{request.BaseColor}_{request.Smoothness}_{request.Metallic}"
             };
 
-            material.SetColor(BaseColorId, baseColor);
-            material.SetFloat(SmoothnessId, smoothness);
-            material.SetFloat(MetallicId, metallic);
+            material.SetColor(BaseColorId, request.BaseColor);
+            material.SetFloat(SmoothnessId, request.Smoothness);
+            material.SetFloat(MetallicId, request.Metallic);
             material.SetFloat(WorkflowModeId, 0f); // Metallic workflow
 
-            if(emissionEnabled && emissionColor.HasValue) {
-                material.SetColor(EmissionColorId, emissionColor.Value);
+            if(request.EmissionEnabled && request.EmissionColor.HasValue) {
+                material.SetColor(EmissionColorId, request.EmissionColor.Value);
                 
                 material.EnableKeyword("_EMISSION");
                 
                 material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
 
                 if(!material.HasProperty(EmissionIntensityId)) return material;
-                var intensity = emissionColor.Value.maxColorComponent;
+                var intensity = request.EmissionColor.Value.maxColorComponent;
                 material.SetFloat(EmissionIntensityId, intensity > 0.001f ? intensity : 1f);
             } else {
                 material.DisableKeyword("_EMISSION");

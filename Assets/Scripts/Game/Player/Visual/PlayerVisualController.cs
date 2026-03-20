@@ -153,19 +153,9 @@ namespace Game.Player.Visual {
         }
 
         /// <summary>
-        /// Applies player material customization using the new packet-based system.
+        /// Applies player material customization using the packet-based system.
         /// </summary>
-        /// <param name="packetIndex">Index of the material packet (0 = None, 1+ = loaded packets)</param>
-        /// <param name="baseColor">Base color tint</param>
-        /// <param name="smoothness">Smoothness value (0-1)</param>
-        /// <param name="metallic">Metallic value (0-1), only used if packet uses metallic workflow</param>
-        /// <param name="specularColor">Specular color, only used if packet uses specular workflow</param>
-        /// <param name="heightStrength">Height map strength override, uses packet default if null</param>
-        /// <param name="emissionEnabled">Whether emission is enabled</param>
-        /// <param name="emissionColor">Emission color tint</param>
-        public void ApplyPlayerMaterialCustomization(int packetIndex, Color baseColor, float smoothness, 
-            float metallic = 0f, Color? specularColor = null, float? heightStrength = null,
-            bool emissionEnabled = false, Color? emissionColor = null) {
+        public void ApplyPlayerMaterialCustomization(in PlayerMaterialCustomizationRequest request) {
             
             // Ensure materials array is initialized (preserves outline at index 0)
             if(_cachedMaterialsArray == null || _cachedMaterialsArray.Length < 2) {
@@ -179,15 +169,23 @@ namespace Game.Player.Visual {
                 return;
             }
 
-            var packet = packetManager.GetPacket(packetIndex);
+            var packet = packetManager.GetPacket(request.PacketIndex);
             if(packet == null) {
-                DevLog.LogWarning($"[PlayerVisualController] Invalid packet index {packetIndex}. Using None packet.");
+                DevLog.LogWarning($"[PlayerVisualController] Invalid packet index {request.PacketIndex}. Using None packet.");
                 packet = packetManager.GetNonePacket();
             }
 
             // Generate material using the packet system
-            var generatedMaterial = PlayerMaterialGenerator.GenerateMaterial(
-                packet, baseColor, smoothness, metallic, specularColor, heightStrength, emissionEnabled, emissionColor);
+            var generatedMaterial = PlayerMaterialGenerator.GenerateMaterial(packet,
+                new PlayerMaterialGenerationRequest {
+                    BaseColor = request.BaseColor,
+                    Smoothness = request.Smoothness,
+                    Metallic = request.Metallic,
+                    SpecularColor = request.SpecularColor,
+                    HeightStrength = request.HeightStrength,
+                    EmissionEnabled = request.EmissionEnabled,
+                    EmissionColor = request.EmissionColor
+                });
 
             if(generatedMaterial == null) {
                 DevLog.LogError("[PlayerVisualController] Failed to generate material from packet.");
