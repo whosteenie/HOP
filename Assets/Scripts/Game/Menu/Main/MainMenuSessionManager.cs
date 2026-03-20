@@ -278,160 +278,220 @@ namespace Game.Menu.Main {
             var session = SessionManager.Instance;
             if(session == null) return;
 
-            // Cache interface reference for orphaned interface properties
             ISessionContext sessionCtx = session;
+            var state = BuildUpdateState(session, sessionCtx);
 
-            // Handle Matchmaking Status & Locking
-            var isSearching = sessionCtx.IsSearching;
-            var showStatus = session.ShowMatchmakingStatus;
-            var isPartyMember = session.IsPartyMemberResolved;
-            var sessionBusy = sessionCtx.IsSessionBusy;
+            UpdateInviteUi(state);
+            UpdateMenuAndStatusUi(state, session, sessionCtx);
+            UpdateSoloPlayerPresentation(session);
+            UpdateProgressionRefreshIfDue();
+        }
 
-            var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
+        private static UpdateState BuildUpdateState(SessionManager session, ISessionContext sessionCtx) {
+            return new UpdateState(
+                isSearching: sessionCtx.IsSearching,
+                showStatus: session.ShowMatchmakingStatus,
+                isPartyMember: session.IsPartyMemberResolved,
+                sessionBusy: sessionCtx.IsSessionBusy,
+                steamOnline: SteamClient.IsValid && SteamClient.IsLoggedOn,
+                isNetworkOffline: Application.internetReachability == NetworkReachability.NotReachable,
+                currentPartySize: session.CurrentPartySize);
+        }
 
-            var isNetworkOffline = Application.internetReachability == NetworkReachability.NotReachable;
-            // Update UI constraints based on party state
-            var currentPartySize = SessionManager.Instance.CurrentPartySize;
-
-            if(_inviteButton != null) {
-                ApplyInviteVisibility();
-                var inviteTooltip = steamOnline ? "Invite friends" : "Steam is offline. Invites unavailable.";
-                if(!string.Equals(_lastInviteTooltip, inviteTooltip, StringComparison.Ordinal)) {
-                    _inviteButton.tooltip = inviteTooltip;
-                    _lastInviteTooltip = inviteTooltip;
-                }
-
-                if(_lastSteamOnline != steamOnline) {
-                    if(steamOnline) {
-                        _inviteButton.RemoveFromClassList("steam-offline");
-                        if(_inviteIcon != null) {
-                            _inviteIcon.RemoveFromClassList("offline-icon");
-                            if(!_inviteIcon.ClassListContains("plus-icon")) {
-                                _inviteIcon.AddToClassList("plus-icon");
-                            }
-                        }
-                    } else {
-                        _inviteButton.AddToClassList("steam-offline");
-                        if(_inviteIcon != null) {
-                            _inviteIcon.RemoveFromClassList("plus-icon");
-                            if(!_inviteIcon.ClassListContains("offline-icon")) {
-                                _inviteIcon.AddToClassList("offline-icon");
-                            }
-                        }
-                    }
-
-                    _lastSteamOnline = steamOnline;
-                }
+        private void UpdateInviteUi(UpdateState state) {
+            if(_inviteButton == null) {
+                return;
             }
 
-            var canUseMenuButtons = ((!isSearching && !isPartyMember) || _isSilentHosting) && !sessionBusy;
-
-            if(uiManager != null) {
-                var playMatchmakingButton = uiManager.GetPlayButtonMatchmaking();
-                if(playMatchmakingButton != null) {
-                    string tooltip;
-                    if(isNetworkOffline) {
-                        tooltip = "Offline. Matchmaking unavailable.";
-                    } else if(currentPartySize > 5) {
-                        tooltip = "Party too large for matchmaking (max 5).";
-                    } else {
-                        tooltip = "Play matchmaking.";
-                    }
-
-                    if(!string.Equals(_lastPlayMatchmakingTooltip, tooltip, StringComparison.Ordinal)) {
-                        playMatchmakingButton.tooltip = tooltip;
-                        _lastPlayMatchmakingTooltip = tooltip;
-                    }
-                }
-
-                var menuButtonMode = isNetworkOffline
-                    ? MenuButtonMode.Offline
-                    : currentPartySize > 5
-                        ? MenuButtonMode.PartyTooLarge
-                        : MenuButtonMode.Normal;
-
-                // ReSharper disable once SwitchStatementMissingSomeEnumCasesNoDefault
-                switch(menuButtonMode) {
-                    case MenuButtonMode.Normal:
-                        if(_lastMenuButtonMode != MenuButtonMode.Normal ||
-                           _lastMenuButtonsEnabled != canUseMenuButtons) {
-                            uiManager.SetMenuButtonsEnabled(canUseMenuButtons);
-                            _lastMenuButtonsEnabled = canUseMenuButtons;
-                        }
-
-                        break;
-                    case MenuButtonMode.Offline:
-                        if(_lastMenuButtonMode != MenuButtonMode.Offline || !_lastMenuButtonsEnabled) {
-                            uiManager.SetMenuButtonsEnabled(
-                                true); // Play opens gamemode select; user picks Private Match there.
-                            _lastMenuButtonsEnabled = true;
-                        }
-
-                        break;
-                    case MenuButtonMode.PartyTooLarge:
-                        if(_lastMenuButtonMode != MenuButtonMode.PartyTooLarge && playMatchmakingButton != null) {
-                            MainMenuUIManager.DisableButton(playMatchmakingButton);
-                        }
-
-                        break;
-                }
-
-                _lastMenuButtonMode = menuButtonMode;
-
-                if(uiManager.StatusContainer != null) {
-                    if(_lastStatusVisible != showStatus) {
-                        if(showStatus) {
-                            uiManager.StatusContainer.RemoveFromClassList("hidden");
-                            uiManager.StatusContainer.style.display = DisplayStyle.Flex;
-                        } else {
-                            uiManager.StatusContainer.AddToClassList("hidden");
-                            uiManager.StatusContainer.style.display = DisplayStyle.None;
-                        }
-
-                        _lastStatusVisible = showStatus;
-                    }
-
-                    // Update Timer & Gamemode info
-                    if(showStatus && isSearching) {
-                        if(uiManager.QueueGamemodeLabel != null) {
-                            var selectedGameMode = SessionManager.Instance.SelectedGameMode ?? string.Empty;
-                            var queueGamemodeLabel = GetQueueGamemodeLabel(selectedGameMode);
-                            if(!string.Equals(_lastQueueGamemodeLabel, queueGamemodeLabel, StringComparison.Ordinal)) {
-                                uiManager.QueueGamemodeLabel.text = queueGamemodeLabel;
-                                _lastQueueGamemodeLabel = queueGamemodeLabel;
-                            }
-                        }
-
-                        if(uiManager.QueueTimerLabel != null) {
-                            var elapsed = Time.time - sessionCtx.MatchmakingStartTime;
-                            var elapsedSeconds = Mathf.Max(0, Mathf.FloorToInt(elapsed));
-                            if(_lastQueueTimerSeconds != elapsedSeconds) {
-                                var minutes = elapsedSeconds / 60;
-                                var seconds = elapsedSeconds % 60;
-                                uiManager.QueueTimerLabel.text = $"{minutes:00}:{seconds:00}";
-                                _lastQueueTimerSeconds = elapsedSeconds;
-                            }
-                        }
-                    } else {
-                        _lastQueueTimerSeconds = -1;
-                        _lastQueueGamemodeLabel = null;
-                    }
-                }
+            ApplyInviteVisibility();
+            var inviteTooltip = state.SteamOnline ? "Invite friends" : "Steam is offline. Invites unavailable.";
+            if(!string.Equals(_lastInviteTooltip, inviteTooltip, StringComparison.Ordinal)) {
+                _inviteButton.tooltip = inviteTooltip;
+                _lastInviteTooltip = inviteTooltip;
             }
 
-            // Internal logic for drawing solo player if not in lobby
-            if(!SessionManager.Instance.CurrentLobby.HasValue) {
-                if(!_hasDrawnSolo) {
-                    DrawSoloPlayer();
-                    _hasDrawnSolo = true;
+            if(_lastSteamOnline == state.SteamOnline) {
+                return;
+            }
+
+            if(state.SteamOnline) {
+                _inviteButton.RemoveFromClassList("steam-offline");
+                if(_inviteIcon != null) {
+                    _inviteIcon.RemoveFromClassList("offline-icon");
+                    if(!_inviteIcon.ClassListContains("plus-icon")) {
+                        _inviteIcon.AddToClassList("plus-icon");
+                    }
                 }
             } else {
-                _hasDrawnSolo = false;
+                _inviteButton.AddToClassList("steam-offline");
+                if(_inviteIcon != null) {
+                    _inviteIcon.RemoveFromClassList("plus-icon");
+                    if(!_inviteIcon.ClassListContains("offline-icon")) {
+                        _inviteIcon.AddToClassList("offline-icon");
+                    }
+                }
             }
 
-            if(!(Time.unscaledTime >= _nextProgressionRefreshAt)) return;
+            _lastSteamOnline = state.SteamOnline;
+        }
+
+        private void UpdateMenuAndStatusUi(UpdateState state, SessionManager session, ISessionContext sessionCtx) {
+            var canUseMenuButtons = (state is { IsSearching: false, IsPartyMember: false } || _isSilentHosting) && !state.SessionBusy;
+
+            if(uiManager == null) {
+                return;
+            }
+
+            var playMatchmakingButton = uiManager.GetPlayButtonMatchmaking();
+            UpdatePlayMatchmakingTooltip(playMatchmakingButton, state.IsNetworkOffline, state.CurrentPartySize);
+
+            var menuButtonMode = ResolveMenuButtonMode(state.IsNetworkOffline, state.CurrentPartySize);
+            ApplyMenuButtonMode(menuButtonMode, canUseMenuButtons, playMatchmakingButton);
+            _lastMenuButtonMode = menuButtonMode;
+
+            UpdateStatusContainer(state.ShowStatus);
+            UpdateQueueStatus(state.ShowStatus, state.IsSearching, session.SelectedGameMode, sessionCtx.MatchmakingStartTime);
+        }
+
+        private void UpdatePlayMatchmakingTooltip(Button playMatchmakingButton, bool isNetworkOffline, int currentPartySize) {
+            if(playMatchmakingButton == null) {
+                return;
+            }
+
+            string tooltip;
+            if(isNetworkOffline) {
+                tooltip = "Offline. Matchmaking unavailable.";
+            } else if(currentPartySize > 5) {
+                tooltip = "Party too large for matchmaking (max 5).";
+            } else {
+                tooltip = "Play matchmaking.";
+            }
+
+            if(string.Equals(_lastPlayMatchmakingTooltip, tooltip, StringComparison.Ordinal)) return;
+            playMatchmakingButton.tooltip = tooltip;
+            _lastPlayMatchmakingTooltip = tooltip;
+        }
+
+        private static MenuButtonMode ResolveMenuButtonMode(bool isNetworkOffline, int currentPartySize) {
+            return isNetworkOffline
+                ? MenuButtonMode.Offline
+                : currentPartySize > 5
+                    ? MenuButtonMode.PartyTooLarge
+                    : MenuButtonMode.Normal;
+        }
+
+        private void ApplyMenuButtonMode(MenuButtonMode menuButtonMode, bool canUseMenuButtons, Button playMatchmakingButton) {
+            // ReSharper disable once SwitchStatementMissingSomeEnumCasesNoDefault
+            switch(menuButtonMode) {
+                case MenuButtonMode.Normal:
+                    if(_lastMenuButtonMode != MenuButtonMode.Normal || _lastMenuButtonsEnabled != canUseMenuButtons) {
+                        uiManager.SetMenuButtonsEnabled(canUseMenuButtons);
+                        _lastMenuButtonsEnabled = canUseMenuButtons;
+                    }
+
+                    break;
+                case MenuButtonMode.Offline:
+                    if(_lastMenuButtonMode != MenuButtonMode.Offline || !_lastMenuButtonsEnabled) {
+                        uiManager.SetMenuButtonsEnabled(true);
+                        _lastMenuButtonsEnabled = true;
+                    }
+
+                    break;
+                case MenuButtonMode.PartyTooLarge:
+                    if(_lastMenuButtonMode != MenuButtonMode.PartyTooLarge && playMatchmakingButton != null) {
+                        MainMenuUIManager.DisableButton(playMatchmakingButton);
+                    }
+
+                    break;
+            }
+        }
+
+        private void UpdateStatusContainer(bool showStatus) {
+            if(uiManager.StatusContainer == null) {
+                return;
+            }
+
+            if(_lastStatusVisible == showStatus) return;
+            if(showStatus) {
+                uiManager.StatusContainer.RemoveFromClassList("hidden");
+                uiManager.StatusContainer.style.display = DisplayStyle.Flex;
+            } else {
+                uiManager.StatusContainer.AddToClassList("hidden");
+                uiManager.StatusContainer.style.display = DisplayStyle.None;
+            }
+
+            _lastStatusVisible = showStatus;
+        }
+
+        private void UpdateQueueStatus(bool showStatus, bool isSearching, string selectedGameMode, float matchmakingStartTime) {
+            if(uiManager == null || uiManager.StatusContainer == null) {
+                return;
+            }
+
+            if(showStatus && isSearching) {
+                if(uiManager.QueueGamemodeLabel != null) {
+                    var queueGamemodeLabel = GetQueueGamemodeLabel(selectedGameMode ?? string.Empty);
+                    if(!string.Equals(_lastQueueGamemodeLabel, queueGamemodeLabel, StringComparison.Ordinal)) {
+                        uiManager.QueueGamemodeLabel.text = queueGamemodeLabel;
+                        _lastQueueGamemodeLabel = queueGamemodeLabel;
+                    }
+                }
+
+                if(uiManager.QueueTimerLabel == null) return;
+                
+                var elapsed = Time.time - matchmakingStartTime;
+                var elapsedSeconds = Mathf.Max(0, Mathf.FloorToInt(elapsed));
+                if(_lastQueueTimerSeconds == elapsedSeconds) return;
+                
+                var minutes = elapsedSeconds / 60;
+                var seconds = elapsedSeconds % 60;
+                uiManager.QueueTimerLabel.text = $"{minutes:00}:{seconds:00}";
+                _lastQueueTimerSeconds = elapsedSeconds;
+
+                return;
+            }
+
+            _lastQueueTimerSeconds = -1;
+            _lastQueueGamemodeLabel = null;
+        }
+
+        private void UpdateSoloPlayerPresentation(SessionManager session) {
+            if(!session.CurrentLobby.HasValue) {
+                if(_hasDrawnSolo) return;
+                DrawSoloPlayer();
+                _hasDrawnSolo = true;
+
+                return;
+            }
+
+            _hasDrawnSolo = false;
+        }
+
+        private void UpdateProgressionRefreshIfDue() {
+            if(Time.unscaledTime < _nextProgressionRefreshAt) return;
             UpdateLocalProgressionDisplay();
             _nextProgressionRefreshAt = Time.unscaledTime + ProgressionRefreshIntervalSeconds;
+        }
+
+        private readonly struct UpdateState {
+            public UpdateState(bool isSearching, bool showStatus, bool isPartyMember, bool sessionBusy,
+                bool steamOnline, bool isNetworkOffline, int currentPartySize) {
+                IsSearching = isSearching;
+                ShowStatus = showStatus;
+                IsPartyMember = isPartyMember;
+                SessionBusy = sessionBusy;
+                SteamOnline = steamOnline;
+                IsNetworkOffline = isNetworkOffline;
+                CurrentPartySize = currentPartySize;
+            }
+
+            public bool IsSearching { get; }
+            public bool ShowStatus { get; }
+            public bool IsPartyMember { get; }
+            public bool SessionBusy { get; }
+            public bool SteamOnline { get; }
+            public bool IsNetworkOffline { get; }
+            public int CurrentPartySize { get; }
         }
 
         private void RegisterUIEvents() {
