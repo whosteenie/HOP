@@ -388,7 +388,7 @@ namespace Game.Social {
             }
         }
 
-        private void EmitJoinSuccessLog(string channelName, string context) {
+        private static void EmitJoinSuccessLog(string channelName, string context) {
             if(!Debug.isDebugBuild) {
                 return;
             }

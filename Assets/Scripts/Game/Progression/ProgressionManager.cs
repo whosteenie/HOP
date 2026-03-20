@@ -655,117 +655,39 @@ namespace Game.Progression {
             { "M107", "Sniper Rifle" }
         };
 
+        private sealed class ChallengeGenerationState {
+            public ChallengeGenerationState(HashSet<string> activeIds) {
+                ActiveIds = activeIds;
+            }
+
+            public HashSet<string> ActiveIds { get; }
+            public HashSet<string> UsedGamemodes { get; } = new();
+            public HashSet<string> UsedWeapons { get; } = new();
+            public int PlayMatchesChallengeCount { get; set; }
+            public int WeaponKillsChallengeCount { get; set; }
+            public int AddedCount { get; set; }
+        }
+
         private void GenerateDailyChallenges() {
             if (challengePool == null || challengePool.Count == 0) return;
 
             Data.dailyChallenges.Clear();
             Data.lastDailyReset = DateTime.Now.ToString(CultureInfo.InvariantCulture);
             
-            // Filter pool for Daily using explicit per-challenge inclusion flags.
             var dailyPool = challengePool.FindAll(c => c.includeInDaily);
             if (dailyPool.Count == 0) {
                 DevLog.LogError("[Progression] Daily challenge pool is empty. Enable 'Include In Daily' on at least one challenge definition.");
                 return;
             }
 
-            // Pick 3 random challenges
-            var activeIds = GetActiveChallengeIDs();
-            var usedGamemodes = new HashSet<string>(); // Track gamemodes for play_matches_of
-            var usedWeapons = new HashSet<string>();   // Track weapons for weapon_kills
-            var playMatchesChallengeCount = 0;
-            var weaponKillsChallengeCount = 0;
-            var addedCount = 0;
-            var maxAttempts = 50; // Safety break
-
-            while(addedCount < 3 && maxAttempts > 0) {
-                maxAttempts--;
-                var def = dailyPool[UnityEngine.Random.Range(0, dailyPool.Count)];
-
-                switch(def.id) {
-                    // Special handling for play_matches_of (allow up to 2, but no duplicate gamemodes)
-                    case "play_matches_of" when playMatchesChallengeCount >= 2:
-                        continue; // Max 2 of this type
-                    // Pick a random unused gamemode
-                    case "play_matches_of": {
-                        var availableForPicking = new List<string>();
-                        foreach(var gm in AvailableGamemodes) {
-                            if (!usedGamemodes.Contains(gm)) availableForPicking.Add(gm);
-                        }
-                        if (availableForPicking.Count == 0) continue; // All gamemodes used
-                    
-                        var chosenGamemode = availableForPicking[UnityEngine.Random.Range(0, availableForPicking.Count)];
-                        usedGamemodes.Add(chosenGamemode);
-                        playMatchesChallengeCount++;
-                    
-                        var minTarget = Mathf.Max(1, def.GetMinTarget(false));
-                        var maxTarget = Mathf.Max(minTarget, def.GetMaxTarget(false));
-                        var target = UnityEngine.Random.Range(minTarget, maxTarget + 1);
-                        var reward = CalculateXpReward(def, target, false);
-                    
-                        var challenge = new ActiveChallengeData {
-                            challengeID = def.id,
-                            filterID = chosenGamemode,
-                            targetProgress = target,
-                            currentProgress = 0,
-                            xpReward = reward,
-                            isCompleted = false
-                        };
-                        Data.dailyChallenges.Add(challenge);
-                        addedCount++;
-                        continue;
-                    }
-                    // Special handling for weapon_kills (allow up to 2, but no duplicate weapons)
-                    case "weapon_kills" when weaponKillsChallengeCount >= 2:
-                        continue; // Max 2 of this type
-                    // Pick a random unused weapon
-                    case "weapon_kills": {
-                        var availableForPicking = new List<string>();
-                        foreach(var w in AvailableWeapons) {
-                            if (!usedWeapons.Contains(w)) availableForPicking.Add(w);
-                        }
-                        if (availableForPicking.Count == 0) continue; // All weapons used
-                    
-                        var chosenWeapon = availableForPicking[UnityEngine.Random.Range(0, availableForPicking.Count)];
-                        usedWeapons.Add(chosenWeapon);
-                        weaponKillsChallengeCount++;
-                    
-                        var minTarget = Mathf.Max(1, def.GetMinTarget(false));
-                        var maxTarget = Mathf.Max(minTarget, def.GetMaxTarget(false));
-                        var target = UnityEngine.Random.Range(minTarget, maxTarget + 1);
-                        var reward = CalculateXpReward(def, target, false);
-                    
-                        var challenge = new ActiveChallengeData {
-                            challengeID = def.id,
-                            filterID = chosenWeapon,
-                            targetProgress = target,
-                            currentProgress = 0,
-                            xpReward = reward,
-                            isCompleted = false
-                        };
-                        Data.dailyChallenges.Add(challenge);
-                        addedCount++;
-                        continue;
-                    }
-                }
-
-                // Standard duplicate check for other challenges
-                if (activeIds.Contains(def.id)) continue;
-
-                var standardTarget = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
-                var standardReward = CalculateXpReward(def, standardTarget, false);
-                
-                var standardChallenge = new ActiveChallengeData {
-                    challengeID = def.id,
-                    filterID = def.weaponID, // Use static filter if defined
-                    targetProgress = standardTarget,
-                    currentProgress = 0,
-                    xpReward = standardReward,
-                    isCompleted = false
-                };
-                Data.dailyChallenges.Add(standardChallenge);
-                activeIds.Add(def.id); // Mark as used for this session
-                addedCount++;
-            }
+            var addedCount = GenerateChallengesInto(
+                Data.dailyChallenges,
+                dailyPool,
+                targetCount: 3,
+                maxAttempts: 50,
+                weeklyVariant: false,
+                useVariantBoundsForStandard: false,
+                markSpecialChallengeIdsAsUsed: false);
             
             SaveData();
             DevLog.Log($"[Progression] Generated {addedCount} new Daily Challenges.");
@@ -785,117 +707,154 @@ namespace Game.Progression {
                 return;
             }
 
-            // Pick 5 random challenges
-            var activeIds = GetActiveChallengeIDs();
-            var usedGamemodes = new HashSet<string>(); // Track gamemodes for play_matches_of
-            var usedWeapons = new HashSet<string>();   // Track weapons for weapon_kills
-            var playMatchesChallengeCount = 0;
-            var weaponKillsChallengeCount = 0;
-            var addedCount = 0;
-            var maxAttempts = 100;
-
-            while(addedCount < 5 && maxAttempts > 0) {
-                maxAttempts--;
-                var def = weeklyPool[UnityEngine.Random.Range(0, weeklyPool.Count)];
-
-                switch(def.id) {
-                    // Special handling for play_matches_of (allow up to 2, but no duplicate gamemodes)
-                    case "play_matches_of" when playMatchesChallengeCount >= 2:
-                        continue;
-                    case "play_matches_of": {
-                        var availableForPicking = new List<string>();
-                        foreach (var gm in AvailableGamemodes) {
-                            if (!usedGamemodes.Contains(gm)) {
-                                availableForPicking.Add(gm);
-                            }
-                        }
-
-                        if (availableForPicking.Count == 0) continue;
-
-                        var chosenGamemode = availableForPicking[UnityEngine.Random.Range(0, availableForPicking.Count)];
-                        usedGamemodes.Add(chosenGamemode);
-                        playMatchesChallengeCount++;
-
-                        var gamemodeMinTarget = Mathf.Max(1, def.GetMinTarget(true));
-                        var gamemodeMaxTarget = Mathf.Max(gamemodeMinTarget, def.GetMaxTarget(true));
-                        var gamemodeTarget = UnityEngine.Random.Range(gamemodeMinTarget, gamemodeMaxTarget + 1);
-                        var gamemodeReward = CalculateXpReward(def, gamemodeTarget, true);
-
-                        var challenge = new ActiveChallengeData {
-                            challengeID = def.id,
-                            filterID = chosenGamemode,
-                            targetProgress = gamemodeTarget,
-                            currentProgress = 0,
-                            xpReward = gamemodeReward,
-                            isCompleted = false
-                        };
-                        Data.weeklyChallenges.Add(challenge);
-                        activeIds.Add(def.id);
-                        addedCount++;
-                        continue;
-                    }
-                    // Special handling for weapon_kills (allow up to 2, but no duplicate weapons)
-                    case "weapon_kills" when weaponKillsChallengeCount >= 2:
-                        continue;
-                    case "weapon_kills": {
-                        var availableForPicking = new List<string>();
-                        foreach (var w in AvailableWeapons) {
-                            if (!usedWeapons.Contains(w)) {
-                                availableForPicking.Add(w);
-                            }
-                        }
-
-                        if (availableForPicking.Count == 0) continue;
-
-                        var chosenWeapon = availableForPicking[UnityEngine.Random.Range(0, availableForPicking.Count)];
-                        usedWeapons.Add(chosenWeapon);
-                        weaponKillsChallengeCount++;
-
-                        var weaponMinTarget = Mathf.Max(1, def.GetMinTarget(true));
-                        var weaponMaxTarget = Mathf.Max(weaponMinTarget, def.GetMaxTarget(true));
-                        var weaponTarget = UnityEngine.Random.Range(weaponMinTarget, weaponMaxTarget + 1);
-                        var weaponReward = CalculateXpReward(def, weaponTarget, true);
-
-                        var challenge = new ActiveChallengeData {
-                            challengeID = def.id,
-                            filterID = chosenWeapon,
-                            targetProgress = weaponTarget,
-                            currentProgress = 0,
-                            xpReward = weaponReward,
-                            isCompleted = false
-                        };
-                        Data.weeklyChallenges.Add(challenge);
-                        activeIds.Add(def.id);
-                        addedCount++;
-                        continue;
-                    }
-                }
-
-                // Prevent duplicate
-                if (activeIds.Contains(def.id)) continue;
-
-                // Weekly targets use explicit weekly challenge bounds.
-                var standardMinTarget = Mathf.Max(1, def.GetMinTarget(true));
-                var standardMaxTarget = Mathf.Max(standardMinTarget, def.GetMaxTarget(true));
-                var standardTarget = UnityEngine.Random.Range(standardMinTarget, standardMaxTarget + 1);
-                var standardReward = CalculateXpReward(def, standardTarget, true);
-
-                var standardChallenge = new ActiveChallengeData {
-                    challengeID = def.id,
-                    filterID = def.weaponID,
-                    targetProgress = standardTarget,
-                    currentProgress = 0,
-                    xpReward = standardReward,
-                    isCompleted = false
-                };
-                Data.weeklyChallenges.Add(standardChallenge);
-                activeIds.Add(def.id);
-                addedCount++;
-            }
+            var addedCount = GenerateChallengesInto(
+                Data.weeklyChallenges,
+                weeklyPool,
+                targetCount: 5,
+                maxAttempts: 100,
+                weeklyVariant: true,
+                useVariantBoundsForStandard: true,
+                markSpecialChallengeIdsAsUsed: true);
             
             SaveData();
             DevLog.Log($"[Progression] Generated {addedCount} new Weekly Challenges.");
             NotifyChallengesUpdated();
+        }
+
+        private int GenerateChallengesInto(
+            List<ActiveChallengeData> destination,
+            List<ChallengeDefinition> sourcePool,
+            int targetCount,
+            int maxAttempts,
+            bool weeklyVariant,
+            bool useVariantBoundsForStandard,
+            bool markSpecialChallengeIdsAsUsed) {
+            if(destination == null || sourcePool == null || sourcePool.Count == 0) {
+                return 0;
+            }
+
+            var state = new ChallengeGenerationState(GetActiveChallengeIDs());
+            var remainingAttempts = maxAttempts;
+
+            while(state.AddedCount < targetCount && remainingAttempts > 0) {
+                remainingAttempts--;
+                var def = sourcePool[UnityEngine.Random.Range(0, sourcePool.Count)];
+
+                if(TryAddSpecialChallenge(destination, def, state, weeklyVariant, markSpecialChallengeIdsAsUsed)) {
+                    continue;
+                }
+
+                if(state.ActiveIds.Contains(def.id)) {
+                    continue;
+                }
+
+                destination.Add(CreateStandardChallenge(def, weeklyVariant, useVariantBoundsForStandard));
+                state.ActiveIds.Add(def.id);
+                state.AddedCount++;
+            }
+
+            return state.AddedCount;
+        }
+
+        private static bool TryAddSpecialChallenge(
+            List<ActiveChallengeData> destination,
+            ChallengeDefinition def,
+            ChallengeGenerationState state,
+            bool weeklyVariant,
+            bool markSpecialChallengeIdsAsUsed) {
+            switch(def.id) {
+                case "play_matches_of": {
+                    if(state.PlayMatchesChallengeCount >= 2) {
+                        return true;
+                    }
+
+                    if(!TryPickUnusedFilter(AvailableGamemodes, state.UsedGamemodes, out var chosenGamemode)) {
+                        return true;
+                    }
+
+                    destination.Add(CreateFilteredChallenge(def, chosenGamemode, weeklyVariant));
+                    state.UsedGamemodes.Add(chosenGamemode);
+                    state.PlayMatchesChallengeCount++;
+                    state.AddedCount++;
+                    if(markSpecialChallengeIdsAsUsed) {
+                        state.ActiveIds.Add(def.id);
+                    }
+
+                    return true;
+                }
+                case "weapon_kills": {
+                    if(state.WeaponKillsChallengeCount >= 2) {
+                        return true;
+                    }
+
+                    if(!TryPickUnusedFilter(AvailableWeapons, state.UsedWeapons, out var chosenWeapon)) {
+                        return true;
+                    }
+
+                    destination.Add(CreateFilteredChallenge(def, chosenWeapon, weeklyVariant));
+                    state.UsedWeapons.Add(chosenWeapon);
+                    state.WeaponKillsChallengeCount++;
+                    state.AddedCount++;
+                    if(markSpecialChallengeIdsAsUsed) {
+                        state.ActiveIds.Add(def.id);
+                    }
+
+                    return true;
+                }
+                default:
+                    return false;
+            }
+        }
+
+        private static bool TryPickUnusedFilter(IEnumerable<string> available, ISet<string> used,
+            out string choice) {
+            var availableForPicking = new List<string>();
+            foreach(var value in available) {
+                if(!used.Contains(value)) {
+                    availableForPicking.Add(value);
+                }
+            }
+
+            if(availableForPicking.Count == 0) {
+                choice = null;
+                return false;
+            }
+
+            choice = availableForPicking[UnityEngine.Random.Range(0, availableForPicking.Count)];
+            return true;
+        }
+
+        private static ActiveChallengeData CreateFilteredChallenge(ChallengeDefinition def, string filterId, bool weeklyVariant) {
+            var minTarget = Mathf.Max(1, def.GetMinTarget(weeklyVariant));
+            var maxTarget = Mathf.Max(minTarget, def.GetMaxTarget(weeklyVariant));
+            var target = UnityEngine.Random.Range(minTarget, maxTarget + 1);
+
+            return new ActiveChallengeData {
+                challengeID = def.id,
+                filterID = filterId,
+                targetProgress = target,
+                currentProgress = 0,
+                xpReward = CalculateXpReward(def, target, weeklyVariant),
+                isCompleted = false
+            };
+        }
+
+        private static ActiveChallengeData CreateStandardChallenge(ChallengeDefinition def, bool weeklyVariant,
+            bool useVariantBounds) {
+            var minTarget = useVariantBounds ? Mathf.Max(1, def.GetMinTarget(weeklyVariant)) : def.minTarget;
+            var maxTarget = useVariantBounds
+                ? Mathf.Max(minTarget, def.GetMaxTarget(weeklyVariant))
+                : Mathf.Max(minTarget, def.maxTarget);
+            var target = UnityEngine.Random.Range(minTarget, maxTarget + 1);
+
+            return new ActiveChallengeData {
+                challengeID = def.id,
+                filterID = def.weaponID,
+                targetProgress = target,
+                currentProgress = 0,
+                xpReward = CalculateXpReward(def, target, weeklyVariant),
+                isCompleted = false
+            };
         }
 
         private static void NotifyChallengesUpdated() {
