@@ -58,7 +58,13 @@ namespace Game.Menu.Options {
                 ctx.RegisterCleanup(() => _sensitivitySlider.UnregisterCallback(handler));
             }
             _sensitivityValue?.AddToClassList("sensitivity-input");
-            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_sensitivitySlider, _sensitivityValue, 0.01f, 0.5f, false));
+            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(new OptionsSettingsHelpers.VolumeInputFieldSetupRequest {
+                Slider = _sensitivitySlider,
+                TextField = _sensitivityValue,
+                MinValue = 0.01f,
+                MaxValue = 0.5f,
+                IsPercentage = false
+            }));
 
             RegisterCheckboxButtons(ctx, _invertYButton, _playerTrailsButton, _streamerModeButton,
                 _holdMantleButton, _profanityFilterButton, _autoWallRunButton, _analyticsButton);

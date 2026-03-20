@@ -61,11 +61,41 @@ namespace Game.Menu.Options {
             RefreshVoiceDeviceChoices();
             RefreshVoiceDevicesDeferred(ctx.Root);
 
-            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_masterVolumeSlider, _masterVolumeValue, 0f, 1f, true));
-            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_musicVolumeSlider, _musicVolumeValue, 0f, 1f, true));
-            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_sfxVolumeSlider, _sfxVolumeValue, 0f, 1f, true));
-            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_voiceVolumeSlider, _voiceVolumeValue, 0f, 1f, true));
-            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_voiceInputVolumeSlider, _voiceInputVolumeValue, 0f, 1f, true));
+            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(new OptionsSettingsHelpers.VolumeInputFieldSetupRequest {
+                Slider = _masterVolumeSlider,
+                TextField = _masterVolumeValue,
+                MinValue = 0f,
+                MaxValue = 1f,
+                IsPercentage = true
+            }));
+            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(new OptionsSettingsHelpers.VolumeInputFieldSetupRequest {
+                Slider = _musicVolumeSlider,
+                TextField = _musicVolumeValue,
+                MinValue = 0f,
+                MaxValue = 1f,
+                IsPercentage = true
+            }));
+            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(new OptionsSettingsHelpers.VolumeInputFieldSetupRequest {
+                Slider = _sfxVolumeSlider,
+                TextField = _sfxVolumeValue,
+                MinValue = 0f,
+                MaxValue = 1f,
+                IsPercentage = true
+            }));
+            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(new OptionsSettingsHelpers.VolumeInputFieldSetupRequest {
+                Slider = _voiceVolumeSlider,
+                TextField = _voiceVolumeValue,
+                MinValue = 0f,
+                MaxValue = 1f,
+                IsPercentage = true
+            }));
+            ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(new OptionsSettingsHelpers.VolumeInputFieldSetupRequest {
+                Slider = _voiceInputVolumeSlider,
+                TextField = _voiceInputVolumeValue,
+                MinValue = 0f,
+                MaxValue = 1f,
+                IsPercentage = true
+            }));
 
             // Live preview: update runtime audio as the user drags sliders.
             // Persisting still only happens on Apply (OptionsMenuManager -> Save()).

@@ -8,6 +8,14 @@ namespace Game.Menu.Options {
     /// Static utility class for options menu shared logic.
     /// </summary>
     public static class OptionsSettingsHelpers {
+        public struct VolumeInputFieldSetupRequest {
+            public Slider Slider { get; set; }
+            public TextField TextField { get; set; }
+            public float MinValue { get; set; }
+            public float MaxValue { get; set; }
+            public bool IsPercentage { get; set; }
+        }
+
         public const float ShadowDistanceMax = 500f;
 
         // Target FPS indices (matches dropdown order: 30, 60, 120, 144, Unlimited)
@@ -129,7 +137,12 @@ namespace Game.Menu.Options {
         /// <summary>
         /// Sets up volume or sensitivity input field with filtering and apply on Enter/blur. Returns cleanup action.
         /// </summary>
-        public static Action SetupVolumeInputField(Slider slider, TextField textField, float minValue, float maxValue, bool isPercentage) {
+        public static Action SetupVolumeInputField(in VolumeInputFieldSetupRequest request) {
+            var slider = request.Slider;
+            var textField = request.TextField;
+            var minValue = request.MinValue;
+            var maxValue = request.MaxValue;
+            var isPercentage = request.IsPercentage;
             if(slider == null || textField == null) return () => { };
             textField.maxLength = isPercentage ? 4 : 5;
             textField.isDelayed = false;
