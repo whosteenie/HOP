@@ -286,103 +286,140 @@ namespace Game.Player.Input {
         private void LateUpdate() {
             if(!IsOwner) return;
 
+            if(!TryPrepareLateUpdate(out var fireMode)) {
+                return;
+            }
+
+            UpdatePushToTalkState();
+
+            if(!HandleFullAutoFireFromLateUpdate(fireMode)) {
+                return;
+            }
+
+            var jumpPressed = _jumpAction.IsPressed();
+            var scrollPressed = ProcessScrollInputsForLateUpdate();
+
+            if(!HandleJumpMantleAndGrappleFromLateUpdate(jumpPressed, scrollPressed)) {
+                return;
+            }
+
+            UpdateScoreboardVisibilityFromLateUpdate();
+            HandleScoreboardMouseUnlockFromLateUpdate();
+        }
+
+        private bool TryPrepareLateUpdate(out WeaponData.FireModeType fireMode) {
+            fireMode = WeaponData.FireModeType.Semi;
+
             UpdateHopballInteractPrompt();
-            if(!CurrentWeapon || WeaponManager == null) return;
+            if(!CurrentWeapon || WeaponManager == null) return false;
 
             var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
-            var fireMode = weaponData.fireModeType;
+            fireMode = weaponData.fireModeType;
 
             if(_attackAction == null || _jumpAction == null || _voiceAction == null) {
                 RefreshCachedInputActions();
             }
 
-            if(_jumpAction == null) return;
+            return _jumpAction != null;
+        }
 
-            if(VoiceManager.Instance != null && _voiceAction != null) {
-                var isPressed = _voiceAction.IsPressed();
-                VoiceManager.Instance.SetPttActive(isPressed && !_isChatOpen);
-            }
+        private void UpdatePushToTalkState() {
+            if(VoiceManager.Instance == null || _voiceAction == null) return;
+            var isPressed = _voiceAction.IsPressed();
+            VoiceManager.Instance.SetPttActive(isPressed && !_isChatOpen);
+        }
 
+        private bool HandleFullAutoFireFromLateUpdate(WeaponData.FireModeType fireMode) {
             var attackPressed = _attackAction != null && _attackAction.IsPressed();
             var attackPressedThisFrame = attackPressed && _attackBtnDown == false;
             _attackBtnDown = attackPressed;
 
-            if(!IsPreMatchOrPausedOrDead && fireMode == WeaponData.FireModeType.Full && attackPressed &&
-               !IsMantling &&
-               _playerContext is not { IsHoldingHopball: true }) {
-                if(attackPressedThisFrame) {
-                    if(CurrentWeapon.TryAutoReloadFromEmptyClick()) {
-                        return;
-                    }
+            if(IsPreMatchOrPausedOrDead || fireMode != WeaponData.FireModeType.Full || !attackPressed ||
+               IsMantling ||
+               _playerContext is { IsHoldingHopball: true }) return true;
+            if(attackPressedThisFrame) {
+                if(CurrentWeapon.TryAutoReloadFromEmptyClick()) {
+                    return false;
                 }
-
-                CurrentWeapon.Shoot();
             }
 
-            var jumpPressed = _jumpAction.IsPressed();
+            CurrentWeapon.Shoot();
+
+            return true;
+        }
+
+        private bool ProcessScrollInputsForLateUpdate() {
             var scrollPressed = false;
 
-            if(Mouse.current != null && Mouse.current.scroll.value.magnitude > 0f) {
-                var scrollY = Mouse.current.scroll.value.y;
-                var nextWeaponScrollPressed =
-                    IsScrollBindingTriggered(_nextWeaponScrollUpBound, _nextWeaponScrollDownBound, scrollY);
-                var previousWeaponScrollPressed =
-                    IsScrollBindingTriggered(_previousWeaponScrollUpBound, _previousWeaponScrollDownBound, scrollY);
+            if(Mouse.current == null || !(Mouse.current.scroll.value.magnitude > 0f)) return false;
+            var scrollY = Mouse.current.scroll.value.y;
+            var nextWeaponScrollPressed =
+                IsScrollBindingTriggered(_nextWeaponScrollUpBound, _nextWeaponScrollDownBound, scrollY);
+            var previousWeaponScrollPressed =
+                IsScrollBindingTriggered(_previousWeaponScrollUpBound, _previousWeaponScrollDownBound, scrollY);
 
-                if(nextWeaponScrollPressed && !previousWeaponScrollPressed) {
-                    QueueWeaponCycleFromScroll(1);
-                } else if(previousWeaponScrollPressed && !nextWeaponScrollPressed) {
-                    QueueWeaponCycleFromScroll(-1);
-                }
-
-                // If scroll was consumed for weapon cycling, do not also treat it as jump input.
-                if(!nextWeaponScrollPressed && !previousWeaponScrollPressed) {
-                    scrollPressed = IsScrollBindingTriggered(_jumpScrollUpBound, _jumpScrollDownBound, scrollY);
-                }
+            if(nextWeaponScrollPressed && !previousWeaponScrollPressed) {
+                QueueWeaponCycleFromScroll(1);
+            } else if(previousWeaponScrollPressed && !nextWeaponScrollPressed) {
+                QueueWeaponCycleFromScroll(-1);
             }
 
-            if(!IsPausedOrDead && (jumpPressed || scrollPressed) && CanMantleJump) {
-                // Check if hold-to-mantle is enabled
-                var controls = GameSettings.Data.controls;
-                var holdMantleEnabled = controls == null || controls.holdMantle;
+            // If scroll was consumed for weapon cycling, do not also treat it as jump input.
+            if(!nextWeaponScrollPressed && !previousWeaponScrollPressed) {
+                scrollPressed = IsScrollBindingTriggered(_jumpScrollUpBound, _jumpScrollDownBound, scrollY);
+            }
 
-                // Prioritize Wall Jump over Mantle
-                var isWallRunning = _playerContext is { IsWallRunning: true };
+            return scrollPressed;
+        }
 
-                switch(isWallRunning) {
-                    // Prevent "Auto-Hop" (holding jump) from unintentionally triggering wall jumps.
-                    // If wall running, require a fresh jump press (triggered) or scroll wheel input.
-                    case true when !scrollPressed && !_jumpAction.triggered:
-                        // Jump is held, but not fresh press - ignore for wall jumping
-                        return;
-                    // Try mantle if enabled and not grounded (and not wall running)
-                    case false when holdMantleEnabled && _playerContext is not {
-                        IsGrounded: true
-                    }: {
-                        _playerContext?.TryMantle();
+        private bool HandleJumpMantleAndGrappleFromLateUpdate(bool jumpPressed, bool scrollPressed) {
+            if(IsPausedOrDead || (!jumpPressed && !scrollPressed) || !CanMantleJump) return true;
+            // Check if hold-to-mantle is enabled
+            var controls = GameSettings.Data.controls;
+            var holdMantleEnabled = controls == null || controls.holdMantle;
 
-                        // If we started mantling, don't jump
-                        if(IsMantling) {
-                            return;
-                        }
+            // Prioritize Wall Jump over Mantle
+            var isWallRunning = _playerContext is { IsWallRunning: true };
 
-                        break;
+            switch(isWallRunning) {
+                // Prevent "Auto-Hop" (holding jump) from unintentionally triggering wall jumps.
+                // If wall running, require a fresh jump press (triggered) or scroll wheel input.
+                case true when !scrollPressed && !_jumpAction.triggered:
+                    // Jump is held, but not fresh press - ignore for wall jumping
+                    return false;
+                // Try mantle if enabled and not grounded (and not wall running)
+                case false when holdMantleEnabled && _playerContext is not {
+                    IsGrounded: true
+                }: {
+                    _playerContext?.TryMantle();
+
+                    // If we started mantling, don't jump
+                    if(IsMantling) {
+                        return false;
                     }
+
+                    break;
                 }
-
-                // Always allow hold-to-jump (for scroll wheel support)
-                _playerContext?.TryJump();
-
-                if(IsGrappling)
-                    _playerContext?.CancelGrapple();
             }
 
+            // Always allow hold-to-jump (for scroll wheel support)
+            _playerContext?.TryJump();
+
+            if(IsGrappling)
+                _playerContext?.CancelGrapple();
+
+            return true;
+        }
+
+        private void UpdateScoreboardVisibilityFromLateUpdate() {
             if(!_isPauseMenuOpen && Keyboard.current.tabKey.isPressed) {
                 EventBus.Publish(new ShowScoreboardEvent());
             } else if(_isScoreboardVisible) {
                 EventBus.Publish(new HideScoreboardEvent());
             }
+        }
 
+        private void HandleScoreboardMouseUnlockFromLateUpdate() {
             // Handle right-click to unlock mouse when scoreboard is open
             if(!_isScoreboardVisible) return;
             if(Mouse.current == null || !Mouse.current.rightButton.wasPressedThisFrame ||
