@@ -15,6 +15,12 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when the main menu should navigate back/cancel.
+    /// </summary>
+    public class MainMenuBackRequestedEvent : GameEvent {
+    }
+
+    /// <summary>
     /// Event published when the in-game pause menu state changes.
     /// </summary>
     public class PauseMenuStateChangedEvent : GameEvent {

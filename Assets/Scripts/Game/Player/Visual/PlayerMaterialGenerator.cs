@@ -211,7 +211,7 @@ namespace Game.Player.Visual {
             material.SetFloat(MetallicId, request.Metallic);
             material.SetFloat(WorkflowModeId, 0f); // Metallic workflow
 
-            if(request.EmissionEnabled && request.EmissionColor.HasValue) {
+            if(request is { EmissionEnabled: true, EmissionColor: not null }) {
                 material.SetColor(EmissionColorId, request.EmissionColor.Value);
                 
                 material.EnableKeyword("_EMISSION");

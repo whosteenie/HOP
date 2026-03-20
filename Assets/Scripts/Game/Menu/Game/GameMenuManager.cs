@@ -890,11 +890,21 @@ namespace Game.Menu.Game {
             if(!IsGameplaySceneContext()) return;
 
             if(IsPaused) {
-                if(!_optionsPanel.ClassListContains("hidden")) HideOptions();
-                else ResumeGame();
-            } else {
-                PauseGame();
+                var isOptionsVisible = _optionsPanel != null && !_optionsPanel.ClassListContains("hidden");
+                if(isOptionsVisible) {
+                    if(optionsMenuManager != null) {
+                        optionsMenuManager.HandleBackRequest();
+                    } else {
+                        HideOptions();
+                    }
+                    return;
+                }
+
+                ResumeGame();
+                return;
             }
+
+            PauseGame();
         }
 
         #region Setup Methods

@@ -130,6 +130,7 @@ namespace Events {
             typeof(ChatMessageReceivedEvent),
             typeof(ChatOpenStateChangedEvent),
             typeof(RestoreGameplayMenuPresentationEvent),
+            typeof(MainMenuBackRequestedEvent),
             typeof(TogglePauseMenuRequestedEvent),
             typeof(PauseMenuStateChangedEvent),
             typeof(IndicatorTargetStateChangedEvent)

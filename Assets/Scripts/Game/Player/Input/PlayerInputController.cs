@@ -11,6 +11,7 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityPlayerInputComponent = UnityEngine.InputSystem.PlayerInput;
 
 namespace Game.Player.Input {
@@ -841,14 +842,18 @@ namespace Game.Player.Input {
             // If chat is open, ignore pause input (Escape closes chat instead)
             if(_isChatOpen) return;
 
+            var activeSceneName = SceneManager.GetActiveScene().name;
+            if(string.Equals(activeSceneName, "MainMenu", System.StringComparison.OrdinalIgnoreCase)) {
+                EventBus.Publish(new MainMenuBackRequestedEvent());
+                return;
+            }
+
             EventBus.Publish(new TogglePauseMenuRequestedEvent());
         }
 
         [UsedImplicitly]
         private void OnInteract(InputValue _) {
-            if(!IsOwner || IsPausedOrDead) return;
-            var isMantling = IsMantling;
-            if(isMantling) return;
+            if(!IsOwner || IsPausedOrDead || IsMantling) return;
 
             _playerContext?.PickupHopball();
         }

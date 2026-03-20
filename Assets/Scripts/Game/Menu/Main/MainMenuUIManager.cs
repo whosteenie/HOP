@@ -80,6 +80,7 @@ namespace Game.Menu.Main {
         private Button _quitConfirmationNo;
 
         // Lobby leave modal
+        private VisualElement _lobbyLeaveModal;
         private Button _lobbyLeaveYes;
         private Button _lobbyLeaveNo;
 
@@ -227,7 +228,7 @@ namespace Game.Menu.Main {
             _quitConfirmationNo = QOptional<Button>("quit-confirmation-no");
 
             // Lobby leave modal
-            QOptional<VisualElement>("lobby-leave-modal");
+            _lobbyLeaveModal = QOptional<VisualElement>("lobby-leave-modal");
             _lobbyLeaveYes = QOptional<Button>("lobby-leave-yes");
             _lobbyLeaveNo = QOptional<Button>("lobby-leave-no");
 
@@ -565,6 +566,34 @@ namespace Game.Menu.Main {
             if(_quitConfirmationModal != null) {
                 _modalHost.ShowExistingModal(_quitConfirmationModal, "quit-confirmation");
             }
+        }
+
+        public void HandleMainMenuBackRequest() {
+            if(_quitConfirmationModal != null && !_quitConfirmationModal.ClassListContains("hidden")) {
+                UISound.PlayButtonClick(isBack: true);
+                _modalHost.HideModal("quit-confirmation");
+                OnQuitCancelled?.Invoke();
+                return;
+            }
+
+            ShowQuitConfirmation();
+        }
+
+        public bool HandleLobbyBackRequest() {
+            if(_lobbyLeaveModal != null && !_lobbyLeaveModal.ClassListContains("hidden")) {
+                UISound.PlayButtonClick(isBack: true);
+                _modalHost.HideModal("lobby-leave");
+                OnLobbyLeaveCancelled?.Invoke();
+                return true;
+            }
+
+            if(_lobbyLeaveModal == null) {
+                return false;
+            }
+
+            UISound.PlayButtonClick(isBack: true);
+            _modalHost.ShowExistingModal(_lobbyLeaveModal, "lobby-leave");
+            return true;
         }
 
         /// <summary>

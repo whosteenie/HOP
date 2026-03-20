@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Diagnostics;
+using Events;
 using Game.Menu.Loadout;
 using Game.Social;
 using Game.Match;
@@ -15,6 +16,7 @@ using Game.Settings;
 using Game.UI.Core;
 using Game.UI.Misc;
 using Game.UI.Screens;
+using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using Cursor = UnityEngine.Cursor;
 using SessionManager = Network.Session.SessionManager;
@@ -84,6 +86,8 @@ namespace Game.Menu.Main {
         // Direct back-button wiring so private match Back always returns to Gamemode Select
         private Button _privateMatchBackButton;
         private Action _privateMatchBackClickHandler;
+        private bool _backInputEventsBound;
+        private int _lastBackHandledFrame = -1;
 
         #endregion
 
@@ -116,20 +120,33 @@ namespace Game.Menu.Main {
         }
 
         protected void OnDisable() {
+            UnbindBackInputEvents();
             SetOptionsOpenState(false, false);
         }
 
+        private void OnEnable() {
+            BindBackInputEvents();
+        }
+
         protected override void OnDestroy() {
+            UnbindBackInputEvents();
             if(_privateMatchBackButton != null && _privateMatchBackClickHandler != null) {
                 _privateMatchBackButton.clicked -= _privateMatchBackClickHandler;
             }
             base.OnDestroy();
         }
 
+        private void Update() {
+            var keyboard = Keyboard.current;
+            if(keyboard == null || !keyboard.escapeKey.wasPressedThisFrame) return;
+            TryHandleBackInputThisFrame();
+        }
+
         protected override void OnInitialize() {
             InitializeSubManagers();
             FindPanels();
             InitializeNavigator();
+            RegisterBackKeyHandler();
             WireSubManagerCallbacks();
         }
 
@@ -137,6 +154,45 @@ namespace Game.Menu.Main {
             return new Dictionary<string, Type> {
                 { "main-menu-panel", typeof(VisualElement) }
             };
+        }
+
+        private void RegisterBackKeyHandler() {
+            if(Root == null) return;
+            Root.RegisterCallback<KeyDownEvent>(OnRootKeyDown, TrickleDown.TrickleDown);
+            RegisterCleanup(() => {
+                if(Root != null) {
+                    Root.UnregisterCallback<KeyDownEvent>(OnRootKeyDown, TrickleDown.TrickleDown);
+                }
+            });
+        }
+
+        private void OnRootKeyDown(KeyDownEvent evt) {
+            if(evt == null || evt.keyCode != KeyCode.Escape) return;
+            TryHandleBackInputThisFrame();
+            evt.StopPropagation();
+        }
+
+        private void TryHandleBackInputThisFrame() {
+            var currentFrame = Time.frameCount;
+            if(_lastBackHandledFrame == currentFrame) return;
+            _lastBackHandledFrame = currentFrame;
+            HandleEscapeBackRequest();
+        }
+
+        private void BindBackInputEvents() {
+            if(_backInputEventsBound) return;
+            EventBus.Subscribe<MainMenuBackRequestedEvent>(OnMainMenuBackRequested);
+            _backInputEventsBound = true;
+        }
+
+        private void UnbindBackInputEvents() {
+            if(!_backInputEventsBound) return;
+            EventBus.Unsubscribe<MainMenuBackRequestedEvent>(OnMainMenuBackRequested);
+            _backInputEventsBound = false;
+        }
+
+        private void OnMainMenuBackRequested(MainMenuBackRequestedEvent _) {
+            TryHandleBackInputThisFrame();
         }
 
         private void WireSubManagerCallbacks() {
@@ -334,6 +390,47 @@ namespace Game.Menu.Main {
         #endregion
 
         #region Navigation
+
+        private void HandleEscapeBackRequest() {
+            switch(_currentPanelState) {
+                case MainMenuPanelState.Options:
+                    if(optionsMenuManager != null) {
+                        optionsMenuManager.HandleBackRequest();
+                    }
+                    return;
+                case MainMenuPanelState.Loadout:
+                    if(uiManager != null && uiManager.loadoutManager != null) {
+                        uiManager.loadoutManager.HandleBackRequest();
+                    }
+                    return;
+                case MainMenuPanelState.PrivateMatchSetup:
+                    if(privateMatchSetupManager == null) return;
+                    UISound.PlayButtonClick(isBack: true);
+                    if(privateMatchSetupManager.OnBackRequested != null) {
+                        privateMatchSetupManager.OnBackRequested.Invoke();
+                    }
+                    return;
+                case MainMenuPanelState.GamemodeSelect:
+                case MainMenuPanelState.Credits:
+                    UISound.PlayButtonClick(isBack: true);
+                    TransitionToState(MainMenuPanelState.MainMenu);
+                    return;
+                case MainMenuPanelState.Lobby:
+                    if(uiManager != null && uiManager.HandleLobbyBackRequest()) {
+                        return;
+                    }
+                    UISound.PlayButtonClick(isBack: true);
+                    TransitionToState(MainMenuPanelState.MainMenu);
+                    return;
+                case MainMenuPanelState.MainMenu:
+                    if(uiManager != null) {
+                        uiManager.HandleMainMenuBackRequest();
+                    }
+                    return;
+                default:
+                    return;
+            }
+        }
 
         private void TransitionToState(MainMenuPanelState state) {
             while(true) {

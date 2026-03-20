@@ -564,6 +564,16 @@ namespace Game.Menu.Options {
             UpdateApplyButtonEnabledState();
         }
 
+        public void HandleBackRequest() {
+            if(_unsavedChangesModal != null && !_unsavedChangesModal.ClassListContains("hidden")) {
+                OnUnsavedChangesCancel();
+                return;
+            }
+
+            OnButtonClicked(true);
+            OnBackFromOptions();
+        }
+
         #endregion
     }
 }

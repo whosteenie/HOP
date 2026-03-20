@@ -1619,6 +1619,16 @@ namespace Game.Menu.Loadout {
             StartCoroutine(HideLoadoutAndSwitchPanel());
         }
 
+        public void HandleBackRequest() {
+            if(_loadoutUnsavedModal != null && !_loadoutUnsavedModal.ClassListContains("hidden")) {
+                OnLoadoutUnsavedCancel();
+                return;
+            }
+
+            (_backButtonClickAction ?? (() => UISound.PlayButtonClick(true)))();
+            OnBackClicked();
+        }
+
         private IEnumerator HideLoadoutAndSwitchPanel() {
             // Mark preview as inactive to stop brute force rendering
             _previewActive = false;
