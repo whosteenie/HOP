@@ -123,7 +123,7 @@ namespace Game.Player.Visual {
             if(currentWorldWeapon == null) return;
 
             // Skip hopball visual (managed separately)
-            if(currentWorldWeapon.GetComponent<PlayerManagedVisualMarker>() != null) return;
+            if(PlayerManagedVisualMarker.IsManagedVisual(currentWorldWeapon)) return;
 
             // Check if weapon changed - refresh cache if needed
             var currentWeaponIndex = _weaponManager != null ? _weaponManager.CurrentWeaponIndex : -1;

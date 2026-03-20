@@ -1,4 +1,5 @@
 using UnityEngine;
+// ReSharper disable UnusedMember.Global
 
 namespace Game.Weapon.Kinemation {
     /// <summary>

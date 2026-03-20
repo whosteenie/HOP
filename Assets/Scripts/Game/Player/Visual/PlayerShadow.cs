@@ -147,7 +147,7 @@ namespace Game.Player.Visual {
                 }
                 
                 // Skip subsystem-managed visuals (they're handled separately)
-                if(mr.GetComponent<PlayerManagedVisualMarker>() != null) {
+                if(PlayerManagedVisualMarker.IsManagedVisual(mr.gameObject)) {
                     continue;
                 }
             
@@ -165,7 +165,7 @@ namespace Game.Player.Visual {
 
             if(currentWorldWeapon != null) {
                 // Skip subsystem-managed visuals (they're handled separately)
-                if(currentWorldWeapon.GetComponent<PlayerManagedVisualMarker>() != null) {
+                if(PlayerManagedVisualMarker.IsManagedVisual(currentWorldWeapon)) {
                     return;
                 }
                 
