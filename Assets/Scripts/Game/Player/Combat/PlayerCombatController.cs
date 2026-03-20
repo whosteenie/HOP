@@ -5,6 +5,7 @@ using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Contracts;
+using Game.Weapon.Contracts;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using Network.Components;
@@ -188,8 +189,15 @@ namespace Game.Player.Combat {
         /// <summary>
         /// Applies damage to the player on the server (authoritative).
         /// </summary>
-        public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
-            string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
+        public bool ApplyDamageServer_Auth(in DamageApplicationRequest request) {
+            var amount = request.Damage;
+            var hitPoint = request.HitPoint;
+            var hitDirection = request.HitDirection;
+            var attackerId = request.AttackerClientId;
+            var bodyPartTag = request.BodyPartTag;
+            var isHeadshot = request.IsHeadshot;
+            var weaponId = request.WeaponId;
+
             RefreshStateBindings();
             if(!HasCombatAuthority || netIsDead == null || _deathStatePending) return false;
             if(ResolveAuthoritativeIsDead()) return false;

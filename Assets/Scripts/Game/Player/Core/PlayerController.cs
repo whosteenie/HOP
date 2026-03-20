@@ -790,14 +790,8 @@ namespace Game.Player.Core {
 
         #region Damage & Death Methods
 
-        private bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
-            string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
-            if(combatController != null) {
-                return combatController.ApplyDamageServer_Auth(amount, hitPoint, hitDirection, attackerId, bodyPartTag,
-                    isHeadshot, weaponId);
-            }
-
-            return false;
+        private bool ApplyDamageServer_Auth(in DamageApplicationRequest request) {
+            return combatController != null && combatController.ApplyDamageServer_Auth(request);
         }
 
         #endregion
@@ -1413,8 +1407,7 @@ namespace Game.Player.Core {
         IWeaponDamageRelay IWeaponCombatParticipant.DamageRelay => damageRelay;
 
         bool IWeaponCombatParticipant.ApplyDamageServerAuth(in DamageApplicationRequest request) {
-            return ApplyDamageServer_Auth(request.Damage, request.HitPoint, request.HitDirection,
-                request.AttackerClientId, request.BodyPartTag, request.IsHeadshot, request.WeaponId);
+            return ApplyDamageServer_Auth(request);
         }
 
         void IWeaponCombatParticipant.ProcessRespawnRequest() {

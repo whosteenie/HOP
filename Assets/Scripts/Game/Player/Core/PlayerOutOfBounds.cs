@@ -1,5 +1,6 @@
 using Events;
 using Game.Match;
+using Game.Weapon.Contracts;
 using Network.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -72,8 +73,12 @@ namespace Game.Player.Core {
                 _lastDeathTime = Time.time;
                 ClearTriggerOobCountdownServer();
                 if(_player.CombatController != null) {
-                    _player.CombatController.ApplyDamageServer_Auth(1000f, _player.PlayerTransform.position, Vector3.up,
-                        ulong.MaxValue);
+                    _player.CombatController.ApplyDamageServer_Auth(new DamageApplicationRequest {
+                        Damage = 1000f,
+                        HitPoint = _player.PlayerTransform.position,
+                        HitDirection = Vector3.up,
+                        AttackerClientId = ulong.MaxValue
+                    });
                 }
                 return;
             }
@@ -107,8 +112,12 @@ namespace Game.Player.Core {
             _lastDeathTime = Time.time;
             ClearTriggerOobCountdownServer();
             if(_player.CombatController != null) {
-                _player.CombatController.ApplyDamageServer_Auth(1000f, _player.PlayerTransform.position, Vector3.up,
-                    ulong.MaxValue);
+                _player.CombatController.ApplyDamageServer_Auth(new DamageApplicationRequest {
+                    Damage = 1000f,
+                    HitPoint = _player.PlayerTransform.position,
+                    HitDirection = Vector3.up,
+                    AttackerClientId = ulong.MaxValue
+                });
             }
         }
 
