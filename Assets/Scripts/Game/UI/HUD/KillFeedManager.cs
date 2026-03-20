@@ -27,6 +27,15 @@ namespace Game.UI.HUD {
         private readonly Dictionary<VisualElement, Coroutine> _fadeCoroutines = new();
         private bool _killFeedTemplateErrorLogged;
 
+        private struct KillFeedEntryRequest {
+            public string ActorName { get; set; }
+            public string TargetName { get; set; }
+            public bool IsLocalActor { get; set; }
+            public ulong ActorClientId { get; set; }
+            public ulong TargetClientId { get; set; }
+            public bool WasKill { get; set; }
+        }
+
         // Cached references for performance
         private MatchSettingsManager _cachedMatchSettings;
         private bool _cachedIsTeamBased;
@@ -52,7 +61,14 @@ namespace Game.UI.HUD {
         #region Event Handlers
 
         private void OnAddKillFeedEntry(AddKillFeedEntryEvent evt) {
-            AddEntryToFeed(evt.Killer, evt.Victim, evt.IsLocalKiller, evt.KillerId, evt.VictimId, evt.WasKill);
+            AddEntryToFeed(new KillFeedEntryRequest {
+                ActorName = evt.Killer,
+                TargetName = evt.Victim,
+                IsLocalActor = evt.IsLocalKiller,
+                ActorClientId = evt.KillerId,
+                TargetClientId = evt.VictimId,
+                WasKill = evt.WasKill
+            });
         }
 
         private void OnPlayerDied(PlayerDiedEvent evt) {
@@ -89,7 +105,14 @@ namespace Game.UI.HUD {
                 isLocalKiller = networkManager.LocalClientId == evt.KillerId;
             }
 
-            AddEntryToFeed(killerName, victimName, isLocalKiller, killerClientId, victimClientId, wasKill: true);
+            AddEntryToFeed(new KillFeedEntryRequest {
+                ActorName = killerName,
+                TargetName = victimName,
+                IsLocalActor = isLocalKiller,
+                ActorClientId = killerClientId,
+                TargetClientId = victimClientId,
+                WasKill = true
+            });
         }
 
         private void OnShowKillFeed(ShowKillFeedEvent evt) {
@@ -114,8 +137,7 @@ namespace Game.UI.HUD {
         /// For kills in normal modes, uses kill icon. For tag transfers in Gun Tag mode, uses tag icon.
         /// Event handler - called via EventBus
         /// </summary>
-        private void AddEntryToFeed(string actorName, string targetName, bool isLocalActor, ulong actorClientId,
-            ulong targetClientId, bool wasKill) {
+        private void AddEntryToFeed(in KillFeedEntryRequest request) {
             // Refresh MatchSettingsManager cache if needed
             if(_cachedMatchSettings == null || !_gameModeCacheValid) {
                 _cachedMatchSettings = MatchSettingsManager.Instance;
@@ -131,10 +153,11 @@ namespace Game.UI.HUD {
             }
 
             // Gun Tag uses tag icon only for tag-transfer entries. Real kills (including OOB) always use kill icon.
-            var useTagIcon = !wasKill && _cachedIsTagMode && taggedIconSprite != null;
+            var useTagIcon = !request.WasKill && _cachedIsTagMode && taggedIconSprite != null;
             var icon = useTagIcon ? taggedIconSprite : killIconSprite;
 
-            AddEntryToFeedInternal(actorName, targetName, isLocalActor, actorClientId, targetClientId, icon);
+            AddEntryToFeedInternal(request.ActorName, request.TargetName, request.IsLocalActor, request.ActorClientId,
+                request.TargetClientId, icon);
         }
 
         /// <summary>
