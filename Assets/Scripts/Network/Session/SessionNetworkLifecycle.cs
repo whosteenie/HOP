@@ -124,7 +124,7 @@ namespace Network.Session {
         /// Leaves the active UGS multiplayer session and shuts down the Netcode NetworkManager.
         /// </summary>
         public static async UniTask CleanupNetworkAsync(ISessionContext ctx, INetworkLifecycleActions actions) {
-            if(ctx.IsShuttingDown || SessionManager.IsEditorPlayModeExitInProgress) return;
+            if(ctx.IsShuttingDown || ctx.IsEditorPlayModeExitInProgress) return;
 #if UNITY_EDITOR
             if(!Application.isPlaying) return;
 #endif
@@ -589,7 +589,7 @@ namespace Network.Session {
             Func<bool> hasActiveSession,
             Action<string> triggerUnexpectedDisconnect) {
             if(ctx.IsExpectedDisconnect || ctx.IsLeaving || ctx.IsShuttingDown) return;
-            if(SessionManager.IsEditorPlayModeExitInProgress) return;
+            if(ctx.IsEditorPlayModeExitInProgress) return;
             if(IsDaStartupInFlight) {
                 if(Debug.isDebugBuild)
                     DevLog.Log("[SessionManager] Ignoring client-stopped callback during DA startup window.");
@@ -634,7 +634,7 @@ namespace Network.Session {
                     ctx.NotifyPartyStateChanged();
                     return;
                 }
-                if(ctx.IsShuttingDown || SessionManager.IsEditorPlayModeExitInProgress) {
+                if(ctx.IsShuttingDown || ctx.IsEditorPlayModeExitInProgress) {
                     ctx.NotifyPartyStateChanged();
                     return;
                 }

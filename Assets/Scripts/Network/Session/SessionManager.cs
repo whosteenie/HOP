@@ -100,7 +100,7 @@ namespace Network.Session {
             }
         }
 
-        internal static bool IsEditorPlayModeExitInProgress { get; private set; }
+        private static bool IsEditorPlayModeExitInProgress { get; set; }
 #else
         internal static bool IsEditorPlayModeExitInProgress => false;
 #endif
@@ -814,6 +814,8 @@ namespace Network.Session {
         bool ISessionContext.IsInGameplay => IsInGameplay;
         bool ISessionContext.IsLeaving => _isLeaving;
         bool ISessionContext.IsShuttingDown => _isShuttingDown;
+        bool ISessionContext.IsEditorPlayModeExitInProgress => IsEditorPlayModeExitInProgress;
+        bool ISessionContext.IsDaStartupInFlight => SessionNetworkLifecycle.IsDaStartupInFlight;
         bool ISessionContext.IsExpectedDisconnect => IsExpectedDisconnect;
         bool ISessionContext.IsSearching => IsSearching;
         bool ISessionContext.IsSessionBusy => IsSessionBusy;
@@ -841,6 +843,9 @@ namespace Network.Session {
         bool ISessionContext.TryGetUnityTransport(string operationName, out NetworkManager networkManager,
             out UnityTransport transport) =>
             TryGetUnityTransport(operationName, out networkManager, out transport);
+
+        void ISessionContext.ApplyLocalConnectionPayload(bool isPrivateMatch) =>
+            SessionNetworkLifecycle.ApplyLocalConnectionPayload(this, isPrivateMatch);
 
         bool ISessionContext.TryBeginSessionOperation(string operationName) => TryBeginSessionOperation(operationName);
         void ISessionContext.EndSessionOperation() => EndSessionOperation();

@@ -230,12 +230,12 @@ namespace Network.Session {
         /// Launches HandleUnexpectedDisconnect if not already in progress.
         /// </summary>
         public void TriggerDisconnectFlow(ISessionContext ctx, ISceneFlowActions actions, string source) {
-            if(SessionManager.IsEditorPlayModeExitInProgress) return;
+            if(ctx.IsEditorPlayModeExitInProgress) return;
 #if UNITY_EDITOR
             if(!Application.isPlaying) return;
 #endif
             if(_unexpectedDisconnectInFlight || ctx.IsLeaving || ctx.IsShuttingDown) return;
-            if(SessionNetworkLifecycle.IsDaStartupInFlight) {
+            if(ctx.IsDaStartupInFlight) {
                 if(Debug.isDebugBuild) {
                     DevLog.Log($"[SessionManager] Suppressed unexpected disconnect flow during DA startup ({source}).");
                 }
@@ -344,7 +344,7 @@ namespace Network.Session {
                 utp.SetConnectionData("127.0.0.1", 7777);
                 networkManager.NetworkConfig.NetworkTransport = utp;
 
-                SessionNetworkLifecycle.ApplyLocalConnectionPayload(ctx, true);
+                ctx.ApplyLocalConnectionPayload(true);
                 if(!networkManager.StartHost()) {
                     if(Debug.isDebugBuild) DevLog.LogError("[SessionManager] Failed to start offline host after cleanup.");
                     ctx.SetFrontStatus(SessionPhase.Error, "Failed to start offline host.");

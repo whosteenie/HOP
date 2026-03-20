@@ -24,6 +24,8 @@ namespace Network.Contracts {
         bool IsInGameplay { get; }
         bool IsLeaving { get; }
         bool IsShuttingDown { get; }
+        bool IsEditorPlayModeExitInProgress { get; }
+        bool IsDaStartupInFlight { get; }
         bool IsExpectedDisconnect { get; }
         bool IsSearching { get; }
         bool IsSessionBusy { get; }
@@ -48,6 +50,7 @@ namespace Network.Contracts {
         void LaunchSessionTask(UniTask task, string label);
         bool TryGetNetworkManager(string operationName, out NetworkManager networkManager);
         bool TryGetUnityTransport(string operationName, out NetworkManager networkManager, out UnityTransport transport);
+        void ApplyLocalConnectionPayload(bool isPrivateMatch);
         bool TryBeginSessionOperation(string name);
         void EndSessionOperation();
 
