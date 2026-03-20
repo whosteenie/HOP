@@ -1201,13 +1201,7 @@ namespace Network.Session {
 
             _isResubscribingPartyLobbyEvents = true;
             try {
-                await _partyLobbyEvents.SubscribeAsync();
-                if(Debug.isDebugBuild)
-                    DevLog.Log($"[SessionManager] Re-subscribed party lobby events ({context}) lobbyId='{PartyLobbyEventsLobbyId}'.");
-            } catch(Exception ex) {
-                if(ctx.IsShuttingDown) return;
-                if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
-                    DevLog.LogWarning($"[SessionManager] Failed to re-subscribe party lobby events ({context}): {ex.Message}");
+                await ResubscribeLobbyEventsCoreAsync(ctx, _partyLobbyEvents, context, PartyLobbyEventsLobbyId, "party");
             } finally {
                 _isResubscribingPartyLobbyEvents = false;
             }
@@ -1219,15 +1213,23 @@ namespace Network.Session {
 
             _isResubscribingMatchLobbyEvents = true;
             try {
-                await _matchLobbyEvents.SubscribeAsync();
+                await ResubscribeLobbyEventsCoreAsync(ctx, _matchLobbyEvents, context, MatchLobbyEventsLobbyId, "match");
+            } finally {
+                _isResubscribingMatchLobbyEvents = false;
+            }
+        }
+
+        private async UniTask ResubscribeLobbyEventsCoreAsync(ISessionContext ctx, ILobbyEvents eventsHandle,
+            string context, string lobbyId, string lobbyType) {
+            if(eventsHandle == null) return;
+            try {
+                await eventsHandle.SubscribeAsync();
                 if(Debug.isDebugBuild)
-                    DevLog.Log($"[SessionManager] Re-subscribed match lobby events ({context}) lobbyId='{MatchLobbyEventsLobbyId}'.");
+                    DevLog.Log($"[SessionManager] Re-subscribed {lobbyType} lobby events ({context}) lobbyId='{lobbyId}'.");
             } catch(Exception ex) {
                 if(ctx.IsShuttingDown) return;
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
-                    DevLog.LogWarning($"[SessionManager] Failed to re-subscribe match lobby events ({context}): {ex.Message}");
-            } finally {
-                _isResubscribingMatchLobbyEvents = false;
+                    DevLog.LogWarning($"[SessionManager] Failed to re-subscribe {lobbyType} lobby events ({context}): {ex.Message}");
             }
         }
 
