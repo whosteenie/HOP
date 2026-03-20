@@ -164,24 +164,59 @@ namespace Game.Weapon.Presentation {
         }
 
         private void LateUpdate() {
-            // Try to initialize if not already done
-            if(!_initialized) {
-                TryInitialize();
-                if(!_initialized) return; // Still not ready, skip this frame
-            }
+            if(!TryInitializeForLateUpdate()) return;
 
             var deltaTime = Time.deltaTime;
-            
-            var isGrounded = _context.IsGrounded;
-            var isMantling = _context.IsMantling;
+            var state = CaptureFrameState();
 
+            HandleMantleState(state.IsGrounded, state.IsMantling);
+            var suppressLandingFromMantle = ResolveMantleLandingSuppression(state.IsMantling);
+            HandleLandingTransition(state.IsGrounded, suppressLandingFromMantle);
+            UpdateLandingBobTimer(deltaTime);
+            UpdateJumpFallOffset(state.IsGrounded, state.VerticalVelocity, deltaTime);
+
+            _wasGrounded = state.IsGrounded;
+            _wasMantling = state.IsMantling;
+
+            var bobMotion = ComputeBobMotion(state, deltaTime);
+            var finalYBob = ComposeFinalYBob(bobMotion.yBob, deltaTime);
+
+            var finalMultiplier = adsMultiplier;
+            var bobOffset = new Vector3(bobMotion.xBob, finalYBob, bobMotion.zBob) * finalMultiplier;
+            var bobRotation = new Vector3(0f, 0f, bobMotion.rollBob) * finalMultiplier;
+
+            var idleMotion = ComputeIdleMotion(state, deltaTime, finalMultiplier);
+            ApplyPose(bobOffset, bobRotation, idleMotion.idleOffset, idleMotion.idleRotation);
+        }
+
+        private bool TryInitializeForLateUpdate() {
+            if(_initialized) return true;
+
+            TryInitialize();
+            return _initialized;
+        }
+
+        private FrameState CaptureFrameState() {
+            var velocity = _context.FullVelocity;
+            velocity.y = 0f;
+
+            return new FrameState(
+                _context.IsGrounded,
+                _context.IsMantling,
+                _context.IsSliding,
+                _context.IsWallRunning,
+                velocity,
+                velocity.magnitude,
+                _context.VerticalVelocity);
+        }
+
+        private void HandleMantleState(bool isGrounded, bool isMantling) {
             switch(isMantling) {
                 case true when !_wasMantling:
                     _pendingMantleLandingBob = false;
                     _mantleLandingBobPlayed = false;
                     break;
                 case false when _wasMantling:
-                    // Mantle settle can briefly bounce grounded state; suppress landing bob during that window.
                     _suppressLandingUntil = Time.time + MantleLandingBobSuppressSeconds;
                     _landingBobTimer = 0f;
                     _targetJumpFallOffset = 0f;
@@ -192,37 +227,38 @@ namespace Game.Weapon.Presentation {
                     break;
             }
 
-            if(_pendingMantleLandingBob && !_mantleLandingBobPlayed && isGrounded) {
-                if(CanStartLandingBob(ignoreJumpHeld: true)) {
-                    StartLandingBob();
-                }
-                _mantleLandingBobPlayed = true;
-                _pendingMantleLandingBob = false;
+            if(!_pendingMantleLandingBob || _mantleLandingBobPlayed || !isGrounded) return;
+            if(CanStartLandingBob(ignoreJumpHeld: true)) {
+                StartLandingBob();
             }
 
-            var suppressLandingFromMantle = isMantling || Time.time < _suppressLandingUntil;
+            _mantleLandingBobPlayed = true;
+            _pendingMantleLandingBob = false;
+        }
 
+        private bool ResolveMantleLandingSuppression(bool isMantling) {
+            var suppressLandingFromMantle = isMantling || Time.time < _suppressLandingUntil;
             if(!suppressLandingFromMantle) {
                 _pendingMantleLandingBob = false;
             }
 
-            // Detect landing
-            var wasGrounded = _wasGrounded;
+            return suppressLandingFromMantle;
+        }
 
-            if(isGrounded && !wasGrounded && !suppressLandingFromMantle) {
-                // Only start landing bob if jump wasn't initiated (allows normal landing)
-                // If jump was initiated, skip landing bob and let velocity system handle it
-                if(!_jumpInitiated && CanStartLandingBob(ignoreJumpHeld: false)) {
-                    StartLandingBob();
-                }
-                // Reset jump/fall state when landing
-                _targetJumpFallOffset = 0f;
-                // Reset jump flag when we actually land (safety reset)
-                _jumpInitiated = false;
+        private void HandleLandingTransition(bool isGrounded, bool suppressLandingFromMantle) {
+            var wasGrounded = _wasGrounded;
+            if(!isGrounded || wasGrounded || suppressLandingFromMantle) return;
+
+            if(!_jumpInitiated && CanStartLandingBob(ignoreJumpHeld: false)) {
+                StartLandingBob();
             }
 
+            _targetJumpFallOffset = 0f;
+            _jumpInitiated = false;
+        }
+
+        private void UpdateLandingBobTimer(float deltaTime) {
             switch(enableLandingBob) {
-                // Update landing bob timer
                 case true when _landingBobTimer > 0f:
                     _landingBobTimer -= deltaTime;
                     break;
@@ -230,32 +266,17 @@ namespace Game.Weapon.Presentation {
                     _landingBobTimer = 0f;
                     break;
             }
+        }
 
-            // Calculate movement speed
-            var velocity = _context.FullVelocity;
-            velocity.y = 0f;
-            var speed = velocity.magnitude;
-
-            var verticalVelocity = _context.VerticalVelocity;
-            
-            // Reset jump flag when we start falling (at apex) - this allows normal landings to play landing bob
-            // If we're falling and the flag is still set, it means we're past the jump phase and can allow landing bob
+        private void UpdateJumpFallOffset(bool isGrounded, float verticalVelocity, float deltaTime) {
             if(!isGrounded && verticalVelocity < -0.1f && _jumpInitiated) {
                 _jumpInitiated = false;
             }
-            
-            // Velocity-based jump/fall offset: inversely correlated with vertical velocity
-            // Positive velocity (rising) = negative offset (weapon lower)
-            // Negative velocity (falling) = positive offset (weapon higher)
+
             if(!enableJumpFallOffset || isGrounded) {
-                // Grounded: reset to idle
                 _targetJumpFallOffset = 0f;
             } else {
-                // Normalize velocity to 0-1 range based on max velocity
                 var normalizedVelocity = Mathf.Clamp01(Mathf.Abs(verticalVelocity) / maxVelocityForNormalization);
-                
-                // Apply curve to make correlation more natural (more responsive at low velocities, less extreme at high)
-                // Using power curve: lower exponent = more sensitive at start, less extreme at end
                 var curvedVelocity = Mathf.Pow(normalizedVelocity, velocityCurveExponent);
 
                 _targetJumpFallOffset = verticalVelocity switch {
@@ -265,73 +286,56 @@ namespace Game.Weapon.Presentation {
                 };
             }
 
-            // Smooth the offset transition
             _jumpFallOffset = Mathf.Lerp(_jumpFallOffset, _targetJumpFallOffset, jumpFallSmoothSpeed * deltaTime);
-            // Clamp to prevent extreme values
             _jumpFallOffset = Mathf.Clamp(_jumpFallOffset, maxJumpLowerAmount, maxFallRaiseAmount);
-            _wasGrounded = isGrounded;
-            _wasMantling = isMantling;
+        }
 
-            // Determine target bob intensity based on speed
-            // Disable bob when not grounded OR when sliding
-            // Allow bob when wall running (treat like grounded for bobbing purposes)
-            var isSliding = _context.IsSliding;
-            var isWallRunning = _context.IsWallRunning;
-            var canBob = isGrounded || isWallRunning;
-            
-            if(!enableMovementBob || !canBob || isSliding) {
+        private (float xBob, float yBob, float zBob, float rollBob) ComputeBobMotion(FrameState state, float deltaTime) {
+            var canBob = state.IsGrounded || state.IsWallRunning;
+
+            if(!enableMovementBob || !canBob || state.IsSliding || state.Speed < 0.1f) {
                 _targetBobIntensity = 0f;
-            } else if(speed < 0.1f) {
-                _targetBobIntensity = 0f;
-            } else if(speed < walkSpeed) {
-                _targetBobIntensity = Mathf.InverseLerp(0.1f, walkSpeed, speed);
+            } else if(state.Speed < walkSpeed) {
+                _targetBobIntensity = Mathf.InverseLerp(0.1f, walkSpeed, state.Speed);
             } else {
-                var sprintFactor = Mathf.InverseLerp(walkSpeed, sprintSpeed, speed);
+                var sprintFactor = Mathf.InverseLerp(walkSpeed, sprintSpeed, state.Speed);
                 _targetBobIntensity = Mathf.Lerp(1f, sprintBobMultiplier, sprintFactor);
             }
 
-            // Smooth intensity transitions
             _currentBobIntensity = Mathf.Lerp(_currentBobIntensity, _targetBobIntensity, smoothSpeed * deltaTime);
 
-            // Calculate dynamic frequency based on speed (only when grounded/wall running and moving)
             var currentFrequency = bobFrequency;
-            if(enableMovementBob && canBob && speed > 0.1f) {
-                // Scale frequency from minFrequency (walking) to maxFrequency (sprinting)
-                if(speed < walkSpeed) {
-                    // Walking: frequency scales from minFrequency to base frequency
-                    currentFrequency =
-                        Mathf.Lerp(minFrequency, bobFrequency, Mathf.InverseLerp(0.1f, walkSpeed, speed));
+            if(enableMovementBob && canBob && state.Speed > 0.1f) {
+                if(state.Speed < walkSpeed) {
+                    currentFrequency = Mathf.Lerp(minFrequency, bobFrequency, Mathf.InverseLerp(0.1f, walkSpeed, state.Speed));
                 } else {
-                    // Running/sprinting: frequency scales from base frequency to maxFrequency
-                    var sprintFactor = Mathf.InverseLerp(walkSpeed, sprintSpeed, speed);
+                    var sprintFactor = Mathf.InverseLerp(walkSpeed, sprintSpeed, state.Speed);
                     currentFrequency = Mathf.Lerp(bobFrequency, maxFrequency, sprintFactor);
                 }
 
-                // Clamp frequency to prevent going too crazy
                 currentFrequency = Mathf.Clamp(currentFrequency, minFrequency, maxFrequency);
             }
 
-            // Advance bob timer based on dynamic frequency
             if(_currentBobIntensity > 0.01f) {
                 _bobTimer += deltaTime * currentFrequency;
             } else {
                 _bobTimer = Mathf.Lerp(_bobTimer, 0f, smoothSpeed * deltaTime);
             }
 
-            // Use local movement direction so bob reflects actual motion (e.g. wall slide -> strafe bias)
-            var localVelocity = velocity;
+            var localVelocity = state.PlanarVelocity;
             if(_context.PlayerTransform != null) {
-                localVelocity = _context.PlayerTransform.InverseTransformDirection(velocity);
+                localVelocity = _context.PlayerTransform.InverseTransformDirection(state.PlanarVelocity);
             }
+
             _smoothedLocalVelocity = Vector3.Lerp(_smoothedLocalVelocity, localVelocity, directionSmoothing * deltaTime);
 
-            var planarSpeed = Mathf.Max(speed, 0.001f);
+            var planarSpeed = Mathf.Max(state.Speed, 0.001f);
             var directionalSpeed = new Vector2(_smoothedLocalVelocity.x, _smoothedLocalVelocity.z).magnitude;
             var useDirectional = directionalSpeed >= directionMinSpeed;
             var strafeFactor = useDirectional ? Mathf.Clamp(_smoothedLocalVelocity.x / planarSpeed, -1f, 1f) : 0f;
             var forwardFactor = useDirectional ? Mathf.Clamp(_smoothedLocalVelocity.z / planarSpeed, -1f, 1f) : 0f;
 
-            var bobScale = isWallRunning ? wallRunBobScale : 1f;
+            var bobScale = state.IsWallRunning ? wallRunBobScale : 1f;
             var cycle = _bobTimer;
             var xWave = Mathf.Sin(cycle + Mathf.PI * 0.5f);
             var yWave = Mathf.Sin(cycle * 2f);
@@ -339,7 +343,6 @@ namespace Game.Weapon.Presentation {
             var rollWave = Mathf.Sin(cycle);
             var forwardLateralWave = Mathf.Sin(cycle * 2f + Mathf.PI * 0.5f);
 
-            // Human-like grounded movement bob: lateral sway + step bounce + subtle depth pulse.
             var forwardLateralBob = forwardLateralWave * forwardLateralSwayAmount * Mathf.Abs(forwardFactor);
             var xBob = (xWave * bobHorizontalAmount +
                         strafeFactor * bobHorizontalAmount * strafeOffsetInfluence +
@@ -350,32 +353,29 @@ namespace Game.Weapon.Presentation {
                 (rollWave * bobRollAmount - strafeFactor * bobRollAmount * strafeRollInfluence) * _currentBobIntensity *
                 bobScale;
 
-            // Apply jump/fall offset only when landing bob is not active to prevent jitter
-            // When landing, the landing bob handles the animation, so we skip the jump/fall offset
+            return (xBob, yBob, zBob, rollBob);
+        }
+
+        private float ComposeFinalYBob(float yBob, float deltaTime) {
             var finalYBob = yBob;
             if(enableJumpFallOffset && _landingBobTimer <= 0f) {
-                // Landing bob is not active, apply jump/fall offset
                 finalYBob += _jumpFallOffset;
             } else {
-                // Landing bob is active, smoothly reset jump/fall offset to 0 to prevent sudden jumps
                 _jumpFallOffset = Mathf.Lerp(_jumpFallOffset, 0f, jumpFallSmoothSpeed * deltaTime);
             }
 
-            // Add landing bob (bouncy effect) - only if jump wasn't initiated
-            if(enableLandingBob && _landingBobTimer > 0f && !_jumpInitiated) {
-                var landingT = _landingBobTimer / landingBobDuration;
-                var landingCurve = Mathf.Sin(landingT * Mathf.PI);
-                finalYBob -= landingCurve * landingBobAmount;
-            }
+            if(!enableLandingBob || !(_landingBobTimer > 0f) || _jumpInitiated) return finalYBob;
+            var landingT = _landingBobTimer / landingBobDuration;
+            var landingCurve = Mathf.Sin(landingT * Mathf.PI);
+            finalYBob -= landingCurve * landingBobAmount;
 
-            // Apply ADS multiplier
-            var finalMultiplier = adsMultiplier;
-            var bobOffset = new Vector3(xBob, finalYBob, zBob) * finalMultiplier;
-            var bobRotation = new Vector3(0f, 0f, rollBob) * finalMultiplier;
+            return finalYBob;
+        }
 
-            // Subtle idle breathing when grounded and nearly stationary.
-            var idleEligible = enableIdleBreath && isGrounded && !isWallRunning && !isSliding &&
-                               speed <= idleBreathSpeedThreshold;
+        private (Vector3 idleOffset, Vector3 idleRotation) ComputeIdleMotion(FrameState state, float deltaTime,
+            float finalMultiplier) {
+            var idleEligible = enableIdleBreath && state is { IsGrounded: true, IsWallRunning: false, IsSliding: false } &&
+                               state.Speed <= idleBreathSpeedThreshold;
             var targetIdleIntensity = idleEligible ? 1f : 0f;
             _idleBreathIntensity = Mathf.Lerp(_idleBreathIntensity, targetIdleIntensity, idleBreathBlendSpeed * deltaTime);
 
@@ -392,9 +392,33 @@ namespace Game.Weapon.Presentation {
                 0f,
                 Mathf.Cos(_idleBreathTimer) * idleBreathRollAmount * _idleBreathIntensity) * finalMultiplier;
 
-            // Apply to transform
+            return (idleOffset, idleRotation);
+        }
+
+        private void ApplyPose(Vector3 bobOffset, Vector3 bobRotation, Vector3 idleOffset, Vector3 idleRotation) {
             transform.localPosition = _baseLocalPos + bobOffset + idleOffset;
             transform.localRotation = _baseLocalRot * Quaternion.Euler(bobRotation + idleRotation);
+        }
+
+        private readonly struct FrameState {
+            public FrameState(bool isGrounded, bool isMantling, bool isSliding, bool isWallRunning,
+                Vector3 planarVelocity, float speed, float verticalVelocity) {
+                IsGrounded = isGrounded;
+                IsMantling = isMantling;
+                IsSliding = isSliding;
+                IsWallRunning = isWallRunning;
+                PlanarVelocity = planarVelocity;
+                Speed = speed;
+                VerticalVelocity = verticalVelocity;
+            }
+
+            public bool IsGrounded { get; }
+            public bool IsMantling { get; }
+            public bool IsSliding { get; }
+            public bool IsWallRunning { get; }
+            public Vector3 PlanarVelocity { get; }
+            public float Speed { get; }
+            public float VerticalVelocity { get; }
         }
 
         public void SetAdsMultiplier(float multiplier) {
