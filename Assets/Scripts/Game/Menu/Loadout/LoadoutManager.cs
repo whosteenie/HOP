@@ -892,12 +892,30 @@ namespace Game.Menu.Loadout {
         }
 
         private void Setup3DPreview() {
-            if(previewCamera == null) {
-                DevLog.LogError("[LoadoutManager] Preview camera is null!");
+            if(!PreparePreviewCameraAndRenderTexture()) {
                 return;
             }
 
-            // Ensure main camera (parent) is enabled to render the world
+            if(!EnsurePreviewPlayerModelReady()) {
+                return;
+            }
+
+            RefreshPreviewWeaponCacheForModel();
+            PreparePreviewPlayerModelState();
+            PreparePreviewWeaponsAndRotationState();
+            SetupPreviewUiBinding();
+
+            UpdatePlayerModel();
+            StartCoroutine(DelayedPreviewBoundsUpdate());
+            RenderPreviewCameraNow();
+        }
+
+        private bool PreparePreviewCameraAndRenderTexture() {
+            if(previewCamera == null) {
+                DevLog.LogError("[LoadoutManager] Preview camera is null!");
+                return false;
+            }
+
             Camera mainCam = null;
             if(previewCamera.transform.parent != null) {
                 mainCam = previewCamera.transform.parent.GetComponent<Camera>();
@@ -907,23 +925,21 @@ namespace Game.Menu.Loadout {
                 mainCam.enabled = true;
             }
 
-            // Create or update render texture at reduced resolution for significantly lower GPU cost.
             var screenWidth = GetPreviewRenderWidth(Screen.width);
             var screenHeight = GetPreviewRenderHeight(Screen.height);
-
             if(_previewRenderTexture == null ||
                _previewRenderTexture.width != screenWidth ||
                _previewRenderTexture.height != screenHeight) {
                 RecreateRenderTexture(screenWidth, screenHeight);
             }
 
-            // Keep this broad for compatibility across existing project layer setups.
-            previewCamera.cullingMask = -1; // Everything
-
-            // Ensure preview camera is enabled and rendering to RenderTexture
+            previewCamera.cullingMask = -1;
             previewCamera.targetTexture = _previewRenderTexture;
             previewCamera.enabled = true;
+            return true;
+        }
 
+        private bool EnsurePreviewPlayerModelReady() {
             if(_previewPlayerModel == previewPlayerRoot &&
                previewPlayerRoot != null &&
                !previewPlayerRoot.activeInHierarchy &&
@@ -931,151 +947,151 @@ namespace Game.Menu.Loadout {
                 _previewPlayerModel = null;
             }
 
-            if(_previewPlayerModel == null) {
-                if(previewPlayerRoot != null && previewPlayerRoot.activeInHierarchy) {
-                    _previewPlayerModel = previewPlayerRoot;
-                    _previewPlayerModel.SetActive(true);
-                } else if(playerModelPrefab != null) {
-                    Vector3 modelPosition;
-                    Quaternion modelRotation;
+            if(_previewPlayerModel != null) {
+                return true;
+            }
 
-                    if(previewPositionTransform != null) {
-                        modelPosition = previewPositionTransform.position;
-                        modelRotation = previewPositionTransform.rotation;
-                    } else {
-                        modelPosition = Vector3.zero;
-                        modelRotation = Quaternion.Euler(0, 180, 0);
-                    }
+            if(previewPlayerRoot != null && previewPlayerRoot.activeInHierarchy) {
+                _previewPlayerModel = previewPlayerRoot;
+                _previewPlayerModel.SetActive(true);
+                return true;
+            }
 
-                    _previewPlayerModel = Instantiate(playerModelPrefab, modelPosition, modelRotation);
-                } else if(previewPlayerRoot != null) {
-                    _previewPlayerModel = previewPlayerRoot;
-                    _previewPlayerModel.SetActive(true);
+            if(playerModelPrefab != null) {
+                Vector3 modelPosition;
+                Quaternion modelRotation;
+
+                if(previewPositionTransform != null) {
+                    modelPosition = previewPositionTransform.position;
+                    modelRotation = previewPositionTransform.rotation;
                 } else {
-                    DevLog.LogWarning("[LoadoutManager] No preview player root or prefab assigned.");
-                    return;
+                    modelPosition = Vector3.zero;
+                    modelRotation = Quaternion.Euler(0, 180, 0);
                 }
+
+                _previewPlayerModel = Instantiate(playerModelPrefab, modelPosition, modelRotation);
+                return true;
             }
 
-            if(_previewWeaponCacheModel != _previewPlayerModel) {
-                _previewWeaponCacheModel = _previewPlayerModel;
-                _previewWeaponsCached = false;
-                _previewWeaponRenderers.Clear();
-                _prewarmedPreviewWeapons.Clear();
+            if(previewPlayerRoot != null) {
+                _previewPlayerModel = previewPlayerRoot;
+                _previewPlayerModel.SetActive(true);
+                return true;
             }
 
+            DevLog.LogWarning("[LoadoutManager] No preview player root or prefab assigned.");
+            return false;
+        }
+
+        private void RefreshPreviewWeaponCacheForModel() {
+            if(_previewWeaponCacheModel == _previewPlayerModel) {
+                return;
+            }
+
+            _previewWeaponCacheModel = _previewPlayerModel;
+            _previewWeaponsCached = false;
+            _previewWeaponRenderers.Clear();
+            _prewarmedPreviewWeapons.Clear();
+        }
+
+        private void PreparePreviewPlayerModelState() {
             AlignPreviewModelToAnchor();
             DisablePreviewModelRootMotion();
 
-            // BRUTE FORCE: Ensure model is definitely active and visible
             if(_previewPlayerModel != null) {
                 _previewPlayerModel.SetActive(true);
-                // Force all renderers to be enabled
                 var renderers = _previewPlayerModel.GetComponentsInChildren<Renderer>(true);
-                foreach(var r in renderers) {
-                    if(r != null) {
-                        r.enabled = true;
+                foreach(var renderer in renderers) {
+                    if(renderer != null) {
+                        renderer.enabled = true;
                     }
                 }
 
-                // Cache SkinnedMeshRenderers for update loop
                 _cachedPreviewRenderers = _previewPlayerModel.GetComponentsInChildren<SkinnedMeshRenderer>(true);
                 _previewSkinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>(true);
             }
 
-            // Cache initial rotation from editor/prefab (only on first setup)
             if(_previewPlayerModel != null && !_hasCachedInitialRotation) {
                 _initialRotationY = _previewPlayerModel.transform.rotation.eulerAngles.y;
                 _hasCachedInitialRotation = true;
             }
 
-            // Sync _rotationY with model's actual rotation to prevent first-rotation snap
-            // This ensures _rotationY matches the model's current rotation state
             if(_previewPlayerModel != null) {
                 _rotationY = _previewPlayerModel.transform.rotation.eulerAngles.y;
             }
 
-            // Apply bounds update to prevent culling (same treatment as real player models)
             ForcePreviewModelBoundsUpdate();
+        }
 
-            // Material at index 1 should be set to "None" in the prefab for verification
-            // We'll apply the new material packet system via UpdatePlayerModel()
+        private void PreparePreviewWeaponsAndRotationState() {
             CachePreviewWeaponModels();
             UpdatePreviewWeaponModel();
 
-            // Initialize rotation state (don't reset here - will reset after fade completes)
             _currentRotationVelocity = 0f;
             _isDragging = false;
+        }
 
-            // Set up the background (full-screen display) and viewport (input detection)
+        private void SetupPreviewUiBinding() {
             var background = QOptional<VisualElement>("player-model-background");
             _viewport = QOptional<VisualElement>("player-model-viewport");
             var uiOverlay = QOptional<VisualElement>("ui-overlay");
 
-            // Set overlay picking mode to ignore so events can pass through
             if(uiOverlay != null) {
                 uiOverlay.pickingMode = PickingMode.Ignore;
             }
 
-            // Set the render texture as background on the full-screen element
+            ConfigurePreviewBackground(background);
+            ConfigurePreviewViewport();
+        }
+
+        private void ConfigurePreviewBackground(VisualElement background) {
             if(background != null && _previewRenderTexture != null) {
-                // CRITICAL: Ensure background is visible immediately (even if transparent)
-                // This allows the render texture to be displayed as soon as it's rendered
                 background.style.display = DisplayStyle.Flex;
                 background.style.visibility = Visibility.Visible;
                 background.RemoveFromClassList("hidden");
                 background.style.backgroundImage =
                     new StyleBackground(Background.FromRenderTexture(_previewRenderTexture));
-                background.pickingMode = PickingMode.Ignore; // Don't capture input, just display
-
-                // BRUTE FORCE: Force UI to update immediately
+                background.pickingMode = PickingMode.Ignore;
                 background.MarkDirtyRepaint();
-            } else {
-                DevLog.LogError(
-                    $"[LoadoutManager] Background or RenderTexture is null! Background: {background != null}, RenderTexture: {_previewRenderTexture != null}");
+                return;
             }
 
-            // Setup viewport for input detection only
+            DevLog.LogError(
+                $"[LoadoutManager] Background or RenderTexture is null! Background: {background != null}, RenderTexture: {_previewRenderTexture != null}");
+        }
+
+        private void ConfigurePreviewViewport() {
             if(_viewport != null && _previewRenderTexture != null) {
-                // CRITICAL: Set picking mode to Position so we can receive mouse events for rotation
                 _viewport.pickingMode = PickingMode.Position;
-
-                // Ensure the viewport can receive input events
-                _viewport.focusable = false; // Don't make it focusable, just receive pointer events
-
-                // Make sure viewport is visible and can receive events
+                _viewport.focusable = false;
                 _viewport.style.display = DisplayStyle.Flex;
                 _viewport.style.visibility = Visibility.Visible;
 
-                // Unregister any existing handlers first to avoid duplicates
                 _viewport.UnregisterCallback<PointerDownEvent>(OnViewportPointerDown);
                 _viewport.UnregisterCallback<PointerMoveEvent>(OnViewportPointerMove);
                 _viewport.UnregisterCallback<PointerUpEvent>(OnViewportPointerUp);
                 _viewport.UnregisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
 
-                // Setup rotation handlers - register with default propagation
                 _viewport.RegisterCallback<PointerDownEvent>(OnViewportPointerDown);
                 _viewport.RegisterCallback<PointerMoveEvent>(OnViewportPointerMove);
                 _viewport.RegisterCallback<PointerUpEvent>(OnViewportPointerUp);
                 _viewport.RegisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
 
-                // Also try registering on root to catch events that might be blocked
                 if(Root != null && !_viewportRootHandlersRegistered) {
                     Root.RegisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
                     Root.RegisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
                     Root.RegisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
                     _viewportRootHandlersRegistered = true;
                 }
-            } else {
-                DevLog.LogWarning(
-                    $"[LoadoutManager] Viewport or RenderTexture is null! Viewport: {_viewport != null}, RenderTexture: {_previewRenderTexture != null}");
+
+                return;
             }
 
-            UpdatePlayerModel();
+            DevLog.LogWarning(
+                $"[LoadoutManager] Viewport or RenderTexture is null! Viewport: {_viewport != null}, RenderTexture: {_previewRenderTexture != null}");
+        }
 
-            // Force another bounds update after material is applied (in case material changes affect bounds)
-            StartCoroutine(DelayedPreviewBoundsUpdate());
-
+        private void RenderPreviewCameraNow() {
             if(previewCamera == null || !previewCamera.enabled) return;
             ForcePreviewModelBoundsUpdate();
             previewCamera.Render();
