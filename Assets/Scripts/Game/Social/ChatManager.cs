@@ -191,7 +191,14 @@ namespace Game.Social {
 
                 while(true) {
                     var isFinalChunk = chunkLength == remaining;
-                    payload = BuildChunkPayload(messageId, chunkIndex, isFinalChunk, bytes, offset, chunkLength);
+                    payload = BuildChunkPayload(new ChatChunkRequest {
+                        MessageId = messageId,
+                        ChunkIndex = chunkIndex,
+                        IsFinalChunk = isFinalChunk,
+                        SourceBytes = bytes,
+                        Offset = offset,
+                        Length = chunkLength
+                    });
                     if(Encoding.UTF8.GetByteCount(payload) <= VivoxMaxMessageBytes) {
                         break;
                     }
@@ -208,13 +215,22 @@ namespace Game.Social {
             }
         }
 
-        private static string BuildChunkPayload(string messageId, int chunkIndex, bool isFinalChunk, byte[] sourceBytes, int offset, int length) {
+        private struct ChatChunkRequest {
+            public string MessageId { get; set; }
+            public int ChunkIndex { get; set; }
+            public bool IsFinalChunk { get; set; }
+            public byte[] SourceBytes { get; set; }
+            public int Offset { get; set; }
+            public int Length { get; set; }
+        }
+
+        private static string BuildChunkPayload(in ChatChunkRequest request) {
             return JsonUtility.ToJson(new ChunkEnvelope {
                 K = ChunkMarker,
-                ID = messageId,
-                I = chunkIndex,
-                E = isFinalChunk,
-                B = Convert.ToBase64String(sourceBytes, offset, length)
+                ID = request.MessageId,
+                I = request.ChunkIndex,
+                E = request.IsFinalChunk,
+                B = Convert.ToBase64String(request.SourceBytes, request.Offset, request.Length)
             });
         }
 
