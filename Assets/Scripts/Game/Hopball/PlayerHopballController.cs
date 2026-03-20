@@ -27,6 +27,10 @@ namespace Game.Hopball {
             PlayerDeath
         }
 
+        private const string WeaponLayerName = "Weapon";
+        private const string MaskedLayerName = "Masked";
+        private const string PooledArmVisualName = "PooledArmVisual";
+
         private static readonly int PutAwayHash = Animator.StringToHash("PutAway");
 
         [Header("References")]
@@ -196,7 +200,7 @@ namespace Game.Hopball {
             if(!prewarmHopballVisualsOnSpawn) return;
             if(!IsOwner) return;
 
-            var layer = LayerMask.NameToLayer("Weapon");
+            var layer = LayerMask.NameToLayer(WeaponLayerName);
             var swayHolder = FindSwayHolder();
             if(swayHolder != null) {
                 if(_fpHopballVisualInstance == null && hopballVisualPrefab != null) {
@@ -216,7 +220,7 @@ namespace Game.Hopball {
             var bobHolder = FindBobHolder();
             if(bobHolder != null && _fpHopballArmInstance == null && hopballArmPrefab != null) {
                 _fpHopballArmInstance = Instantiate(hopballArmPrefab, bobHolder, false);
-                _fpHopballArmInstance.name = "PooledArmVisual";
+                _fpHopballArmInstance.name = PooledArmVisualName;
                 SetGameObjectAndChildrenLayer(_fpHopballArmInstance, layer);
                 _armAnimationEvents = _fpHopballArmInstance.GetComponent<PlayerAnimationEvents>();
                 if(_armAnimationEvents != null) {
@@ -610,7 +614,7 @@ namespace Game.Hopball {
             }
 
             // Set layer and shadows
-            var layer = IsOwner ? LayerMask.NameToLayer("Weapon") : LayerMask.NameToLayer("Masked");
+            var layer = IsOwner ? LayerMask.NameToLayer(WeaponLayerName) : LayerMask.NameToLayer(MaskedLayerName);
             SetGameObjectAndChildrenLayer(_fpHopballVisualInstance, layer);
             SetFpVisualShadows(_fpHopballVisualInstance, false);
 
@@ -620,7 +624,7 @@ namespace Game.Hopball {
             if(bobHolder != null) {
                 if(_fpHopballArmInstance == null) {
                     _fpHopballArmInstance = Instantiate(hopballArmPrefab, bobHolder, false);
-                    _fpHopballArmInstance.name = "PooledArmVisual";
+                    _fpHopballArmInstance.name = PooledArmVisualName;
                     _armAnimationEvents = _fpHopballArmInstance.GetComponent<PlayerAnimationEvents>();
                     if(_armAnimationEvents != null) {
                         _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;

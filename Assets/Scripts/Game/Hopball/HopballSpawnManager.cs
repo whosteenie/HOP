@@ -17,6 +17,11 @@ namespace Game.Hopball {
     /// Manages hopball spawning, respawning, OOB handling, and scoring for Hopball gamemode.
     /// </summary>
     public class HopballSpawnManager : NetworkBehaviour {
+        private const string HopballModeId = "Hopball";
+        private const string HopballObjectType = "Hopball";
+        private const string DefaultOutOfBoundsMarker = "OOB";
+        private const string HopballSpawnSoundId = "gameplay.hopball.spawn";
+
         public struct HopballDropRequest {
             public NetworkObjectReference HopballRef { get; set; }
             public Vector3 DropPosition { get; set; }
@@ -39,8 +44,7 @@ namespace Game.Hopball {
         [SerializeField] private int winScore = 60; // Points needed to win
         [SerializeField] private float dissolveRespawnDelay = 5f; // Delay before respawning after dissolve
         [Header("Out Of Bounds")]
-        [SerializeField] private string outOfBoundsMarkerName = "OOB";
-        [SerializeField] private string outOfBoundsMarkerTag = "OOB";
+        [SerializeField] private string outOfBoundsMarkerTag = DefaultOutOfBoundsMarker;
 
         // Team scores (server-authoritative)
         private readonly NetworkVariable<int> _teamAScore = new(value: 0);
@@ -90,14 +94,14 @@ namespace Game.Hopball {
 
                 // Check if we're in Hopball mode
                 var matchSettings = MatchSettingsManager.Instance;
-                if(matchSettings != null && matchSettings.selectedGameModeId == "Hopball") {
+                if(matchSettings != null && matchSettings.selectedGameModeId == HopballModeId) {
                     StartCoroutine(InitialSpawnCoroutine());
                 } else {
                     if(CurrentHopballController != null) {
                         FlowLog.Emit(FlowEventIds.AnomalyModeMismatch,
                             ("selected", matchSettings != null ? matchSettings.selectedGameModeId : "Unknown"),
                             ("applied", matchSettings != null ? matchSettings.selectedGameModeId : "Unknown"),
-                            ("objective", "Hopball"));
+                            ("objective", HopballObjectType));
                     }
                     CleanupActiveHopball();
                 }
@@ -148,7 +152,7 @@ namespace Game.Hopball {
                 NetworkAuthority.TryConfigureSessionOwnerObject(CurrentHopballController);
             }
             var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
+            if(matchSettings == null || matchSettings.selectedGameModeId != HopballModeId) {
                 return;
             }
 
@@ -173,7 +177,7 @@ namespace Game.Hopball {
 
         private void OnObjectiveTeamScoresRequested(ObjectiveTeamScoresRequestedEvent evt) {
             if(evt == null || evt.HasScores) return;
-            if(evt.GameModeId != "Hopball") return;
+            if(evt.GameModeId != HopballModeId) return;
 
             evt.TeamAScore = _teamAScore.Value;
             evt.TeamBScore = _teamBScore.Value;
@@ -195,7 +199,7 @@ namespace Game.Hopball {
 
             if(!HasHopballAuthority || _hasSpawnedInitial) yield break;
             matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
+            if(matchSettings == null || matchSettings.selectedGameModeId != HopballModeId) {
                 yield break;
             }
             SpawnHopball();
@@ -215,7 +219,7 @@ namespace Game.Hopball {
             }
 
             var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
+            if(matchSettings == null || matchSettings.selectedGameModeId != HopballModeId) {
                 return;
             }
 
@@ -267,8 +271,8 @@ namespace Game.Hopball {
             var objectiveSpawnType = _hasSpawnedInitial ? "Respawn" : "Initial";
             NetworkAuthority.TryConfigureSessionOwnerObject(CurrentHopballController);
             FlowLog.Emit(FlowEventIds.ObjectiveSpawned,
-                ("mode", "Hopball"),
-                ("objectType", "Hopball"),
+                ("mode", HopballModeId),
+                ("objectType", HopballObjectType),
                 ("spawnType", objectiveSpawnType),
                 ("spawnPoint", spawnPoint.name));
 
@@ -355,7 +359,7 @@ namespace Game.Hopball {
             if(!HasHopballAuthority) return;
 
             var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
+            if(matchSettings == null || matchSettings.selectedGameModeId != HopballModeId) {
                 CleanupActiveHopball();
                 return;
             }
@@ -407,8 +411,8 @@ namespace Game.Hopball {
                 }
             }
 
-            if(marker == null && !string.IsNullOrWhiteSpace(outOfBoundsMarkerName)) {
-                var namedObject = GameObject.Find(outOfBoundsMarkerName);
+            if(marker == null) {
+                var namedObject = GameObject.Find(DefaultOutOfBoundsMarker);
                 if(namedObject != null) {
                     marker = namedObject.transform;
                 }
@@ -561,9 +565,8 @@ namespace Game.Hopball {
         [Rpc(SendTo.Everyone)]
         // ReSharper disable once MemberCanBeMadeStatic.Local
         private void PlaySpawnSoundClientRpc(Vector3 position) {
-            const string soundId = "gameplay.hopball.spawn";
             // Match prior behavior: stop before playing (no overlap).
-            EventBus.Publish(new PlayLocalWorldSoundIdEvent(soundId, position, allowOverlap: false));
+            EventBus.Publish(new PlayLocalWorldSoundIdEvent(HopballSpawnSoundId, position, allowOverlap: false));
         }
 
         /// <summary>Prewarms hopball visual object pools on all clients.</summary>

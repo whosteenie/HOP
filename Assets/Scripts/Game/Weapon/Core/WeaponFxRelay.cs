@@ -8,6 +8,8 @@ using UnityEngine;
 namespace Game.Weapon.Core {
     [DefaultExecutionOrder(7005)] // Run after UpperBodyPitch + SpineProxy LateUpdate passes.
     public class WeaponFxRelay : NetworkBehaviour, IWeaponFxRelay {
+        private const string RequestShotFxServerRpcContext = "WeaponFxRelay.RequestShotFxServerRpc";
+
         [HideInInspector, SerializeField] private MonoBehaviour ownerContextSource;
         private IWeaponOwnerContext _ownerContext;
         private NetworkObject _playerNetworkObject;
@@ -117,7 +119,7 @@ namespace Game.Weapon.Core {
 
             var senderClientId = rpcParams.Receive.SenderClientId;
             if(_ownerContext.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolate("WeaponFxRelay.RequestShotFxServerRpc", senderClientId);
+                AntiCheatLogger.LogAuthorityViolate(RequestShotFxServerRpcContext, senderClientId);
                 return;
             }
 

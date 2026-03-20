@@ -8,6 +8,15 @@ using UnityEngine.VFX;
 
 namespace Game.Weapon.Core {
     internal sealed class WeaponEffects {
+        private const string ContextPlayLocalMuzzleFlash = "PlayLocalMuzzleFlash";
+        private const string ContextPlayNetworkedMuzzleFlash = "PlayNetworkedMuzzleFlash";
+        private const string ContextPrewarmKinemationMuzzleFx = "PrewarmKinemationMuzzleFx";
+        private const string MissingValuePlaceholder = "(none)";
+        private const string BulletTrailSoundId = "weapons.bullet.trail";
+        private const string BulletDrySoundId = "weapons.bullet.dry";
+        private const string BulletImpactSoundId = "weapons.bullet.impact";
+        private const string ImpactDecalChildName = "Decal";
+
         private readonly Weapon _weapon;
 
         public WeaponEffects(Weapon weapon) {
@@ -19,7 +28,7 @@ namespace Game.Weapon.Core {
             _weapon.PlayShootAnimationServerRpc();
 
             if(_weapon.CurrentWeaponData != null && _weapon.CurrentWeaponData.muzzleFlashPrefab != null) {
-                if(_weapon.TryGetOwnerMuzzleTransformInternal(out var muzzleTransform, "PlayLocalMuzzleFlash")) {
+                if(_weapon.TryGetOwnerMuzzleTransformInternal(out var muzzleTransform, ContextPlayLocalMuzzleFlash)) {
                     if(_weapon.KinDriver != null) {
                         var preferredDirection = Vector3.zero;
                         var fpCameraTransform = _weapon.OwnerContext != null ? _weapon.OwnerContext.FpCameraTransform : null;
@@ -48,7 +57,7 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            if(!_weapon.TryGetStrictWorldMuzzleTransformInternal(out var muzzleTransform, "PlayNetworkedMuzzleFlash")) {
+            if(!_weapon.TryGetStrictWorldMuzzleTransformInternal(out var muzzleTransform, ContextPlayNetworkedMuzzleFlash)) {
                 return;
             }
 
@@ -75,8 +84,8 @@ namespace Game.Weapon.Core {
             } else {
                 DevLog.LogError(
                     "[Weapon][RemoteMuzzleStrict][PlayNetworkedMuzzleFlash] Missing muzzle flash prefab. " +
-                    $"weapon={(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")} " +
-                    $"worldWeapon={(_weapon.CurrentWorldWeaponInstance != null ? _weapon.CurrentWorldWeaponInstance.name : "(none)")}",
+                    $"weapon={(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : MissingValuePlaceholder)} " +
+                    $"worldWeapon={(_weapon.CurrentWorldWeaponInstance != null ? _weapon.CurrentWorldWeaponInstance.name : MissingValuePlaceholder)}",
                     _weapon);
                 return;
             }
@@ -105,7 +114,7 @@ namespace Game.Weapon.Core {
             }
 
             if(!request.MadeImpact && _weapon.OwnerContext is { IsOwner: true }) {
-                EventBus.Publish(new RequestNetworkWorldSoundIdEvent("weapons.bullet.trail", request.Start, allowOverlap: true));
+                EventBus.Publish(new RequestNetworkWorldSoundIdEvent(BulletTrailSoundId, request.Start, allowOverlap: true));
             }
 
             _weapon.StartCoroutine(SpawnTrail(trail, request.End, request.HitNormal, request.MadeImpact, request.HitPlayer, request.HitPlayerRef,
@@ -167,7 +176,7 @@ namespace Game.Weapon.Core {
             if(_weapon.OwnerContext is not { IsOwner: true }) return;
             if(_weapon.OwnerContext.NetworkObject == null) return;
             EventBus.Publish(new RequestNetworkAttachedSoundIdEvent(
-                "weapons.bullet.dry",
+                BulletDrySoundId,
                 new NetworkObjectReference(_weapon.OwnerContext.NetworkObject),
                 allowOverlap: true));
         }
@@ -258,7 +267,7 @@ namespace Game.Weapon.Core {
             if(_weapon.KinDriver == null) return;
             if(_weapon.CurrentWeaponData == null || _weapon.CurrentWeaponData.muzzleFlashPrefab == null) return;
 
-            if(!_weapon.TryGetOwnerMuzzleTransformInternal(out var muzzleTransform, "PrewarmKinemationMuzzleFx",
+            if(!_weapon.TryGetOwnerMuzzleTransformInternal(out var muzzleTransform, ContextPrewarmKinemationMuzzleFx,
                    logErrors: false)) {
                 return;
             }
@@ -432,12 +441,12 @@ namespace Game.Weapon.Core {
 
                 var impactInstance = Object.Instantiate(_weapon.CurrentWeaponData.bulletImpact.gameObject, spawnPos, rotation);
                 if(hitPlayer) {
-                    var decal = FindChildByNameRecursive(impactInstance.transform, "Decal");
+                    var decal = FindChildByNameRecursive(impactInstance.transform, ImpactDecalChildName);
                     if(decal != null) {
                         decal.gameObject.SetActive(false);
                     }
                 } else if(_weapon.OwnerContext is { IsOwner: true }) {
-                    EventBus.Publish(new RequestNetworkWorldSoundIdEvent("weapons.bullet.impact", hitPoint, allowOverlap: true));
+                    EventBus.Publish(new RequestNetworkWorldSoundIdEvent(BulletImpactSoundId, hitPoint, allowOverlap: true));
                 }
             }
 
