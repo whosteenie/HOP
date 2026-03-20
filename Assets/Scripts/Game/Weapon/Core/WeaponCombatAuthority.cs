@@ -88,8 +88,12 @@ namespace Game.Weapon.Core {
             }
 
             if(config != null && shouldConsumeDamageQuota) {
-                if(!RpcRateLimiter.TryConsume(shooterId, RpcRateLimiter.Keys.Damage, config.damageRpcLimit,
-                        config.rpcWindowSeconds)) {
+                if(!RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                        ClientId = shooterId,
+                        Key = RpcRateLimiter.Keys.Damage,
+                        MaxCalls = config.damageRpcLimit,
+                        WindowSeconds = config.rpcWindowSeconds
+                    })) {
                     AntiCheatLogger.LogRateLimit(shooterId, RpcRateLimiter.Keys.Damage);
                     return;
                 }

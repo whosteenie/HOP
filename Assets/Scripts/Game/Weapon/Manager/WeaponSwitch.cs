@@ -592,8 +592,12 @@ namespace Game.Weapon.Manager {
         private bool TryConsumeWeaponSwitchQuota() {
             var config = AntiCheatConfig.Instance;
             if(config == null) return true;
-            if(RpcRateLimiter.TryConsume(_root.OwnerClientId, RpcRateLimiter.Keys.WeaponSwitch, config.weaponSwitchLimit,
-                    config.rpcWindowSeconds)) {
+            if(RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                    ClientId = _root.OwnerClientId,
+                    Key = RpcRateLimiter.Keys.WeaponSwitch,
+                    MaxCalls = config.weaponSwitchLimit,
+                    WindowSeconds = config.rpcWindowSeconds
+                })) {
                 return true;
             }
 

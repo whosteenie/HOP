@@ -54,8 +54,12 @@ namespace Game.Audio.System {
 
             var config = AntiCheatConfig.Instance;
             if(config != null) {
-                if(!RpcRateLimiter.TryConsume(OwnerClientId, RpcRateLimiter.Keys.WorldSfx, config.sfxRpcLimit,
-                        config.rpcWindowSeconds)) {
+                if(!RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                        ClientId = OwnerClientId,
+                        Key = RpcRateLimiter.Keys.WorldSfx,
+                        MaxCalls = config.sfxRpcLimit,
+                        WindowSeconds = config.rpcWindowSeconds
+                    })) {
 
                     AntiCheatLogger.LogRateLimit(OwnerClientId, RpcRateLimiter.Keys.WorldSfx);
                     return;
@@ -102,8 +106,12 @@ namespace Game.Audio.System {
         private void RequestStopServerRpc(string soundId) {
             var config = AntiCheatConfig.Instance;
             if(config != null) {
-                if(!RpcRateLimiter.TryConsume(OwnerClientId, RpcRateLimiter.Keys.WorldSfx, config.sfxRpcLimit,
-                        config.rpcWindowSeconds)) {
+                if(!RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                        ClientId = OwnerClientId,
+                        Key = RpcRateLimiter.Keys.WorldSfx,
+                        MaxCalls = config.sfxRpcLimit,
+                        WindowSeconds = config.rpcWindowSeconds
+                    })) {
                     AntiCheatLogger.LogRateLimit(OwnerClientId, RpcRateLimiter.Keys.WorldSfx);
                     return;
                 }

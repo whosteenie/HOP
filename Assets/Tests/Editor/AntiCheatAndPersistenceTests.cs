@@ -35,20 +35,50 @@ namespace Tests.Editor {
             const ulong clientId = 1001;
             const string key = RpcRateLimiter.Keys.Damage;
 
-            Assert.That(RpcRateLimiter.TryConsume(clientId, key, 2, 10f), Is.True);
-            Assert.That(RpcRateLimiter.TryConsume(clientId, key, 2, 10f), Is.True);
-            Assert.That(RpcRateLimiter.TryConsume(clientId, key, 2, 10f), Is.False);
+            Assert.That(RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                ClientId = clientId,
+                Key = key,
+                MaxCalls = 2,
+                WindowSeconds = 10f
+            }), Is.True);
+            Assert.That(RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                ClientId = clientId,
+                Key = key,
+                MaxCalls = 2,
+                WindowSeconds = 10f
+            }), Is.True);
+            Assert.That(RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                ClientId = clientId,
+                Key = key,
+                MaxCalls = 2,
+                WindowSeconds = 10f
+            }), Is.False);
         }
 
         [Test]
         public void RpcRateLimiter_TracksKeysIndependentlyPerClient() {
             const ulong clientId = 1002;
 
-            Assert.That(RpcRateLimiter.TryConsume(clientId, RpcRateLimiter.Keys.Damage, 1, 10f), Is.True);
-            Assert.That(RpcRateLimiter.TryConsume(clientId, RpcRateLimiter.Keys.Damage, 1, 10f), Is.False);
+            Assert.That(RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                ClientId = clientId,
+                Key = RpcRateLimiter.Keys.Damage,
+                MaxCalls = 1,
+                WindowSeconds = 10f
+            }), Is.True);
+            Assert.That(RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                ClientId = clientId,
+                Key = RpcRateLimiter.Keys.Damage,
+                MaxCalls = 1,
+                WindowSeconds = 10f
+            }), Is.False);
 
             // Different key should still be allowed.
-            Assert.That(RpcRateLimiter.TryConsume(clientId, RpcRateLimiter.Keys.WorldSfx, 1, 10f), Is.True);
+            Assert.That(RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                ClientId = clientId,
+                Key = RpcRateLimiter.Keys.WorldSfx,
+                MaxCalls = 1,
+                WindowSeconds = 10f
+            }), Is.True);
         }
 
         [Test]
@@ -56,12 +86,27 @@ namespace Tests.Editor {
             const ulong clientId = 1003;
             const string key = RpcRateLimiter.Keys.WeaponSwitch;
 
-            Assert.That(RpcRateLimiter.TryConsume(clientId, key, 1, 1f), Is.True);
-            Assert.That(RpcRateLimiter.TryConsume(clientId, key, 1, 1f), Is.False);
+            Assert.That(RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                ClientId = clientId,
+                Key = key,
+                MaxCalls = 1,
+                WindowSeconds = 1f
+            }), Is.True);
+            Assert.That(RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                ClientId = clientId,
+                Key = key,
+                MaxCalls = 1,
+                WindowSeconds = 1f
+            }), Is.False);
 
             ForceLimiterWindowExpired(clientId, key, windowSeconds: 1f);
 
-            Assert.That(RpcRateLimiter.TryConsume(clientId, key, 1, 1f), Is.True);
+            Assert.That(RpcRateLimiter.TryConsume(new RpcRateLimiter.RpcRateLimitRequest {
+                ClientId = clientId,
+                Key = key,
+                MaxCalls = 1,
+                WindowSeconds = 1f
+            }), Is.True);
         }
 
         [Test]
