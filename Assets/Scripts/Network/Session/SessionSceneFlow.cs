@@ -230,6 +230,9 @@ namespace Network.Session {
         /// Launches HandleUnexpectedDisconnect if not already in progress.
         /// </summary>
         public void TriggerDisconnectFlow(ISessionContext ctx, ISceneFlowActions actions, string source) {
+#if UNITY_EDITOR
+            if(!Application.isPlaying) return;
+#endif
             if(_unexpectedDisconnectInFlight || ctx.IsLeaving || ctx.IsShuttingDown) return;
             if(SessionNetworkLifecycle.IsDaStartupInFlight) {
                 if(Debug.isDebugBuild) {
@@ -244,6 +247,9 @@ namespace Network.Session {
         }
 
         private async UniTask HandleUnexpectedDisconnect(ISessionContext ctx, ISceneFlowActions actions, string source) {
+#if UNITY_EDITOR
+            if(!Application.isPlaying) return;
+#endif
             var currentScene = actions.GetActiveSceneName();
             if(Debug.isDebugBuild) {
                 DevLog.Log($"[SessionManager] HandleUnexpectedDisconnect source={source} scene={currentScene}");
@@ -482,6 +488,9 @@ namespace Network.Session {
         /// Loads MainMenu scene and waits for it to be active and MainMenuManager ready. Used by leave-to-menu flow.
         /// </summary>
         public static async UniTask EnsureMainMenuReadyAsync(ISessionContext ctx, string currentScene) {
+#if UNITY_EDITOR
+            if(!Application.isPlaying) return;
+#endif
             if(currentScene == "MainMenu") return;
             SceneManager.LoadScene("MainMenu");
             var sceneLoaded = await WaitForActiveSceneAsync("MainMenu", 15f, ctx.SessionLifetimeToken);

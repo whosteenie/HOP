@@ -323,6 +323,14 @@ namespace Network.Session {
                     DevLog.Log($"[SessionManager] Task canceled: {context}");
                 }
             } catch(Exception ex) {
+#if UNITY_EDITOR
+                if(!Application.isPlaying) {
+                    if(Debug.isDebugBuild) {
+                        DevLog.Log($"[SessionManager] Suppressed task failure during editor playmode exit ({context}): {ex.GetType().Name}");
+                    }
+                    return;
+                }
+#endif
                 DevLog.LogError($"[SessionManager] Task failed ({context}): {ex}");
             }
         }

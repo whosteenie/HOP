@@ -128,6 +128,9 @@ namespace Network.Session {
         /// Leaves the active UGS multiplayer session and shuts down the Netcode NetworkManager.
         /// </summary>
         public static async UniTask CleanupNetworkAsync(ISessionContext ctx, INetworkLifecycleActions actions) {
+#if UNITY_EDITOR
+            if(!Application.isPlaying) return;
+#endif
             await actions.LeaveActiveSessionAsync("CleanupNetworkAsync");
 
             if(ctx.TryGetNetworkManager("CleanupNetworkAsync", out var networkManager) == false) return;
@@ -584,6 +587,12 @@ namespace Network.Session {
                     ctx.NotifyPartyStateChanged();
                     return;
                 }
+#if UNITY_EDITOR
+                if(!Application.isPlaying) {
+                    ctx.NotifyPartyStateChanged();
+                    return;
+                }
+#endif
                 if(IsDaStartupInFlight) {
                     if(Debug.isDebugBuild)
                         DevLog.Log("[SessionManager] Ignoring local disconnect during DA startup window.");
