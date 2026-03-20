@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Player.Contracts;
 using Game.Player.Core;
 using Game.Player.Visual;
 using Game.Settings;
@@ -746,15 +747,16 @@ namespace Game.Menu.Loadout {
             if(loadoutManager == null) return;
             var specularColor = new Color(0.2f, 0.2f, 0.2f, 1f); // Default specular color
             var heightStrength = _currentHeightStrength;
-            loadoutManager.UpdatePreviewModelMaterial(
-                _currentPacketIndex,
-                _currentBaseColor,
-                _currentSmoothness,
-                _currentMetallic,
-                specularColor,
-                heightStrength,
-                _currentEmissionEnabled,
-                _currentEmissionColor);
+            loadoutManager.UpdatePreviewModelMaterial(new PlayerMaterialCustomizationRequest {
+                PacketIndex = _currentPacketIndex,
+                BaseColor = _currentBaseColor,
+                Smoothness = _currentSmoothness,
+                Metallic = _currentMetallic,
+                SpecularColor = specularColor,
+                HeightStrength = heightStrength,
+                EmissionEnabled = _currentEmissionEnabled,
+                EmissionColor = _currentEmissionColor
+            });
             loadoutManager.NotifyCustomizationApplied();
         }
 
@@ -990,15 +992,16 @@ namespace Game.Menu.Loadout {
             if(loadoutManager == null) return;
             var specularColor = new Color(0.2f, 0.2f, 0.2f, 1f); // Default specular color
             var heightStrength = _currentHeightStrength;
-            loadoutManager.UpdatePreviewModelMaterial(
-                _currentPacketIndex,
-                _currentBaseColor,
-                _currentSmoothness,
-                _currentMetallic,
-                specularColor,
-                heightStrength,
-                _currentEmissionEnabled,
-                _currentEmissionColor);
+            loadoutManager.UpdatePreviewModelMaterial(new PlayerMaterialCustomizationRequest {
+                PacketIndex = _currentPacketIndex,
+                BaseColor = _currentBaseColor,
+                Smoothness = _currentSmoothness,
+                Metallic = _currentMetallic,
+                SpecularColor = specularColor,
+                HeightStrength = heightStrength,
+                EmissionEnabled = _currentEmissionEnabled,
+                EmissionColor = _currentEmissionColor
+            });
         }
 
         private void NotifyLoadoutDirty() {

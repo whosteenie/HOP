@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Diagnostics;
 using Events;
+using Game.Player.Contracts;
 using Game.Player.Visual;
 using Game.Progression;
 using Game.Settings;
@@ -1293,8 +1294,7 @@ namespace Game.Menu.Loadout {
         /// <summary>
         /// Public method to update the preview model material. Called by CharacterCustomizationManager when settings change.
         /// </summary>
-        public void UpdatePreviewModelMaterial(int packetIndex, Color baseColor, float smoothness, float metallic,
-            Color specularColor, float heightStrength, bool emissionEnabled, Color emissionColor) {
+        public void UpdatePreviewModelMaterial(in PlayerMaterialCustomizationRequest request) {
             if(_previewPlayerModel == null) return;
 
             var skinnedRenderer = _previewSkinnedRenderer;
@@ -1306,7 +1306,7 @@ namespace Game.Menu.Loadout {
 
             PlayerMaterialPacket packet = null;
             if(PlayerMaterialPacketManager.Instance != null) {
-                packet = PlayerMaterialPacketManager.Instance.GetPacket(packetIndex);
+                packet = PlayerMaterialPacketManager.Instance.GetPacket(request.PacketIndex);
             }
 
             if(packet == null) {
@@ -1316,13 +1316,13 @@ namespace Game.Menu.Loadout {
 
             var generatedMaterial = PlayerMaterialGenerator.GenerateMaterial(packet,
                 new PlayerMaterialGenerationRequest {
-                    BaseColor = baseColor,
-                    Smoothness = smoothness,
-                    Metallic = metallic,
-                    SpecularColor = specularColor,
-                    HeightStrength = heightStrength,
-                    EmissionEnabled = emissionEnabled,
-                    EmissionColor = emissionColor
+                    BaseColor = request.BaseColor,
+                    Smoothness = request.Smoothness,
+                    Metallic = request.Metallic,
+                    SpecularColor = request.SpecularColor,
+                    HeightStrength = request.HeightStrength,
+                    EmissionEnabled = request.EmissionEnabled,
+                    EmissionColor = request.EmissionColor
                 });
 
             var materials = skinnedRenderer.sharedMaterials;
