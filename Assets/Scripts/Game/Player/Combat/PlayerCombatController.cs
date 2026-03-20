@@ -73,6 +73,15 @@ namespace Game.Player.Combat {
         private const float AssistTimeoutSeconds = 10f;
         private const float AssistMinDamage = 1f;
 
+        private struct HealthStateAuthorityRequest {
+            public float HealthValue { get; set; }
+            public bool IsDead { get; set; }
+            public bool IncrementDeaths { get; set; }
+            public Vector3 HitPoint { get; set; }
+            public Vector3 HitDirection { get; set; }
+            public string BodyPartTag { get; set; }
+        }
+
         // Network variables (from PlayerController)
         public NetworkVariable<float> netHealth;
         public NetworkVariable<bool> netIsDead;
@@ -212,7 +221,14 @@ namespace Game.Player.Combat {
                 }
 
                 var healthBefore = ResolveAuthoritativeHealth();
-                ApplyHealthStateAuthority(0f, true, incrementDeaths: true, hitPoint, hitDirection, bodyPartTag);
+                ApplyHealthStateAuthority(new HealthStateAuthorityRequest {
+                    HealthValue = 0f,
+                    IsDead = true,
+                    IncrementDeaths = true,
+                    HitPoint = hitPoint,
+                    HitDirection = hitDirection,
+                    BodyPartTag = bodyPartTag
+                });
                 CommitHealthShadow(0f, true);
                 _deathStatePending = true;
                 StartRespawnTimeoutProbe();
@@ -283,8 +299,14 @@ namespace Game.Player.Combat {
                 var actualDealt = pre - newHp;
                 var isLethalHit = newHp <= 0f;
 
-                ApplyHealthStateAuthority(newHp, isLethalHit, incrementDeaths: isLethalHit, hitPoint, hitDirection,
-                    bodyPartTag);
+                ApplyHealthStateAuthority(new HealthStateAuthorityRequest {
+                    HealthValue = newHp,
+                    IsDead = isLethalHit,
+                    IncrementDeaths = isLethalHit,
+                    HitPoint = hitPoint,
+                    HitDirection = hitDirection,
+                    BodyPartTag = bodyPartTag
+                });
                 CommitHealthShadow(newHp, isLethalHit);
 
                 if(_playerContext != null) {
@@ -734,26 +756,25 @@ namespace Game.Player.Combat {
             }
         }
 
-        private void ApplyHealthStateAuthority(float healthValue, bool isDead, bool incrementDeaths, Vector3 hitPoint,
-            Vector3 hitDirection, string bodyPartTag) {
+        private void ApplyHealthStateAuthority(in HealthStateAuthorityRequest request) {
             if(netHealth != null) {
-                netHealth.Value = Mathf.Clamp(healthValue, 0f, MaxHealth);
+                netHealth.Value = Mathf.Clamp(request.HealthValue, 0f, MaxHealth);
             }
 
             if(netIsDead != null) {
-                netIsDead.Value = isDead;
+                netIsDead.Value = request.IsDead;
             }
 
-            if(incrementDeaths && deaths != null) {
+            if(request.IncrementDeaths && deaths != null) {
                 deaths.Value++;
             }
 
-            _lastHitPoint = hitPoint;
-            _lastHitDirection = hitDirection;
+            _lastHitPoint = request.HitPoint;
+            _lastHitDirection = request.HitDirection;
             _lastDamageTime = Time.time;
             _isRegenerating = false;
-            _lastBodyPartTag = string.IsNullOrEmpty(bodyPartTag) ? null : bodyPartTag;
-            _deathStatePending = isDead;
+            _lastBodyPartTag = string.IsNullOrEmpty(request.BodyPartTag) ? null : request.BodyPartTag;
+            _deathStatePending = request.IsDead;
         }
 
         private void AddDamageDealtAuthority(float delta) {
