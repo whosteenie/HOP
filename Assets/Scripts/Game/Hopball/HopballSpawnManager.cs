@@ -234,15 +234,10 @@ namespace Game.Hopball {
 
             _isSpawning = true;
 
-            // Choose random spawn point
-            var validPoints = hopballSpawnPoints.Where(p => p != null).ToList();
-            if(validPoints.Count == 0) {
-                DevLog.LogError("[HopballSpawnManager] No valid spawn points!");
+            if(!TryGetRandomValidSpawnPoint(out var spawnPoint)) {
                 _isSpawning = false;
                 return;
             }
-
-            var spawnPoint = validPoints[Random.Range(0, validPoints.Count)];
             _mostRecentSpawnPoint = spawnPoint;
 
             // Spawn hopball
@@ -326,14 +321,10 @@ namespace Game.Hopball {
                 yield break;
             }
 
-            var validPoints = hopballSpawnPoints.Where(p => p != null).ToList();
-            if(validPoints.Count == 0) {
-                DevLog.LogError("[HopballSpawnManager] No valid spawn points!");
+            if(!TryGetRandomValidSpawnPoint(out var spawnPoint)) {
                 _respawnCoroutine = null;
                 yield break;
             }
-
-            var spawnPoint = validPoints[Random.Range(0, validPoints.Count)];
             _mostRecentSpawnPoint = spawnPoint;
 
             var spawnPointTransform = spawnPoint.transform;
@@ -350,6 +341,23 @@ namespace Game.Hopball {
             PlaySpawnSoundClientRpc(spawnPoint.transform.position);
 
             _respawnCoroutine = null;
+        }
+
+        private bool TryGetRandomValidSpawnPoint(out HopballSpawnPoint spawnPoint) {
+            spawnPoint = null;
+            if(hopballSpawnPoints == null || hopballSpawnPoints.Count == 0) {
+                DevLog.LogError("[HopballSpawnManager] No hopball spawn points assigned!");
+                return false;
+            }
+
+            var validPoints = hopballSpawnPoints.Where(p => p != null).ToList();
+            if(validPoints.Count == 0) {
+                DevLog.LogError("[HopballSpawnManager] No valid spawn points!");
+                return false;
+            }
+
+            spawnPoint = validPoints[Random.Range(0, validPoints.Count)];
+            return true;
         }
 
         /// <summary>
