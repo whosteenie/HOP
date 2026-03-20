@@ -68,7 +68,11 @@ namespace Game.Weapon.Core {
             }
             var shotId = lastShotId + 1UL;
             _localLastShotIdByWeapon[weaponIndex] = shotId;
-            manager.ReportShotFired(weaponIndex, shotId, Time.time);
+            manager.ReportShotFired(new ShotReportRequest {
+                WeaponIndex = weaponIndex,
+                ShotId = shotId,
+                ClientShotTime = Time.time
+            });
             var localMuzzlePosition = _weapon.HasLocalMuzzleFlashSpawnPositionForShot
                 ? _weapon.LocalMuzzleFlashSpawnPositionForShot
                 : startPosition;

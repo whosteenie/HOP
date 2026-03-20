@@ -230,10 +230,11 @@ namespace Game.Weapon.Manager {
 
         private void ReportWeaponStateSync(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
             _authority.ReportWeaponStateSync(weaponIndex, reason, localAmmoAfterEvent);
-        public void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime) =>
-            _authority.ReportShotFired(weaponIndex, shotId, clientShotTime);
-        public void RegisterServerShotAndLogOnAuthority(int weaponIndex, ulong shotId, float clientShotTime) =>
-            _authority.RegisterServerShotAndLogOnAuthority(weaponIndex, shotId, clientShotTime);
+        public void ReportShotFired(in ShotReportRequest request) =>
+            _authority.ReportShotFired(request.WeaponIndex, request.ShotId, request.ClientShotTime);
+        public void RegisterServerShotAndLogOnAuthority(in ShotReportRequest request) =>
+            _authority.RegisterServerShotAndLogOnAuthority(request.WeaponIndex, request.ShotId,
+                request.ClientShotTime);
         public bool ApplyOwnerLoadoutSelection(int primaryIndex, int secondaryIndex, bool deferTpRevealUntilRespawn = true) =>
             _loadout.ApplyOwnerLoadoutSelection(primaryIndex, secondaryIndex, deferTpRevealUntilRespawn);
         public int GetCurrentHolsterSlot() => _loadout.GetCurrentHolsterSlot();

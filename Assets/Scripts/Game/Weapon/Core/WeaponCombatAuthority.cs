@@ -212,7 +212,11 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            weaponManager.RegisterServerShotAndLogOnAuthority(weaponIndex, shotId, clientShotTime);
+            weaponManager.RegisterServerShotAndLogOnAuthority(new ShotReportRequest {
+                WeaponIndex = weaponIndex,
+                ShotId = shotId,
+                ClientShotTime = clientShotTime
+            });
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]

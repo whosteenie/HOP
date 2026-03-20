@@ -40,6 +40,12 @@ namespace Game.Weapon.Contracts {
         public int LocalAmmoAfterEvent { get; set; }
     }
 
+    public struct ShotReportRequest {
+        public int WeaponIndex { get; set; }
+        public ulong ShotId { get; set; }
+        public float ClientShotTime { get; set; }
+    }
+
     public interface IWeaponFxRelay {
         void RequestShotFx(in ShotFxRequest request);
     }
@@ -63,8 +69,8 @@ namespace Game.Weapon.Contracts {
         bool IsFriendlyFireAgainst(ulong victimClientId);
         void HandlePullOutCompleted();
         void ReportWeaponStateSync(in WeaponStateSyncRequest request);
-        void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime);
-        void RegisterServerShotAndLogOnAuthority(int weaponIndex, ulong shotId, float clientShotTime);
+        void ReportShotFired(in ShotReportRequest request);
+        void RegisterServerShotAndLogOnAuthority(in ShotReportRequest request);
         void ProcessWeaponSwitchRequest(int newIndex);
         void UpdateServerWeaponState(in WeaponStateSyncRequest request);
         void ResetAllWeaponAmmoOnAuthority();
