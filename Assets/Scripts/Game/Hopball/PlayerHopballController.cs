@@ -970,8 +970,13 @@ namespace Game.Hopball {
 
             if(canSendDrop) {
                 if(HopballSpawnManager.Instance != null) {
-                    HopballSpawnManager.Instance.RequestDropAuthority(hopballNetObj, dropPosition, dropRotation,
-                        playerVelocity, reason.ToString());
+                    HopballSpawnManager.Instance.RequestDropAuthority(new HopballSpawnManager.HopballDropRequest {
+                        HopballRef = hopballNetObj,
+                        DropPosition = dropPosition,
+                        DropRotation = dropRotation,
+                        PlayerVelocity = playerVelocity,
+                        DropReason = reason.ToString()
+                    });
                 }
             }
 
@@ -1012,8 +1017,13 @@ namespace Game.Hopball {
             var deathVelocity = Vector3.zero;
 
             if(HopballSpawnManager.Instance != null) {
-                HopballSpawnManager.Instance.RequestDropAuthority(hopball.NetworkObject, dropPosition,
-                    dropRotation, deathVelocity, HopballDropReason.PlayerDeath.ToString());
+                HopballSpawnManager.Instance.RequestDropAuthority(new HopballSpawnManager.HopballDropRequest {
+                    HopballRef = hopball.NetworkObject,
+                    DropPosition = dropPosition,
+                    DropRotation = dropRotation,
+                    PlayerVelocity = deathVelocity,
+                    DropReason = HopballDropReason.PlayerDeath.ToString()
+                });
             }
 
             CleanupAndRestoreWeaponsClientRpc();

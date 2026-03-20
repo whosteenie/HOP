@@ -17,6 +17,14 @@ namespace Game.Hopball {
     /// Manages hopball spawning, respawning, OOB handling, and scoring for Hopball gamemode.
     /// </summary>
     public class HopballSpawnManager : NetworkBehaviour {
+        public struct HopballDropRequest {
+            public NetworkObjectReference HopballRef { get; set; }
+            public Vector3 DropPosition { get; set; }
+            public Quaternion DropRotation { get; set; }
+            public Vector3 PlayerVelocity { get; set; }
+            public string DropReason { get; set; }
+        }
+
         public static HopballSpawnManager Instance { get; private set; }
 
         [Header("Hopball Spawn Points")]
@@ -598,15 +606,15 @@ namespace Game.Hopball {
         }
 
         /// <summary>Requests server to drop the hopball at the given position/rotation.</summary>
-        public void RequestDropAuthority(NetworkObjectReference hopballRef, Vector3 dropPosition,
-            Quaternion dropRotation, Vector3 playerVelocity, string dropReason) {
+        public void RequestDropAuthority(in HopballDropRequest request) {
             if(HasHopballAuthority) {
-                ProcessDropRequest(hopballRef, dropPosition, dropRotation, playerVelocity, dropReason,
-                    NetworkManager != null ? NetworkManager.LocalClientId : OwnerClientId);
+                ProcessDropRequest(request.HopballRef, request.DropPosition, request.DropRotation, request.PlayerVelocity,
+                    request.DropReason, NetworkManager != null ? NetworkManager.LocalClientId : OwnerClientId);
                 return;
             }
 
-            RequestDropAuthorityServerRpc(hopballRef, dropPosition, dropRotation, playerVelocity, dropReason);
+            RequestDropAuthorityServerRpc(request.HopballRef, request.DropPosition, request.DropRotation,
+                request.PlayerVelocity, request.DropReason);
         }
 
         public void RegisterPlayerController(ulong ownerClientId, Collider playerCollider) {
