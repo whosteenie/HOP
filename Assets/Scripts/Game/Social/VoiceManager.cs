@@ -258,12 +258,7 @@ namespace Game.Social {
                 return false;
             }
 
-            if(Time.unscaledTime < _claimsMismatchRetryCooldownUntil) {
-                if(!ShouldEmitThrottledLog(ref _nextClaimsMismatchLogTime, 2f)) return false;
-                var remaining = _claimsMismatchRetryCooldownUntil - Time.unscaledTime;
-                DevLog.LogWarning(
-                    $"[VoiceManager] Skipping Vivox rejoin for '{channelName}' during claims-mismatch cooldown ({remaining:0.0}s remaining).");
-
+            if(IsJoinBlockedByClaimsMismatchCooldown(channelName)) {
                 return false;
             }
 
@@ -277,91 +272,151 @@ namespace Game.Social {
                     return true;
                 }
 
-                Exception lastException = null;
-                for(var attempt = 1; attempt <= MaxJoinAttempts; attempt++) {
-                    if(await EnsureLoginAsync() == false) {
-                        if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
-                            DevLog.LogWarning("[VoiceManager] JoinChannelAsync aborted because Vivox login is unavailable.");
-                        }
-                        return false;
-                    }
-
-                    try {
-                        if(!string.IsNullOrEmpty(_currentChannelName) && _currentChannelName != channelName) {
-                            await LeaveCurrentChannelAsync("SwitchChannel");
-                        }
-
-                        if(!Application.isEditor && Debug.isDebugBuild &&
-                           ShouldEmitThrottledLog(ref _nextRouteSyncLogTime, 1.5f)) {
-                            DevLog.Log(
-                                $"[HOPFLOW][VIVOX] JOIN_BEGIN context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
-                        }
-
-                        if (positional) {
-                            // 3D Positional Channel
-                            var channel3D = new Channel3DProperties(32, 1, 1.0f, AudioFadeModel.InverseByDistance);
-                            await VivoxService.Instance.JoinPositionalChannelAsync(channelName, ChatCapability.TextAndAudio, channel3D);
-                        } else {
-                            // 2D Team Channel
-                            await VivoxService.Instance.JoinGroupChannelAsync(channelName, ChatCapability.TextAndAudio);
-                        }
-
-                        _currentChannelName = channelName;
-                        if(!Debug.isDebugBuild) return true;
-                        DevLog.Log(
-                            $"[VoiceManager] Joined channel '{channelName}'. ActiveChannels={VivoxService.Instance.ActiveChannels.Count}");
-                        if(!Application.isEditor) {
-                            DevLog.Log(
-                                $"[HOPFLOW][VIVOX] JOIN_OK context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
-                        }
-
-                        return true;
-                    } catch(Exception ex) {
-                        lastException = ex;
-                        if(IsVivoxClaimsMismatch(ex)) {
-                            var recovered = await RecoverClaimsMismatchAsync(channelName, attempt);
-                            if(recovered == false) {
-                                break;
-                            }
-
-                            await Task.Delay(ClaimsMismatchRetryDelayMs);
-                            continue;
-                        }
-
-                        if(attempt < MaxJoinAttempts) {
-                            await Task.Delay(GenericJoinRetryDelayMs);
-                        }
-                    }
+                var joinResult = await TryJoinChannelWithRetriesAsync(channelName, positional, context);
+                if(joinResult.joined) {
+                    return true;
                 }
 
-                if(lastException == null || !ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) return false;
-                if(IsVivoxClaimsMismatch(lastException)) {
-                    _claimsMismatchRetryCooldownUntil = Time.unscaledTime + ClaimsMismatchRetryCooldownSeconds;
-                    DevLog.LogWarning(
-                        $"[VoiceManager] Join channel '{channelName}' failed after claims-mismatch recovery attempts.");
-                } else {
-                    DevLog.LogError($"[VoiceManager] Join Channel Failed: {lastException.Message}");
-                }
-                if(!Application.isEditor && Debug.isDebugBuild) {
-                    DevLog.LogWarning(
-                        $"[HOPFLOW][VIVOX] JOIN_FAIL context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
-                }
+                EmitJoinFailureLogs(channelName, context, joinResult.lastException);
                 return false;
             } catch(Exception e) {
                 if(_isShuttingDown) return false;
-                if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
-                    DevLog.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
-                }
-                if(!Application.isEditor && Debug.isDebugBuild) {
-                    DevLog.LogWarning(
-                        $"[HOPFLOW][VIVOX] JOIN_FAIL context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
-                }
+                EmitJoinFailureLogs(channelName, context, e);
 
                 return false;
             } finally {
                 if(gateEntered && !_isShuttingDown) {
                     _channelOperationGate.Release();
                 }
+            }
+        }
+
+        private bool IsJoinBlockedByClaimsMismatchCooldown(string channelName) {
+            if(Time.unscaledTime >= _claimsMismatchRetryCooldownUntil) {
+                return false;
+            }
+
+            if(!ShouldEmitThrottledLog(ref _nextClaimsMismatchLogTime, 2f)) {
+                return true;
+            }
+
+            var remaining = _claimsMismatchRetryCooldownUntil - Time.unscaledTime;
+            DevLog.LogWarning(
+                $"[VoiceManager] Skipping Vivox rejoin for '{channelName}' during claims-mismatch cooldown ({remaining:0.0}s remaining).");
+            return true;
+        }
+
+        private async Task<(bool joined, Exception lastException)> TryJoinChannelWithRetriesAsync(
+            string channelName,
+            bool positional,
+            string context) {
+            Exception lastException = null;
+
+            for(var attempt = 1; attempt <= MaxJoinAttempts; attempt++) {
+                if(await EnsureLoginAsync() == false) {
+                    if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
+                        DevLog.LogWarning("[VoiceManager] JoinChannelAsync aborted because Vivox login is unavailable.");
+                    }
+
+                    return (false, lastException);
+                }
+
+                var attemptResult = await TryJoinChannelAttemptAsync(channelName, positional, context, attempt);
+                if(attemptResult.joined) {
+                    return (true, null);
+                }
+
+                if(attemptResult.shouldStop) {
+                    return (false, attemptResult.exception);
+                }
+
+                lastException = attemptResult.exception;
+            }
+
+            return (false, lastException);
+        }
+
+        private async Task<(bool joined, bool shouldStop, Exception exception)> TryJoinChannelAttemptAsync(
+            string channelName,
+            bool positional,
+            string context,
+            int attempt) {
+            try {
+                if(!string.IsNullOrEmpty(_currentChannelName) && _currentChannelName != channelName) {
+                    await LeaveCurrentChannelAsync("SwitchChannel");
+                }
+
+                EmitJoinBeginLog(channelName, context);
+                await JoinChannelAsync(channelName, positional);
+
+                _currentChannelName = channelName;
+                EmitJoinSuccessLog(channelName, context);
+                return (true, false, null);
+            } catch(Exception ex) {
+                if(IsVivoxClaimsMismatch(ex)) {
+                    var recovered = await RecoverClaimsMismatchAsync(channelName, attempt);
+                    if(recovered == false) {
+                        return (false, true, ex);
+                    }
+
+                    await Task.Delay(ClaimsMismatchRetryDelayMs);
+                    return (false, false, ex);
+                }
+
+                if(attempt < MaxJoinAttempts) {
+                    await Task.Delay(GenericJoinRetryDelayMs);
+                }
+
+                return (false, false, ex);
+            }
+        }
+
+        private static async Task JoinChannelAsync(string channelName, bool positional) {
+            if(positional) {
+                var channel3D = new Channel3DProperties(32, 1, 1.0f, AudioFadeModel.InverseByDistance);
+                await VivoxService.Instance.JoinPositionalChannelAsync(channelName, ChatCapability.TextAndAudio, channel3D);
+            } else {
+                await VivoxService.Instance.JoinGroupChannelAsync(channelName, ChatCapability.TextAndAudio);
+            }
+        }
+
+        private void EmitJoinBeginLog(string channelName, string context) {
+            if(!Application.isEditor && Debug.isDebugBuild &&
+               ShouldEmitThrottledLog(ref _nextRouteSyncLogTime, 1.5f)) {
+                DevLog.Log(
+                    $"[HOPFLOW][VIVOX] JOIN_BEGIN context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
+            }
+        }
+
+        private void EmitJoinSuccessLog(string channelName, string context) {
+            if(!Debug.isDebugBuild) {
+                return;
+            }
+
+            DevLog.Log(
+                $"[VoiceManager] Joined channel '{channelName}'. ActiveChannels={VivoxService.Instance.ActiveChannels.Count}");
+            if(!Application.isEditor) {
+                DevLog.Log(
+                    $"[HOPFLOW][VIVOX] JOIN_OK context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
+            }
+        }
+
+        private void EmitJoinFailureLogs(string channelName, string context, Exception exception) {
+            if(exception == null || !ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
+                return;
+            }
+
+            if(IsVivoxClaimsMismatch(exception)) {
+                _claimsMismatchRetryCooldownUntil = Time.unscaledTime + ClaimsMismatchRetryCooldownSeconds;
+                DevLog.LogWarning(
+                    $"[VoiceManager] Join channel '{channelName}' failed after claims-mismatch recovery attempts.");
+            } else {
+                DevLog.LogError($"[VoiceManager] Join Channel Failed: {exception.Message}");
+            }
+
+            if(!Application.isEditor && Debug.isDebugBuild) {
+                DevLog.LogWarning(
+                    $"[HOPFLOW][VIVOX] JOIN_FAIL context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
             }
         }
 
