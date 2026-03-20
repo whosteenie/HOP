@@ -62,8 +62,12 @@
                 <ui:VisualElement name="grapple-indicator-fill" class="grapple-indicator-fill" />
             </ui:VisualElement>
             <ui:VisualElement name="multiplier-container" class="multiplier-container">
-                <ui:ProgressBar name="multiplier-bar" class="multiplier-bar" />
-                <ui:Label name="multiplier-value" text="1.00x" class="multiplier-value" />
+                <ui:VisualElement name="multiplier-content" class="multiplier-content">
+                    <ui:ProgressBar name="multiplier-bar" class="multiplier-bar" />
+                    <ui:VisualElement name="multiplier-value-container" class="multiplier-value-container">
+                        <ui:Label name="multiplier-value" text="1.00x" class="multiplier-value" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="ammo-container" class="ammo-container">
                 <ui:Label name="ammo-current" text="30" class="ammo-text ammo-current" />

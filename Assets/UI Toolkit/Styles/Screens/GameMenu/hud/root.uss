@@ -25,8 +25,8 @@
 
 /* Stat containers */
 .multiplier-container {
-    width: 280px;
-    min-width: 280px;
+    width: 312px;
+    min-width: 312px;
     flex-direction: row; 
     align-items: center;
     justify-content: center;
@@ -35,6 +35,12 @@
     background-color: rgba(12, 12, 18, 0.4);
     border-top-width: 2px;
     border-top-color: rgba(60, 150, 200, 0.6);
+}
+
+.multiplier-content {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
 }
 
 .health-container, .ammo-container {
@@ -83,10 +89,18 @@
 }
 
 .multiplier-bar {
-    width: 180px; height: 22px; margin-right: 12px;
+    width: 180px; height: 22px; margin-right: 6px;
+    flex-shrink: 0;
     border-radius: 4px; background-color: rgba(5, 5, 8, 0.8);
     border-width: 1px;
     border-color: var(--color-accent-border-soft);
+}
+
+.multiplier-value-container {
+    width: 72px;
+    flex-shrink: 0;
+    align-items: flex-start;
+    justify-content: center;
 }
 .health-bar .unity-progress-bar__progress { 
     background-color: var(--color-accent-strong);
@@ -131,7 +145,11 @@
 }
 
 .multiplier-value {
-    color: white; font-size: 22px; -unity-font-style: bold; min-width: 60px; -unity-text-align: middle-right;
+    color: white;
+    font-size: 22px;
+    -unity-font-style: bold;
+    width: 100%;
+    -unity-text-align: middle-left;
 }
 .ammo-text {
     color: white; 
