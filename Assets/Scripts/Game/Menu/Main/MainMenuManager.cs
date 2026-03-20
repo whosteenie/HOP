@@ -167,7 +167,7 @@ namespace Game.Menu.Main {
         }
 
         private void OnRootKeyDown(KeyDownEvent evt) {
-            if(evt == null || evt.keyCode != KeyCode.Escape) return;
+            if(evt is not { keyCode: KeyCode.Escape }) return;
             TryHandleBackInputThisFrame();
             evt.StopPropagation();
         }
