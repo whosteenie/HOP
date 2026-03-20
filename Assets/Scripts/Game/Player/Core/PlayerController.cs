@@ -860,6 +860,14 @@ namespace Game.Player.Core {
             }
         }
 
+        public GameObject GetCurrentFpWeaponForPresentation() {
+            return _weaponPresentation != null
+                ? _weaponPresentation.GetCurrentFpWeapon()
+                : weaponManager != null
+                    ? weaponManager.GetCurrentFpWeapon()
+                    : null;
+        }
+
         #endregion
 
         #region Core Components

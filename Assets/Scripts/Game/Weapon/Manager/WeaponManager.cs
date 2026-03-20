@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Diagnostics;
 using Events;
@@ -190,6 +191,7 @@ namespace Game.Weapon.Manager {
             EventBus.Subscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
             EventBus.Subscribe<MatchStartedEvent>(OnMatchStarted);
             EventBus.Subscribe<PodiumVisualsSnappedEvent>(OnPodiumVisualsSnapped);
+            EventBus.Subscribe<PlayerHopballWeaponPresentationRequestedEvent>(OnHopballWeaponPresentationRequested);
         }
 
         public override void OnNetworkDespawn() {
@@ -198,6 +200,7 @@ namespace Game.Weapon.Manager {
             EventBus.Unsubscribe<PostMatchBlackoutReadyEvent>(OnPostMatchBlackoutReady);
             EventBus.Unsubscribe<MatchStartedEvent>(OnMatchStarted);
             EventBus.Unsubscribe<PodiumVisualsSnappedEvent>(OnPodiumVisualsSnapped);
+            EventBus.Unsubscribe<PlayerHopballWeaponPresentationRequestedEvent>(OnHopballWeaponPresentationRequested);
             UnbindPlayerStateSubscriptions();
             IsPostMatchFlowActive = false;
         }
@@ -344,6 +347,57 @@ namespace Game.Weapon.Manager {
             if(evt == null || OwnerContext?.NetworkObject == null) return;
             if(evt.PlayerNetworkObjectId != OwnerContext.NetworkObjectId) return;
             _switch.SetTpWeaponIndexForPodium();
+        }
+
+        private void OnHopballWeaponPresentationRequested(PlayerHopballWeaponPresentationRequestedEvent evt) {
+            if(evt == null || OwnerContext?.NetworkObject == null) return;
+            if(evt.PlayerNetworkObjectId != OwnerContext.NetworkObjectId) return;
+
+            switch(evt.Action) {
+                case HopballWeaponPresentationAction.HideFirstPersonWeapon:
+                    HideCurrentFpWeaponForHopball();
+                    break;
+                case HopballWeaponPresentationAction.HideWorldWeapon:
+                    HideCurrentWorldWeaponForHopball();
+                    break;
+                case HopballWeaponPresentationAction.ShowBothHolsters:
+                    ShowBothHolstersForHopball();
+                    break;
+                case HopballWeaponPresentationAction.RestoreAfterDrop:
+                    _switch.RestoreAfterHopballDrop();
+                    RefreshHolsterVisibility();
+                    break;
+                case HopballWeaponPresentationAction.TriggerPullOut:
+                    _switch.TriggerPullOutAnimation();
+                    break;
+                case HopballWeaponPresentationAction.CancelPendingPullOutForPostMatch:
+                    _switch.CancelPendingPullOutForPostMatch();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        private void HideCurrentFpWeaponForHopball() {
+            if(CurrentWeaponIndexInternal < 0 || CurrentWeaponIndexInternal >= FpWeaponInstancesRef.Count) return;
+            var fpWeapon = FpWeaponInstancesRef[CurrentWeaponIndexInternal];
+            if(fpWeapon == null || !fpWeapon.activeSelf) return;
+            fpWeapon.SetActive(false);
+        }
+
+        private void HideCurrentWorldWeaponForHopball() {
+            if(CurrentWorldWeaponInstanceInternal == null || !CurrentWorldWeaponInstanceInternal.activeSelf) return;
+            CurrentWorldWeaponInstanceInternal.SetActive(false);
+        }
+
+        private void ShowBothHolstersForHopball() {
+            if(PrimaryHolsterInternal != null && !PrimaryHolsterInternal.activeSelf) {
+                PrimaryHolsterInternal.SetActive(true);
+            }
+
+            if(SecondaryHolsterInternal != null && !SecondaryHolsterInternal.activeSelf) {
+                SecondaryHolsterInternal.SetActive(true);
+            }
         }
 
         #endregion

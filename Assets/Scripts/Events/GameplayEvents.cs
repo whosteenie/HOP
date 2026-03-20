@@ -194,6 +194,30 @@ namespace Events {
         }
     }
 
+    public enum HopballWeaponPresentationAction : byte {
+        HideFirstPersonWeapon,
+        HideWorldWeapon,
+        ShowBothHolsters,
+        RestoreAfterDrop,
+        TriggerPullOut,
+        CancelPendingPullOutForPostMatch
+    }
+
+    /// <summary>
+    /// Event published by hopball systems when weapon presentation should react for a specific player.
+    /// Weapon systems own the actual visibility/animation transitions.
+    /// </summary>
+    public class PlayerHopballWeaponPresentationRequestedEvent : GameEvent {
+        public readonly ulong PlayerNetworkObjectId;
+        public readonly HopballWeaponPresentationAction Action;
+
+        public PlayerHopballWeaponPresentationRequestedEvent(ulong playerNetworkObjectId,
+            HopballWeaponPresentationAction action) {
+            PlayerNetworkObjectId = playerNetworkObjectId;
+            Action = action;
+        }
+    }
+
     /// <summary>
     /// Event published when a hopball toggles player collision-ignore mode so the spawn manager can sync registered colliders.
     /// </summary>

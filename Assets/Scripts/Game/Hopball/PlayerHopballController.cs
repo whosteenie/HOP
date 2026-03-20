@@ -7,7 +7,6 @@ using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Game.Player.Visual;
-using Game.Weapon.Manager;
 using OSI;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -36,7 +35,6 @@ namespace Game.Hopball {
         [Header("References")]
         [SerializeField] private PlayerController playerController;
 
-        private WeaponManager _weaponManager;
         private PlayerCombatController _combatController; // For worldWeaponSocket reference
         private CinemachineCamera _fpCamera; // First-person camera (for FP weapon socket)
         private Transform _worldWeaponSocket;
@@ -416,7 +414,7 @@ namespace Game.Hopball {
             DestroyFpVisual();
             DestroyArmImmediate();
 
-            ShowWeapons();
+            PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction.RestoreAfterDrop);
             TransitionToWeaponLayers();
         }
 
@@ -493,7 +491,7 @@ namespace Game.Hopball {
             }
 
             SetupFpHopball();
-            HideFpWeapons();
+            PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction.HideFirstPersonWeapon);
 
             HopballController.VisualStateChanged += OnHopballVisualStateChanged;
             TransitionToHopballLayers();
@@ -527,9 +525,9 @@ namespace Game.Hopball {
             }
 
             if(isHolder) {
-                HideWorldWeapon();
+                PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction.HideWorldWeapon);
                 SetupWorldHopballVisual(true, energyRatio);
-                ShowBothHolsters();
+                PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction.ShowBothHolsters);
                 if(playerController != null && playerController.PlayerShadow != null) {
                     playerController.PlayerShadow.ApplyHopballShadowState(true, true);
                 }
@@ -537,8 +535,8 @@ namespace Game.Hopball {
                 SetupWorldHopballVisual(false, energyRatio);
                 if(OwnerClientId != evt.HolderClientId || localClientId == evt.HolderClientId) return;
                 EnablePlayerTarget();
-                ShowBothHolsters();
-                HideWorldWeapon();
+                PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction.ShowBothHolsters);
+                PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction.HideWorldWeapon);
                 if(playerController != null && playerController.PlayerShadow != null) {
                     playerController.PlayerShadow.ApplyHopballShadowState(true, false);
                 }
@@ -659,17 +657,15 @@ namespace Game.Hopball {
 
             var weaponCamera = playerController != null ? playerController.WeaponCamera : null;
 
-            if(_weaponManager != null) {
-                var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
-                if(currentFpWeapon != null && currentFpWeapon.activeSelf) {
-                    var parent = currentFpWeapon.transform.parent;
-                    while(parent != null) {
-                        if(parent.name == "BobHolder") {
-                            return parent;
-                        }
-
-                        parent = parent.parent;
+            var currentFpWeapon = playerController != null ? playerController.GetCurrentFpWeaponForPresentation() : null;
+            if(currentFpWeapon != null && currentFpWeapon.activeSelf) {
+                var parent = currentFpWeapon.transform.parent;
+                while(parent != null) {
+                    if(parent.name == "BobHolder") {
+                        return parent;
                     }
+
+                    parent = parent.parent;
                 }
             }
 
@@ -985,10 +981,7 @@ namespace Game.Hopball {
             }
 
             if(reason == HopballDropReason.Manual) {
-                ShowWeapons();
-                if(_weaponManager != null) {
-                    _weaponManager.RefreshHolsterVisibility();
-                }
+                PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction.RestoreAfterDrop);
 
                 if(playerController != null && playerController.PlayerShadow != null) {
                     playerController.PlayerShadow.ApplyHopballShadowState(false, playerController.IsOwner);
@@ -1064,7 +1057,7 @@ namespace Game.Hopball {
                 DestroyFpVisual();
                 DestroyWorldVisual();
                 if(postMatchTransitionActive) DestroyArmImmediate();
-                ShowWeapons();
+                PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction.RestoreAfterDrop);
                 TransitionToWeaponLayers();
                 if(_playerTarget != null) _playerTarget.enabled = false;
             } else {
@@ -1072,11 +1065,12 @@ namespace Game.Hopball {
             }
 
             if(postMatchTransitionActive) {
-                if(_weaponManager != null) _weaponManager.CancelPendingPullOutForPostMatch();
+                PublishHopballWeaponPresentationRequest(
+                    HopballWeaponPresentationAction.CancelPendingPullOutForPostMatch);
                 return;
             }
 
-            if(_weaponManager != null) _weaponManager.TriggerPullOutAnimation();
+            PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction.TriggerPullOut);
         }
 
         private void TrackHeldHopballProgression() {
@@ -1168,9 +1162,7 @@ namespace Game.Hopball {
             HideFpHopballVisualImmediate();
             DestroyWorldVisual();
             DestroyArmImmediate();
-            if(_weaponManager != null) {
-                _weaponManager.CancelPendingPullOutForPostMatch();
-            }
+            PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction.CancelPendingPullOutForPostMatch);
         }
 
         private static bool IsPostMatchTransitionActive() {
@@ -1197,55 +1189,10 @@ namespace Game.Hopball {
             DestroyArmImmediate();
         }
 
-        /// <summary>
-        /// Hides the FP weapon model (called locally by owner).
-        /// </summary>
-        private void HideFpWeapons() {
-            if(_weaponManager == null) return;
-
-            var currentWeapon = _weaponManager.CurrentWeapon;
-            if(currentWeapon == null) return;
-
-            var fpWeapon = currentWeapon.GetWeaponPrefab();
-            if(fpWeapon == null || !fpWeapon.activeSelf) return;
-
-            fpWeapon.SetActive(false);
-        }
-
-        /// <summary>
-        /// Hides the world weapon model (called via RPC for owner).
-        /// </summary>
-        private void HideWorldWeapon() {
-            if(_weaponManager == null) return;
-            var worldWeapon = _weaponManager.CurrentWorldWeaponInstance;
-            if(worldWeapon == null || !worldWeapon.activeSelf) return;
-            worldWeapon.SetActive(false);
-        }
-
-        /// <summary>
-        /// Shows both holstered weapon models (used when holding hopball - neither weapon is "equipped").
-        /// </summary>
-        private void ShowBothHolsters() {
-            if(_weaponManager == null) return;
-
-            var primaryHolster = _weaponManager.PrimaryHolster;
-            var secondaryHolster = _weaponManager.SecondaryHolster;
-
-            if(primaryHolster != null && !primaryHolster.activeSelf) {
-                primaryHolster.SetActive(true);
-            }
-
-            if(secondaryHolster != null && !secondaryHolster.activeSelf) {
-                secondaryHolster.SetActive(true);
-            }
-        }
-
-        /// <summary>
-        /// Shows the current FP and world weapon models.
-        /// </summary>
-        private void ShowWeapons() {
-            if(_weaponManager == null) return;
-            _weaponManager.RestoreAfterHopballDrop();
+        private void PublishHopballWeaponPresentationRequest(HopballWeaponPresentationAction action) {
+            if(playerController == null || playerController.NetworkObject == null) return;
+            EventBus.Publish(new PlayerHopballWeaponPresentationRequestedEvent(playerController.NetworkObjectId,
+                action));
         }
 
         // ========================================================================
@@ -1266,7 +1213,6 @@ namespace Game.Hopball {
                 return;
             }
 
-            if(_weaponManager == null) _weaponManager = playerController.WeaponManager;
             if(_combatController == null) _combatController = playerController.CombatController;
             if(_fpCamera == null) _fpCamera = playerController.FpCamera;
             if(_worldWeaponSocket == null) _worldWeaponSocket = playerController.WorldWeaponSocket;

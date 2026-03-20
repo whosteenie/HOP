@@ -47,6 +47,7 @@ namespace Events {
             typeof(HopballDissolvedEvent),
             typeof(HopballVisualCleanupRequestedEvent),
             typeof(HopballHolderCleanupRequestedEvent),
+            typeof(PlayerHopballWeaponPresentationRequestedEvent),
             typeof(HopballCollisionIgnoreStateChangedEvent),
             typeof(PlayerWorldWeaponRefreshRequestedEvent),
             typeof(PlayerHolsterShadowRefreshRequestedEvent),

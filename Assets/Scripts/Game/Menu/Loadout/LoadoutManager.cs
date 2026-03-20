@@ -1001,9 +1001,9 @@ namespace Game.Menu.Loadout {
             if(_previewPlayerModel != null) {
                 _previewPlayerModel.SetActive(true);
                 var renderers = _previewPlayerModel.GetComponentsInChildren<Renderer>(true);
-                foreach(var renderer in renderers) {
-                    if(renderer != null) {
-                        renderer.enabled = true;
+                foreach(var r in renderers) {
+                    if(r != null) {
+                        r.enabled = true;
                     }
                 }
 
@@ -1077,12 +1077,11 @@ namespace Game.Menu.Loadout {
                 _viewport.RegisterCallback<PointerUpEvent>(OnViewportPointerUp);
                 _viewport.RegisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
 
-                if(Root != null && !_viewportRootHandlersRegistered) {
-                    Root.RegisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
-                    Root.RegisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
-                    Root.RegisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
-                    _viewportRootHandlersRegistered = true;
-                }
+                if(Root == null || _viewportRootHandlersRegistered) return;
+                Root.RegisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
+                Root.RegisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
+                Root.RegisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
+                _viewportRootHandlersRegistered = true;
 
                 return;
             }
