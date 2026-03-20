@@ -74,34 +74,13 @@ namespace Network.Session {
             await _ctx.EnsureSignedInAsync();
             CancelMatchmaking();
 
-            mode = ResolveRequestedQuickPlayMode(mode);
-            var maxPlayers = ResolveMaxPlayersForMode(mode);
-
-            ResetPublicRuntimeMatchSettings(mode);
-            _ctx.SetPrivateMatchMapPreset(false);
-
-            _ctx.SetMatchmakingStartTime(Time.time);
-            _ctx.SetFrontStatus(SessionPhase.Searching, $"Searching for {mode}...");
+            PrepareQuickPlaySearchState(mode, out mode, out var maxPlayers);
 
             if(await TryJoinInProgressAsync(mode, maxPlayers)) {
                 return;
             }
 
-            _matchmakerQueueName = GetQueueNameForMode(mode);
-            if(string.IsNullOrEmpty(_matchmakerQueueName)) {
-                DevLog.LogError("[SessionManager] Matchmaker queue name is empty.");
-                return;
-            }
-
-            FlowLog.Emit(FlowEventIds.QueueStarted,
-                ("mode", mode),
-                ("queue", _matchmakerQueueName),
-                ("maxPlayers", maxPlayers));
-
-            var attrs = BuildMatchmakerTicketAttributes(mode);
-            if(TryBuildMatchmakerPlayers(attrs, out var localPlayerId, out var players) == false) {
-                DevLog.LogError("[SessionManager] Cannot start matchmaking: local UGS player id is unavailable.");
-                CancelMatchmaking();
+            if(!TryPrepareMatchmakerTicketRequest(mode, maxPlayers, out var attrs, out var players, out var localPlayerId)) {
                 return;
             }
 
@@ -110,14 +89,69 @@ namespace Network.Session {
                     $"[UGS Matchmaker] Creating ticket. mode='{mode}' queue='{_matchmakerQueueName}' playerId='{localPlayerId}'");
             }
 
+            var resp = await CreateMatchmakerTicketWithRetryAsync(attrs, players);
+            if(resp == null) {
+                return;
+            }
+
+            _matchmakerTicketId = resp.Id;
+            if(string.IsNullOrEmpty(_matchmakerTicketId)) {
+                DevLog.LogError("[SessionManager] Matchmaker ticket id is empty.");
+                CancelMatchmaking();
+                return;
+            }
+
+            await RunMatchmakerTicketPollingAsync(mode, maxPlayers);
+        }
+
+        private void PrepareQuickPlaySearchState(string requestedMode, out string mode, out int maxPlayers) {
+            mode = ResolveRequestedQuickPlayMode(requestedMode);
+            maxPlayers = ResolveMaxPlayersForMode(mode);
+
+            ResetPublicRuntimeMatchSettings(mode);
+            _ctx.SetPrivateMatchMapPreset(false);
+
+            _ctx.SetMatchmakingStartTime(Time.time);
+            _ctx.SetFrontStatus(SessionPhase.Searching, $"Searching for {mode}...");
+        }
+
+        private bool TryPrepareMatchmakerTicketRequest(string mode, int maxPlayers,
+            out Dictionary<string, object> attrs, out List<Player> players, out string localPlayerId) {
+            attrs = null;
+            players = null;
+            localPlayerId = null;
+
+            _matchmakerQueueName = GetQueueNameForMode(mode);
+            if(string.IsNullOrEmpty(_matchmakerQueueName)) {
+                DevLog.LogError("[SessionManager] Matchmaker queue name is empty.");
+                return false;
+            }
+
+            FlowLog.Emit(FlowEventIds.QueueStarted,
+                ("mode", mode),
+                ("queue", _matchmakerQueueName),
+                ("maxPlayers", maxPlayers));
+
+            attrs = BuildMatchmakerTicketAttributes(mode);
+            if(TryBuildMatchmakerPlayers(attrs, out localPlayerId, out players)) {
+                return true;
+            }
+
+            DevLog.LogError("[SessionManager] Cannot start matchmaking: local UGS player id is unavailable.");
+            CancelMatchmaking();
+            return false;
+        }
+
+        private async UniTask<CreateTicketResponse> CreateMatchmakerTicketWithRetryAsync(
+            Dictionary<string, object> attrs,
+            List<Player> players) {
             const int createTicketMaxAttempts = 3;
             const int createTicketBaseDelayMs = 800;
-            CreateTicketResponse resp = null;
+
             for(var attempt = 1; attempt <= createTicketMaxAttempts; attempt++) {
                 try {
                     var options = new CreateTicketOptions(_matchmakerQueueName, attrs);
-                    resp = await MatchmakerService.Instance.CreateTicketAsync(players, options);
-                    break;
+                    return await MatchmakerService.Instance.CreateTicketAsync(players, options);
                 } catch(Exception e) when(attempt < createTicketMaxAttempts) {
                     if(IsTransientCreateTicketError(e)) {
                         var delayMs = createTicketBaseDelayMs * attempt;
@@ -125,30 +159,31 @@ namespace Network.Session {
                             DevLog.LogWarning(
                                 $"[UGS Matchmaker] CreateTicketAsync transient failure (attempt {attempt}/{createTicketMaxAttempts}): {e.Message}. Retrying in {delayMs}ms.");
                         }
+
                         try {
                             await UniTask.Delay(delayMs, cancellationToken: _ctx.SessionLifetimeToken);
                         } catch(OperationCanceledException) {
-                            return;
+                            return null;
                         }
-                    } else {
-                        DevLog.LogError($"[UGS Matchmaker] CreateTicketAsync failed (terminal): {e.Message}");
-                        CancelMatchmaking();
-                        return;
+
+                        continue;
                     }
-                } catch(Exception e) {
-                    DevLog.LogError($"[UGS Matchmaker] CreateTicketAsync failed after {createTicketMaxAttempts} attempts: {e.Message}");
+
+                    DevLog.LogError($"[UGS Matchmaker] CreateTicketAsync failed (terminal): {e.Message}");
                     CancelMatchmaking();
-                    return;
+                    return null;
+                } catch(Exception e) {
+                    DevLog.LogError(
+                        $"[UGS Matchmaker] CreateTicketAsync failed after {createTicketMaxAttempts} attempts: {e.Message}");
+                    CancelMatchmaking();
+                    return null;
                 }
             }
 
-            _matchmakerTicketId = resp != null ? resp.Id : null;
-            if(string.IsNullOrEmpty(_matchmakerTicketId)) {
-                DevLog.LogError("[SessionManager] Matchmaker ticket id is empty.");
-                CancelMatchmaking();
-                return;
-            }
+            return null;
+        }
 
+        private async UniTask RunMatchmakerTicketPollingAsync(string mode, int maxPlayers) {
             _matchmakerCts = new CancellationTokenSource();
             try {
                 if(Debug.isDebugBuild) {
