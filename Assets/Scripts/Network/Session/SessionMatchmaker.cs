@@ -80,7 +80,8 @@ namespace Network.Session {
                 return;
             }
 
-            if(!TryPrepareMatchmakerTicketRequest(mode, maxPlayers, out var attrs, out var players, out var localPlayerId)) {
+            if(!TryPrepareMatchmakerTicketRequest(mode, maxPlayers, out var attrs, out var players,
+                   out var localPlayerId)) {
                 return;
             }
 
@@ -229,6 +230,7 @@ namespace Network.Session {
                         if(Debug.isDebugBuild) {
                             DevLog.Log($"[SessionManager] Found lobby! lobbyId='{lobby.Id}'. Joining...");
                         }
+
                         var joined = await _actions.JoinMatchLobbyByIdAsync(lobby.Id);
                         if(joined) return;
                     }
@@ -261,7 +263,9 @@ namespace Network.Session {
         }
 
         private static int ResolveMaxPlayersForMode(string mode) {
-            var resolved = resolveMaxPlayersForMode != null ? resolveMaxPlayersForMode(mode) :
+            var resolved = resolveMaxPlayersForMode != null
+                ? resolveMaxPlayersForMode(mode)
+                :
                 // Sensible default when no provider is registered.
                 10;
 
@@ -270,6 +274,7 @@ namespace Network.Session {
                 DevLog.LogWarning(
                     $"[SessionMatchmaker] resolveMaxPlayersForMode returned {resolved} for mode '{mode}'. Clamping to 1.");
             }
+
             resolved = 1;
 
             return resolved;
@@ -411,17 +416,37 @@ namespace Network.Session {
                     DevLog.LogWarning(
                         $"[SessionManager] Rate limited while querying in-progress lobbies ({queryLabel}) for mode='{mode}'.");
                 }
+
                 return null;
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextMatchLobbyQueryFailureLogTime, 10f)) {
                     DevLog.LogWarning(
                         $"[SessionManager] Failed querying in-progress lobbies ({queryLabel}) for mode='{mode}': {ex.Message}");
                 }
+
                 return null;
             }
         }
 
         private async UniTask<bool> TryJoinInProgressAsync(string mode, int maxPlayers) {
+            var response = await QueryBackfillLobbiesWithFallbackAsync(mode);
+            if(response == null) return false;
+            if(response.Results == null || response.Results.Count == 0) {
+                if(Debug.isDebugBuild) {
+                    DevLog.Log($"[SessionManager] Backfill query returned 0 lobbies for mode='{mode}'.");
+                }
+
+                return false;
+            }
+
+            var candidates = BuildBackfillCandidates(response.Results, mode, maxPlayers);
+            if(candidates.Count != 0) return await TryJoinBackfillCandidatesAsync(candidates, mode);
+            
+            DevLog.LogWarning($"[SessionManager] Backfill: no joinable in-progress lobbies for mode='{mode}'.");
+            return false;
+        }
+
+        private async UniTask<QueryResponse> QueryBackfillLobbiesWithFallbackAsync(string mode) {
             var indexedOptions = new QueryLobbiesOptions {
                 Count = 100,
                 Filters = new List<QueryFilter> {
@@ -431,29 +456,25 @@ namespace Network.Session {
             };
 
             var response = await QueryLobbiesForBackfillAsync(indexedOptions, mode, "IndexedModePublic");
-            if(response == null) return false;
-
-            if(response.Results == null || response.Results.Count == 0) {
-                if(Debug.isDebugBuild) {
-                    DevLog.Log(
-                        $"[SessionManager] Backfill indexed query returned 0 lobbies for mode='{mode}'. Falling back to broad query.");
-                }
-
-                var fallbackOptions = new QueryLobbiesOptions { Count = 100 };
-                response = await QueryLobbiesForBackfillAsync(fallbackOptions, mode, "BroadFallback");
-                if(response == null) return false;
+            if(response == null) return null;
+            if(response.Results is { Count: > 0 }) {
+                return response;
             }
 
-            if(response.Results == null || response.Results.Count == 0) {
-                if(Debug.isDebugBuild) {
-                    DevLog.Log($"[SessionManager] Backfill query returned 0 lobbies for mode='{mode}'.");
-                }
-                return false;
+            if(Debug.isDebugBuild) {
+                DevLog.Log(
+                    $"[SessionManager] Backfill indexed query returned 0 lobbies for mode='{mode}'. Falling back to broad query.");
             }
 
+            var fallbackOptions = new QueryLobbiesOptions { Count = 100 };
+            return await QueryLobbiesForBackfillAsync(fallbackOptions, mode, "BroadFallback");
+        }
+
+        private static List<Lobby> BuildBackfillCandidates(List<Lobby> lobbies, string mode, int maxPlayers) {
             var candidates = new List<Lobby>();
             var rejectCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-            foreach(var lobby in response.Results) {
+
+            foreach(var lobby in lobbies) {
                 if(IsPublicLobbyCandidateForJoinInProgress(lobby, mode, maxPlayers)) {
                     candidates.Add(lobby);
                     continue;
@@ -470,17 +491,16 @@ namespace Network.Session {
                     ? "none"
                     : string.Join(", ", rejectCounts);
                 DevLog.Log(
-                    $"[SessionManager] Backfill scan mode='{mode}' total={response.Results.Count} candidates={candidates.Count} rejects=({rejectSummary})");
-            }
-
-            if(candidates.Count == 0) {
-                DevLog.LogWarning($"[SessionManager] Backfill: no joinable in-progress lobbies for mode='{mode}'.");
-                return false;
+                    $"[SessionManager] Backfill scan mode='{mode}' total={lobbies.Count} candidates={candidates.Count} rejects=({rejectSummary})");
             }
 
             candidates.Sort((a, b) => GetLobbyPlayerCount(b).CompareTo(GetLobbyPlayerCount(a)));
+            return candidates;
+        }
 
+        private async UniTask<bool> TryJoinBackfillCandidatesAsync(List<Lobby> candidates, string mode) {
             _ctx.SetFrontStatus(SessionPhase.JoiningLobby, $"Joining in-progress {mode}...");
+
             foreach(var lobby in candidates) {
                 if(Debug.isDebugBuild) {
                     DevLog.Log(
@@ -611,15 +631,19 @@ namespace Network.Session {
                    reasonStr.IndexOf("InternalServerError", StringComparison.OrdinalIgnoreCase) >= 0)
                     return true;
             }
+
             // Fallback: treat timeout/network in message as transient
             if(msg.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0 ||
                msg.IndexOf("NetworkError", StringComparison.OrdinalIgnoreCase) >= 0 ||
                msg.IndexOf("Request timeout", StringComparison.OrdinalIgnoreCase) >= 0)
                 return true;
-            if(msg.IndexOf("429", StringComparison.OrdinalIgnoreCase) >= 0 || msg.IndexOf("RateLimit", StringComparison.OrdinalIgnoreCase) >= 0)
+            if(msg.IndexOf("429", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               msg.IndexOf("RateLimit", StringComparison.OrdinalIgnoreCase) >= 0)
                 return true;
-            return msg.IndexOf("401", StringComparison.OrdinalIgnoreCase) < 0 && msg.IndexOf("403", StringComparison.OrdinalIgnoreCase) < 0 &&
-                   msg.IndexOf("400", StringComparison.OrdinalIgnoreCase) < 0 && msg.IndexOf("404", StringComparison.OrdinalIgnoreCase) < 0;
+            return msg.IndexOf("401", StringComparison.OrdinalIgnoreCase) < 0 &&
+                   msg.IndexOf("403", StringComparison.OrdinalIgnoreCase) < 0 &&
+                   msg.IndexOf("400", StringComparison.OrdinalIgnoreCase) < 0 &&
+                   msg.IndexOf("404", StringComparison.OrdinalIgnoreCase) < 0;
             // Unknown: treat as transient so we retry
         }
 
@@ -630,6 +654,7 @@ namespace Network.Session {
                     if(Debug.isDebugBuild) {
                         DevLog.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' in progress...");
                     }
+
                     return await WaitMatchmakerPollIntervalAsync(0, ct);
                 }
                 case MatchIdAssignment.StatusOptions.Timeout:
@@ -644,6 +669,7 @@ namespace Network.Session {
                     if(Debug.isDebugBuild) {
                         DevLog.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' found matchId='{assign.MatchId}'");
                     }
+
                     return await TryHandleFoundMatchAssignmentAsync(mode, maxPlayers, assign);
                 }
                 default:
@@ -657,7 +683,8 @@ namespace Network.Session {
                 await MatchmakerService.Instance.DeleteTicketAsync(ticketId);
             } catch(Exception ex) {
                 if(Debug.isDebugBuild) {
-                    DevLog.LogWarning($"[SessionManager] Failed to delete matchmaker ticket '{ticketId}': {ex.Message}");
+                    DevLog.LogWarning(
+                        $"[SessionManager] Failed to delete matchmaker ticket '{ticketId}': {ex.Message}");
                 }
             }
         }
