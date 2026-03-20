@@ -199,6 +199,10 @@ namespace Game.Player.Combat {
         /// Applies damage to the player on the server (authoritative).
         /// </summary>
         public bool ApplyDamageServer_Auth(in DamageApplicationRequest request) {
+            RefreshStateBindings();
+            if(!HasCombatAuthority || netIsDead == null || _deathStatePending) return false;
+            if(ResolveAuthoritativeIsDead()) return false;
+
             var amount = request.Damage;
             var hitPoint = request.HitPoint;
             var hitDirection = request.HitDirection;
@@ -207,165 +211,171 @@ namespace Game.Player.Combat {
             var isHeadshot = request.IsHeadshot;
             var weaponId = request.WeaponId;
 
-            RefreshStateBindings();
-            if(!HasCombatAuthority || netIsDead == null || _deathStatePending) return false;
-            if(ResolveAuthoritativeIsDead()) return false;
             var activeMode = _playerContext != null && !string.IsNullOrEmpty(_playerContext.CurrentGameModeId)
                 ? _playerContext.CurrentGameModeId
                 : "Unknown";
+            _ = isHeadshot;
 
             if(attackerId == ulong.MaxValue) {
-                var isOobTagMode = _playerContext is { IsGunTagMode: true };
-                if(isOobTagMode && _tagController != null && !_tagController.IsTagged.Value) {
-                    _tagController.ApplyTimeTaggedDeltaAuthority(GunTagOobNonTaggedPenaltySeconds);
-                }
-
-                var healthBefore = ResolveAuthoritativeHealth();
-                ApplyHealthStateAuthority(new HealthStateAuthorityRequest {
-                    HealthValue = 0f,
-                    IsDead = true,
-                    IncrementDeaths = true,
-                    HitPoint = hitPoint,
-                    HitDirection = hitDirection,
-                    BodyPartTag = bodyPartTag
-                });
-                CommitHealthShadow(0f, true);
-                _deathStatePending = true;
-                StartRespawnTimeoutProbe();
-                FlowLog.Emit(FlowEventIds.PlayerLethal,
-                    ("victim", OwnerClientId),
-                    ("attacker", "Environment"),
-                    ("healthBefore", healthBefore),
-                    ("healthAfter", 0f),
-                    ("bodyPart", bodyPartTag ?? "None"));
-                FlowLog.Emit(FlowEventIds.PlayerDeathEntered,
-                    ("player", OwnerClientId),
-                    ("hasAuthority", HasCombatAuthority),
-                    ("isOwner", IsOwner),
-                    ("mode", activeMode),
-                    ("position", _playerTransform != null ? _playerTransform.position : transform.position));
-                
-                TryForceHopballDrop("OutOfBoundsDeath");
-
-                if(_playerContext is { PlayerName: not null }) {
-                }
-                BroadcastKillClientRpc("HOP", attackerId, OwnerClientId, null);
-                
-                ReserveSpawnPointForDeath();
-                DieClientRpc(_lastBodyPartTag);
-                
-                EventBus.Publish(new PlayerDiedEvent(OwnerClientId, attackerId, bodyPartTag));
-                return true;
+                return HandleEnvironmentDamageAuthority(attackerId, hitPoint, hitDirection, bodyPartTag, activeMode);
             }
 
-            // Check if we're in Tag mode
-            var isTagMode = _playerContext is { IsGunTagMode: true };
+            UpdateDamageContactState(hitPoint, hitDirection, bodyPartTag);
 
+            if(_playerContext is { IsGunTagMode: true }) {
+                return HandleTagModeDamageAuthority(attackerId, hitPoint, amount);
+            }
+
+            return HandleStandardDamageAuthority(
+                amount,
+                attackerId,
+                hitPoint,
+                hitDirection,
+                bodyPartTag,
+                weaponId,
+                activeMode);
+        }
+
+        private bool HandleEnvironmentDamageAuthority(ulong attackerId, Vector3 hitPoint, Vector3 hitDirection,
+            string bodyPartTag, string activeMode) {
+            var isOobTagMode = _playerContext is { IsGunTagMode: true };
+            if(isOobTagMode && _tagController != null && !_tagController.IsTagged.Value) {
+                _tagController.ApplyTimeTaggedDeltaAuthority(GunTagOobNonTaggedPenaltySeconds);
+            }
+
+            var healthBefore = ResolveAuthoritativeHealth();
+            ApplyHealthStateAuthority(new HealthStateAuthorityRequest {
+                HealthValue = 0f,
+                IsDead = true,
+                IncrementDeaths = true,
+                HitPoint = hitPoint,
+                HitDirection = hitDirection,
+                BodyPartTag = bodyPartTag
+            });
+            CommitHealthShadow(0f, true);
+            MarkDeathStateEntered("Environment", healthBefore, 0f, bodyPartTag, activeMode);
+
+            TryForceHopballDrop("OutOfBoundsDeath");
+
+            if(_playerContext is { PlayerName: not null }) {
+            }
+            BroadcastKillClientRpc("HOP", attackerId, OwnerClientId, null);
+
+            ReserveSpawnPointForDeath();
+            DieClientRpc(_lastBodyPartTag);
+
+            EventBus.Publish(new PlayerDiedEvent(OwnerClientId, attackerId, bodyPartTag));
+            return true;
+        }
+
+        private void UpdateDamageContactState(Vector3 hitPoint, Vector3 hitDirection, string bodyPartTag) {
             _lastHitPoint = hitPoint;
             _lastHitDirection = hitDirection;
             _lastDamageTime = Time.time;
             _isRegenerating = false;
-            _lastBodyPartTag = bodyPartTag; // Store for ragdoll force application
+            _lastBodyPartTag = bodyPartTag;
+        }
 
+        private bool HandleTagModeDamageAuthority(ulong attackerId, Vector3 hitPoint, float amount) {
+            var nonTaggedShootingTagged = false;
+            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
+                if(attackerClient.PlayerObject == null) return false;
+                var attackerTagController = attackerClient.PlayerObject.GetComponent<PlayerTagController>();
 
-            if(isTagMode) {
-                var nonTaggedShootingTagged = false;
-                if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
-                    if(attackerClient.PlayerObject == null) return false;
-                    var attackerTagController = attackerClient.PlayerObject.GetComponent<PlayerTagController>();
+                if(attackerTagController != null && !attackerTagController.IsTagged.Value &&
+                   _tagController != null && _tagController.IsTagged.Value) {
+                    nonTaggedShootingTagged = true;
+                    if(attackerTagController.TimeTagged.Value > 0) {
+                        attackerTagController.ApplyTimeTaggedDeltaAuthority(-1);
+                    }
 
-                    if(attackerTagController != null && !attackerTagController.IsTagged.Value && 
-                       _tagController != null && _tagController.IsTagged.Value) {
-                        nonTaggedShootingTagged = true;
-                        if(attackerTagController.TimeTagged.Value > 0) {
-                            attackerTagController.ApplyTimeTaggedDeltaAuthority(-1);
-                        }
-
-                        if(_playerContext != null) {
-                            _playerContext.PlayHitEffects(hitPoint, amount);
-                        }
+                    if(_playerContext != null) {
+                        _playerContext.PlayHitEffects(hitPoint, amount);
                     }
                 }
-
-                // Tag mode: delegate to PlayerTagController (only if attacker is tagged)
-                if(_tagController != null && !nonTaggedShootingTagged) {
-                    _tagController.HandleTagTransfer(attackerId, hitPoint, amount);
-                }
-                // No kill in tag mode (except OOB)
-            } else {
-                // Normal damage mode
-                var pre = ResolveAuthoritativeHealth();
-                var newHp = Mathf.Max(0f, pre - amount);
-                var actualDealt = pre - newHp;
-                var isLethalHit = newHp <= 0f;
-
-                ApplyHealthStateAuthority(new HealthStateAuthorityRequest {
-                    HealthValue = newHp,
-                    IsDead = isLethalHit,
-                    IncrementDeaths = isLethalHit,
-                    HitPoint = hitPoint,
-                    HitDirection = hitDirection,
-                    BodyPartTag = bodyPartTag
-                });
-                CommitHealthShadow(newHp, isLethalHit);
-
-                if(_playerContext != null) {
-                    _playerContext.PlayHitEffects(hitPoint, amount);
-                }
-
-                if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
-                    if(attackerClient.PlayerObject == null) return false;
-                    if(attackerClient.PlayerObject.TryGetComponent<PlayerCombatController>(out var attackerHealthController)) {
-                        attackerHealthController.AddDamageDealtAuthority(actualDealt);
-                    }
-                }
-
-                TrackAssistDamage(attackerId, actualDealt);
-
-                var isPostMatchFlowStarted = _playerContext is { IsPostMatchFlowStarted: true };
-                if(!isLethalHit || isPostMatchFlowStarted)
-                    return false;
-                _deathStatePending = true;
-                StartRespawnTimeoutProbe();
-                FlowLog.Emit(FlowEventIds.PlayerLethal,
-                    ("victim", OwnerClientId),
-                    ("attacker", attackerId),
-                    ("healthBefore", pre),
-                    ("healthAfter", newHp),
-                    ("bodyPart", _lastBodyPartTag ?? "None"));
-                FlowLog.Emit(FlowEventIds.PlayerDeathEntered,
-                    ("player", OwnerClientId),
-                    ("hasAuthority", HasCombatAuthority),
-                    ("isOwner", IsOwner),
-                    ("mode", activeMode),
-                    ("position", _playerTransform != null ? _playerTransform.position : transform.position));
-
-                TryForceHopballDrop("PlayerDeath");
-
-                if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var killerClient)) {
-                    if(killerClient.PlayerObject == null) return false;
-                    var killerName = "Player";
-                    if(killerClient.PlayerObject.TryGetComponent<PlayerCombatController>(out var killerHealthController)) {
-                        killerHealthController.AddKillAuthority();
-                        if(killerHealthController._playerContext is { PlayerName: not null }) {
-                            killerName = killerHealthController._playerContext.PlayerName.Value.ToString();
-                        }
-                    }
-                    AwardAssists(attackerId);
-                    BroadcastKillClientRpc(killerName, attackerId, OwnerClientId, weaponId);
-                }
-
-                // Reserve spawn point immediately when player dies (server-side)
-                ReserveSpawnPointForDeath();
-
-                DieClientRpc(_lastBodyPartTag);
-                
-                // Publish death event
-                EventBus.Publish(new PlayerDiedEvent(OwnerClientId, attackerId, _lastBodyPartTag));
-                return true;
             }
 
-            return false; // No kill in tag mode (except OOB)
+            if(_tagController != null && !nonTaggedShootingTagged) {
+                _tagController.HandleTagTransfer(attackerId, hitPoint, amount);
+            }
+
+            return false;
+        }
+
+        private bool HandleStandardDamageAuthority(float amount, ulong attackerId, Vector3 hitPoint, Vector3 hitDirection,
+            string bodyPartTag, string weaponId, string activeMode) {
+            var healthBefore = ResolveAuthoritativeHealth();
+            var newHp = Mathf.Max(0f, healthBefore - amount);
+            var actualDealt = healthBefore - newHp;
+            var isLethalHit = newHp <= 0f;
+
+            ApplyHealthStateAuthority(new HealthStateAuthorityRequest {
+                HealthValue = newHp,
+                IsDead = isLethalHit,
+                IncrementDeaths = isLethalHit,
+                HitPoint = hitPoint,
+                HitDirection = hitDirection,
+                BodyPartTag = bodyPartTag
+            });
+            CommitHealthShadow(newHp, isLethalHit);
+
+            if(_playerContext != null) {
+                _playerContext.PlayHitEffects(hitPoint, amount);
+            }
+
+            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
+                if(attackerClient.PlayerObject == null) return false;
+                if(attackerClient.PlayerObject.TryGetComponent<PlayerCombatController>(out var attackerHealthController)) {
+                    attackerHealthController.AddDamageDealtAuthority(actualDealt);
+                }
+            }
+
+            TrackAssistDamage(attackerId, actualDealt);
+
+            var isPostMatchFlowStarted = _playerContext is { IsPostMatchFlowStarted: true };
+            if(!isLethalHit || isPostMatchFlowStarted) {
+                return false;
+            }
+
+            MarkDeathStateEntered(attackerId, healthBefore, newHp, _lastBodyPartTag, activeMode);
+            TryForceHopballDrop("PlayerDeath");
+
+            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var killerClient)) {
+                if(killerClient.PlayerObject == null) return false;
+                var killerName = "Player";
+                if(killerClient.PlayerObject.TryGetComponent<PlayerCombatController>(out var killerHealthController)) {
+                    killerHealthController.AddKillAuthority();
+                    if(killerHealthController._playerContext is { PlayerName: not null }) {
+                        killerName = killerHealthController._playerContext.PlayerName.Value.ToString();
+                    }
+                }
+
+                AwardAssists(attackerId);
+                BroadcastKillClientRpc(killerName, attackerId, OwnerClientId, weaponId);
+            }
+
+            ReserveSpawnPointForDeath();
+            DieClientRpc(_lastBodyPartTag);
+            EventBus.Publish(new PlayerDiedEvent(OwnerClientId, attackerId, _lastBodyPartTag));
+            return true;
+        }
+
+        private void MarkDeathStateEntered(object attacker, float healthBefore, float healthAfter, string bodyPartTag,
+            string activeMode) {
+            _deathStatePending = true;
+            StartRespawnTimeoutProbe();
+            FlowLog.Emit(FlowEventIds.PlayerLethal,
+                ("victim", OwnerClientId),
+                ("attacker", attacker),
+                ("healthBefore", healthBefore),
+                ("healthAfter", healthAfter),
+                ("bodyPart", bodyPartTag ?? "None"));
+            FlowLog.Emit(FlowEventIds.PlayerDeathEntered,
+                ("player", OwnerClientId),
+                ("hasAuthority", HasCombatAuthority),
+                ("isOwner", IsOwner),
+                ("mode", activeMode),
+                ("position", _playerTransform != null ? _playerTransform.position : transform.position));
         }
 
         [Rpc(SendTo.Everyone)]
