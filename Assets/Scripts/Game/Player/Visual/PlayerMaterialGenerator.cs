@@ -52,7 +52,33 @@ namespace Game.Player.Visual {
                 return CreateDefaultMaterial(in request);
             }
 
-            // Use packet defaults if not provided
+            var options = ResolveGenerationOptions(packet, in request);
+            var cacheKey = GetCacheKey(packet, request.BaseColor, request.Smoothness, request.Metallic,
+                options.FinalSpecularColor, options.FinalHeightStrength, options.FinalEmissionEnabled,
+                options.FinalEmissionColor);
+
+            if(MaterialCache.TryGetValue(cacheKey, out var cachedMaterial) && cachedMaterial != null) {
+                return cachedMaterial;
+            }
+
+            var material = CreateLitMaterial(packet, in request, in options);
+            if(material == null) {
+                return CreateDefaultMaterial(new PlayerMaterialGenerationRequest {
+                    BaseColor = request.BaseColor,
+                    Smoothness = request.Smoothness,
+                    Metallic = request.Metallic,
+                    EmissionEnabled = options.FinalEmissionEnabled,
+                    EmissionColor = options.FinalEmissionColor
+                });
+            }
+
+            StoreMaterialInCache(cacheKey, material);
+
+            return material;
+        }
+
+        private static MaterialGenerationOptions ResolveGenerationOptions(PlayerMaterialPacket packet,
+            in PlayerMaterialGenerationRequest request) {
             var finalSpecularColor = request.SpecularColor ?? packet.defaultSpecularColor;
             var finalNormalStrength = packet.normalMapStrength;
             var finalHeightStrength = request.HeightStrength ?? packet.heightMapStrength;
@@ -61,125 +87,140 @@ namespace Game.Player.Visual {
             var finalEmissionEnabled = request.EmissionEnabled &&
                                        (supportsEmission || finalEmissionColor.maxColorComponent > 0.001f);
 
-            // Create cache key
-            var cacheKey = GetCacheKey(packet, request.BaseColor, request.Smoothness, request.Metallic,
-                finalSpecularColor, finalHeightStrength, finalEmissionEnabled, finalEmissionColor);
+            return new MaterialGenerationOptions(
+                finalSpecularColor,
+                finalNormalStrength,
+                finalHeightStrength,
+                finalEmissionColor,
+                supportsEmission,
+                finalEmissionEnabled);
+        }
 
-            // Check cache
-            if(MaterialCache.TryGetValue(cacheKey, out var cachedMaterial) && cachedMaterial != null) {
-                return cachedMaterial;
-            }
-
-            // Create new material
+        private static Material CreateLitMaterial(PlayerMaterialPacket packet, in PlayerMaterialGenerationRequest request,
+            in MaterialGenerationOptions options) {
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if(shader == null) {
                 DevLog.LogError("[PlayerMaterialGenerator] URP/Lit shader not found! Falling back to default material.");
-                return CreateDefaultMaterial(new PlayerMaterialGenerationRequest {
-                    BaseColor = request.BaseColor,
-                    Smoothness = request.Smoothness,
-                    Metallic = request.Metallic,
-                    EmissionEnabled = finalEmissionEnabled,
-                    EmissionColor = finalEmissionColor
-                });
+                return null;
             }
 
             var material = new Material(shader) {
                 name = $"PlayerMaterial_{packet.packetName}_{request.BaseColor}_{request.Smoothness}_{request.Metallic}"
             };
 
-            // Set workflow mode
-            material.SetFloat(WorkflowModeId, packet.useMetallicWorkflow ? 0f : 1f); // 0 = Metallic, 1 = Specular
+            ApplyWorkflowMode(material, packet);
+            ApplyBaseAndNormal(material, packet, request.BaseColor, options.FinalNormalStrength);
+            ApplyHeight(material, packet, options.FinalHeightStrength);
+            ApplyOcclusionAndMetallicMap(material, packet);
+            ApplyWorkflowValues(material, packet, request.Smoothness, request.Metallic, options.FinalSpecularColor);
+            ApplyEmission(material, packet, options);
 
-            // Base Map and Color
-            if(packet.albedoTexture != null) {
-                material.SetTexture(BaseMapId, packet.albedoTexture);
-                // Apply tiling and offset
-                material.SetTextureScale(BaseMapId, packet.tiling);
-                material.SetTextureOffset(BaseMapId, packet.offset);
-            }
-
-            // Base Color (tints the base map, or is the color if no map)
-            material.SetColor(BaseColorId, request.BaseColor);
-
-            // Normal Map
-            if(packet.normalMap != null) {
-                material.SetTexture(NormalMapId, packet.normalMap);
-                material.SetFloat(NormalScaleId, finalNormalStrength);
-                material.SetTextureScale(NormalMapId, packet.tiling);
-                material.SetTextureOffset(NormalMapId, packet.offset);
-            }
-
-            // Height Map
-            if(packet.heightMap != null) {
-                material.SetTexture(HeightMapId, packet.heightMap);
-                material.SetFloat(ParallaxId, finalHeightStrength); // Height map strength/scale
-                material.SetTextureScale(HeightMapId, packet.tiling);
-                material.SetTextureOffset(HeightMapId, packet.offset);
-                material.EnableKeyword("_PARALLAXMAP");
-            } else {
-                material.DisableKeyword("_PARALLAXMAP");
-            }
-
-            // Occlusion Map
-            if(packet.occlusionMap != null) {
-                material.SetTexture(OcclusionMapId, packet.occlusionMap);
-                material.SetTextureScale(OcclusionMapId, packet.tiling);
-                material.SetTextureOffset(OcclusionMapId, packet.offset);
-            }
-
-            // Metallic Map (only if using metallic workflow)
-            if(packet.useMetallicWorkflow && packet.metallicMap != null) {
-                material.SetTexture(MetallicMapId, packet.metallicMap);
-                material.SetTextureScale(MetallicMapId, packet.tiling);
-                material.SetTextureOffset(MetallicMapId, packet.offset);
-            }
-
-            // Smoothness (used in both workflows)
-            material.SetFloat(SmoothnessId, request.Smoothness);
-
-            // Workflow-specific properties
-            if(packet.useMetallicWorkflow) {
-                // Metallic workflow: Set metallic value
-                material.SetFloat(MetallicId, request.Metallic);
-            } else {
-                // Specular workflow: Set specular color (no metallic slider)
-                material.SetColor(SpecularColorId, finalSpecularColor);
-            }
-
-            // Emission
-            if(supportsEmission && packet.emissionMap != null) {
-                material.SetTexture(EmissionMapId, packet.emissionMap);
-                material.SetTextureScale(EmissionMapId, packet.tiling);
-                material.SetTextureOffset(EmissionMapId, packet.offset);
-            }
-
-            if(finalEmissionEnabled) {
-                material.SetColor(EmissionColorId, finalEmissionColor);
-                
-                material.EnableKeyword("_EMISSION");
-                
-                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-                
-                if(material.HasProperty(EmissionIntensityId)) {
-                    // Calculate intensity from color (max component)
-                    var intensity = finalEmissionColor.maxColorComponent;
-                    material.SetFloat(EmissionIntensityId, intensity > 0.001f ? intensity : 1f);
-                }
-            } else {
-                material.DisableKeyword("_EMISSION");
-                material.SetColor(EmissionColorId, Color.black);
-                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
-            }
-
-            // Set render queue and other defaults
             material.renderQueue = (int)RenderQueue.Geometry;
+            return material;
+        }
 
-            // Cache the material
+        private static void ApplyWorkflowMode(Material material, PlayerMaterialPacket packet) {
+            material.SetFloat(WorkflowModeId, packet.useMetallicWorkflow ? 0f : 1f);
+        }
+
+        private static void ApplyBaseAndNormal(Material material, PlayerMaterialPacket packet, Color baseColor,
+            float normalStrength) {
+            if(packet.albedoTexture != null) {
+                SetTextureWithTilingAndOffset(material, BaseMapId, packet.albedoTexture, packet);
+            }
+
+            material.SetColor(BaseColorId, baseColor);
+
+            if(packet.normalMap == null) return;
+            SetTextureWithTilingAndOffset(material, NormalMapId, packet.normalMap, packet);
+            material.SetFloat(NormalScaleId, normalStrength);
+        }
+
+        private static void ApplyHeight(Material material, PlayerMaterialPacket packet, float heightStrength) {
+            if(packet.heightMap != null) {
+                SetTextureWithTilingAndOffset(material, HeightMapId, packet.heightMap, packet);
+                material.SetFloat(ParallaxId, heightStrength);
+                material.EnableKeyword("_PARALLAXMAP");
+                return;
+            }
+
+            material.DisableKeyword("_PARALLAXMAP");
+        }
+
+        private static void ApplyOcclusionAndMetallicMap(Material material, PlayerMaterialPacket packet) {
+            if(packet.occlusionMap != null) {
+                SetTextureWithTilingAndOffset(material, OcclusionMapId, packet.occlusionMap, packet);
+            }
+
+            if(packet.useMetallicWorkflow && packet.metallicMap != null) {
+                SetTextureWithTilingAndOffset(material, MetallicMapId, packet.metallicMap, packet);
+            }
+        }
+
+        private static void ApplyWorkflowValues(Material material, PlayerMaterialPacket packet, float smoothness,
+            float metallic, Color specularColor) {
+            material.SetFloat(SmoothnessId, smoothness);
+
+            if(packet.useMetallicWorkflow) {
+                material.SetFloat(MetallicId, metallic);
+            } else {
+                material.SetColor(SpecularColorId, specularColor);
+            }
+        }
+
+        private static void ApplyEmission(Material material, PlayerMaterialPacket packet,
+            in MaterialGenerationOptions options) {
+            if(options.SupportsEmission && packet.emissionMap != null) {
+                SetTextureWithTilingAndOffset(material, EmissionMapId, packet.emissionMap, packet);
+            }
+
+            if(options.FinalEmissionEnabled) {
+                material.SetColor(EmissionColorId, options.FinalEmissionColor);
+                material.EnableKeyword("_EMISSION");
+                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+
+                if(!material.HasProperty(EmissionIntensityId)) return;
+                var intensity = options.FinalEmissionColor.maxColorComponent;
+                material.SetFloat(EmissionIntensityId, intensity > 0.001f ? intensity : 1f);
+
+                return;
+            }
+
+            material.DisableKeyword("_EMISSION");
+            material.SetColor(EmissionColorId, Color.black);
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+        }
+
+        private static void SetTextureWithTilingAndOffset(Material material, int propertyId, Texture texture,
+            PlayerMaterialPacket packet) {
+            material.SetTexture(propertyId, texture);
+            material.SetTextureScale(propertyId, packet.tiling);
+            material.SetTextureOffset(propertyId, packet.offset);
+        }
+
+        private static void StoreMaterialInCache(string cacheKey, Material material) {
             MaterialCache[cacheKey] = material;
             MaterialCacheOrder.Enqueue(cacheKey);
             TrimMaterialCacheIfNeeded();
+        }
 
-            return material;
+        private readonly struct MaterialGenerationOptions {
+            public MaterialGenerationOptions(Color finalSpecularColor, float finalNormalStrength,
+                float finalHeightStrength, Color finalEmissionColor, bool supportsEmission, bool finalEmissionEnabled) {
+                FinalSpecularColor = finalSpecularColor;
+                FinalNormalStrength = finalNormalStrength;
+                FinalHeightStrength = finalHeightStrength;
+                FinalEmissionColor = finalEmissionColor;
+                SupportsEmission = supportsEmission;
+                FinalEmissionEnabled = finalEmissionEnabled;
+            }
+
+            public Color FinalSpecularColor { get; }
+            public float FinalNormalStrength { get; }
+            public float FinalHeightStrength { get; }
+            public Color FinalEmissionColor { get; }
+            public bool SupportsEmission { get; }
+            public bool FinalEmissionEnabled { get; }
         }
 
         private static void TrimMaterialCacheIfNeeded() {
@@ -259,4 +300,3 @@ namespace Game.Player.Visual {
         }
     }
 }
-
