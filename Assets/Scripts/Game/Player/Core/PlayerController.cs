@@ -1414,10 +1414,9 @@ namespace Game.Player.Core {
         IWeaponManagerFacade IWeaponCombatParticipant.WeaponManager => weaponManager;
         IWeaponDamageRelay IWeaponCombatParticipant.DamageRelay => damageRelay;
 
-        bool IWeaponCombatParticipant.ApplyDamageServerAuth(float damage, Vector3 hitPoint, Vector3 hitDirection,
-            ulong attackerClientId, string bodyPartTag, bool isHeadshot, string weaponId) {
-            return ApplyDamageServer_Auth(damage, hitPoint, hitDirection, attackerClientId, bodyPartTag, isHeadshot,
-                weaponId);
+        bool IWeaponCombatParticipant.ApplyDamageServerAuth(in DamageApplicationRequest request) {
+            return ApplyDamageServer_Auth(request.Damage, request.HitPoint, request.HitDirection,
+                request.AttackerClientId, request.BodyPartTag, request.IsHeadshot, request.WeaponId);
         }
 
         void IWeaponCombatParticipant.ProcessRespawnRequest() {

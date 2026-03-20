@@ -172,8 +172,15 @@ namespace Game.Weapon.Core {
 
             var weaponId = shooterWeaponManager.GetWeaponIdByIndex(weaponIndex);
 
-            var wasKill = victim.ApplyDamageServerAuth(serverDamage, hitPoint, hitDirection, shooterId, bodyPartTag,
-                isHeadshot, weaponId);
+            var wasKill = victim.ApplyDamageServerAuth(new DamageApplicationRequest {
+                Damage = serverDamage,
+                HitPoint = hitPoint,
+                HitDirection = hitDirection,
+                AttackerClientId = shooterId,
+                BodyPartTag = bodyPartTag,
+                IsHeadshot = isHeadshot,
+                WeaponId = weaponId
+            });
 
             var shooterRelay = shooterParticipant.DamageRelay;
             if(shooterRelay != null) {

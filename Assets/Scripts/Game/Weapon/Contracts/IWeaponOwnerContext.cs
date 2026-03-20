@@ -24,6 +24,16 @@ namespace Game.Weapon.Contracts {
         public Vector3 ShooterVelocity { get; set; }
     }
 
+    public struct DamageApplicationRequest {
+        public float Damage { get; set; }
+        public Vector3 HitPoint { get; set; }
+        public Vector3 HitDirection { get; set; }
+        public ulong AttackerClientId { get; set; }
+        public string BodyPartTag { get; set; }
+        public bool IsHeadshot { get; set; }
+        public string WeaponId { get; set; }
+    }
+
     public interface IWeaponFxRelay {
         void RequestShotFx(in ShotFxRequest request);
     }
@@ -90,8 +100,7 @@ namespace Game.Weapon.Contracts {
         NetworkObject NetworkObject { get; }
         IWeaponManagerFacade WeaponManager { get; }
         IWeaponDamageRelay DamageRelay { get; }
-        bool ApplyDamageServerAuth(float damage, Vector3 hitPoint, Vector3 hitDirection, ulong attackerClientId,
-            string bodyPartTag, bool isHeadshot, string weaponId);
+        bool ApplyDamageServerAuth(in DamageApplicationRequest request);
         void ProcessRespawnRequest();
     }
 }
