@@ -266,7 +266,11 @@ namespace Game.Weapon.Core {
                 return;
             }
 
-            weaponManager.UpdateServerWeaponState(weaponIndex, (byte)reason, localAmmoAfterEvent);
+            weaponManager.UpdateServerWeaponState(new WeaponStateSyncRequest {
+                WeaponIndex = weaponIndex,
+                Reason = reason,
+                LocalAmmoAfterEvent = localAmmoAfterEvent
+            });
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]

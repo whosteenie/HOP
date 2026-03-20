@@ -269,9 +269,9 @@ namespace Game.Weapon.Manager {
             return shooterState.teamId.Value == victimState.teamId.Value;
         }
 
-        void IWeaponManagerFacade.UpdateServerWeaponState(int weaponIndex, byte reason, int localAmmoAfterEvent) {
-            var parsedReason = (AmmoSyncReason)reason;
-            UpdateServerWeaponState(weaponIndex, parsedReason, localAmmoAfterEvent);
+        void IWeaponManagerFacade.UpdateServerWeaponState(in WeaponStateSyncRequest request) {
+            UpdateServerWeaponState(request.WeaponIndex, (AmmoSyncReason)request.Reason,
+                request.LocalAmmoAfterEvent);
         }
 
         void IWeaponManagerFacade.ResetAllWeaponAmmoOnAuthority() {
@@ -281,9 +281,9 @@ namespace Game.Weapon.Manager {
         Camera IWeaponManagerFacade.WeaponCamera => WeaponCameraRef;
         bool IWeaponManagerFacade.IsPostMatchFlowActive => IsPostMatchFlowActive;
 
-        void IWeaponManagerFacade.ReportWeaponStateSync(int weaponIndex, WeaponAmmoSyncReason reason,
-            int localAmmoAfterEvent) {
-            ReportWeaponStateSync(weaponIndex, (AmmoSyncReason)reason, localAmmoAfterEvent);
+        void IWeaponManagerFacade.ReportWeaponStateSync(in WeaponStateSyncRequest request) {
+            ReportWeaponStateSync(request.WeaponIndex, (AmmoSyncReason)request.Reason,
+                request.LocalAmmoAfterEvent);
         }
 
         bool IWeaponManagerFacade.IsFriendlyFireAgainst(ulong victimClientId) {

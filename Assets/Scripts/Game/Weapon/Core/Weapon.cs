@@ -335,7 +335,13 @@ namespace Game.Weapon.Core {
         }
 
         private void SyncServerWeaponState(WeaponAmmoSyncReason reason) {
-            if(Manager != null) Manager.ReportWeaponStateSync(Manager.CurrentWeaponIndex, reason, currentAmmo);
+            if(Manager != null) {
+                Manager.ReportWeaponStateSync(new WeaponStateSyncRequest {
+                    WeaponIndex = Manager.CurrentWeaponIndex,
+                    Reason = reason,
+                    LocalAmmoAfterEvent = currentAmmo
+                });
+            }
         }
 
         private void PublishOwnerAmmoToHud(int maxAmmoOverride = -1) {

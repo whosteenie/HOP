@@ -34,6 +34,12 @@ namespace Game.Weapon.Contracts {
         public string WeaponId { get; set; }
     }
 
+    public struct WeaponStateSyncRequest {
+        public int WeaponIndex { get; set; }
+        public WeaponAmmoSyncReason Reason { get; set; }
+        public int LocalAmmoAfterEvent { get; set; }
+    }
+
     public interface IWeaponFxRelay {
         void RequestShotFx(in ShotFxRequest request);
     }
@@ -56,11 +62,11 @@ namespace Game.Weapon.Contracts {
         string GetWeaponIdByIndex(int index);
         bool IsFriendlyFireAgainst(ulong victimClientId);
         void HandlePullOutCompleted();
-        void ReportWeaponStateSync(int weaponIndex, WeaponAmmoSyncReason reason, int localAmmoAfterEvent);
+        void ReportWeaponStateSync(in WeaponStateSyncRequest request);
         void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime);
         void RegisterServerShotAndLogOnAuthority(int weaponIndex, ulong shotId, float clientShotTime);
         void ProcessWeaponSwitchRequest(int newIndex);
-        void UpdateServerWeaponState(int weaponIndex, byte reason, int localAmmoAfterEvent);
+        void UpdateServerWeaponState(in WeaponStateSyncRequest request);
         void ResetAllWeaponAmmoOnAuthority();
     }
 
