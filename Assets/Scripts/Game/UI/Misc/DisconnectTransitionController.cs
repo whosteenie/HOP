@@ -56,6 +56,9 @@ namespace Game.UI.Misc {
         /// Returns true if duplicate was shown; false if fallback (hide) should be used instead.
         /// </summary>
         public bool CaptureDuplicateFpVisuals(PlayerController player) {
+#if UNITY_EDITOR
+            if(!Application.isPlaying) return false;
+#endif
             if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] CaptureDuplicateFpVisuals called");
             if(player == null || !player.IsOwner) { if(Debug.isDebugBuild) DevLog.Log("[DisconnectTransition] FAIL: player null or not owner"); return false; }
             CleanupDuplicate();

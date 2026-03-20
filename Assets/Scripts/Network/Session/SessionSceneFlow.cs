@@ -230,6 +230,7 @@ namespace Network.Session {
         /// Launches HandleUnexpectedDisconnect if not already in progress.
         /// </summary>
         public void TriggerDisconnectFlow(ISessionContext ctx, ISceneFlowActions actions, string source) {
+            if(SessionManager.IsEditorPlayModeExitInProgress) return;
 #if UNITY_EDITOR
             if(!Application.isPlaying) return;
 #endif
@@ -247,6 +248,7 @@ namespace Network.Session {
         }
 
         private async UniTask HandleUnexpectedDisconnect(ISessionContext ctx, ISceneFlowActions actions, string source) {
+            if(ctx.IsShuttingDown) return;
 #if UNITY_EDITOR
             if(!Application.isPlaying) return;
 #endif
@@ -488,6 +490,7 @@ namespace Network.Session {
         /// Loads MainMenu scene and waits for it to be active and MainMenuManager ready. Used by leave-to-menu flow.
         /// </summary>
         public static async UniTask EnsureMainMenuReadyAsync(ISessionContext ctx, string currentScene) {
+            if(ctx.IsShuttingDown) return;
 #if UNITY_EDITOR
             if(!Application.isPlaying) return;
 #endif

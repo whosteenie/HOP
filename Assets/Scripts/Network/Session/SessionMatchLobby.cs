@@ -1205,6 +1205,7 @@ namespace Network.Session {
                 if(Debug.isDebugBuild)
                     DevLog.Log($"[SessionManager] Re-subscribed party lobby events ({context}) lobbyId='{PartyLobbyEventsLobbyId}'.");
             } catch(Exception ex) {
+                if(ctx.IsShuttingDown) return;
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
                     DevLog.LogWarning($"[SessionManager] Failed to re-subscribe party lobby events ({context}): {ex.Message}");
             } finally {
@@ -1222,6 +1223,7 @@ namespace Network.Session {
                 if(Debug.isDebugBuild)
                     DevLog.Log($"[SessionManager] Re-subscribed match lobby events ({context}) lobbyId='{MatchLobbyEventsLobbyId}'.");
             } catch(Exception ex) {
+                if(ctx.IsShuttingDown) return;
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f))
                     DevLog.LogWarning($"[SessionManager] Failed to re-subscribe match lobby events ({context}): {ex.Message}");
             } finally {

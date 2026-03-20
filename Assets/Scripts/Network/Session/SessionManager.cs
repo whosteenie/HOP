@@ -81,6 +81,32 @@ namespace Network.Session {
         private static Action<string, Func<bool>, Action<UniTask, string>> joinVoiceForMatch;
         private static Func<ISessionContext, string> getActiveVoiceChannelName;
 
+#if UNITY_EDITOR
+        private static bool _editorExitingPlayMode;
+
+        [UnityEditor.InitializeOnLoadMethod]
+        private static void RegisterEditorPlayModeHooks() {
+            UnityEditor.EditorApplication.playModeStateChanged -= OnEditorPlayModeStateChanged;
+            UnityEditor.EditorApplication.playModeStateChanged += OnEditorPlayModeStateChanged;
+        }
+
+        private static void OnEditorPlayModeStateChanged(UnityEditor.PlayModeStateChange state) {
+            if(state == UnityEditor.PlayModeStateChange.ExitingPlayMode) {
+                _editorExitingPlayMode = true;
+                return;
+            }
+
+            if(state == UnityEditor.PlayModeStateChange.EnteredPlayMode ||
+               state == UnityEditor.PlayModeStateChange.EnteredEditMode) {
+                _editorExitingPlayMode = false;
+            }
+        }
+
+        internal static bool IsEditorPlayModeExitInProgress => _editorExitingPlayMode;
+#else
+        internal static bool IsEditorPlayModeExitInProgress => false;
+#endif
+
         /// <summary>
         /// Registers game-specific hooks for mutating match settings when the network
         /// session changes modes or clears match state.
@@ -640,6 +666,7 @@ namespace Network.Session {
         private SessionSceneFlow _sceneFlow;
 
         private void OnEnable() {
+            _isShuttingDown = false;
             RegisterNetworkCallbacks();
             SceneManager.sceneLoaded += OnSceneLoaded;
 
@@ -650,6 +677,11 @@ namespace Network.Session {
         }
 
         private void OnDisable() {
+#if UNITY_EDITOR
+            if(IsEditorPlayModeExitInProgress) {
+                _isShuttingDown = true;
+            }
+#endif
             UnregisterNetworkCallbacks();
             SceneManager.sceneLoaded -= OnSceneLoaded;
 
