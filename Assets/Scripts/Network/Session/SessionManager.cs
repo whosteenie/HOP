@@ -82,7 +82,6 @@ namespace Network.Session {
         private static Func<ISessionContext, string> getActiveVoiceChannelName;
 
 #if UNITY_EDITOR
-        private static bool _editorExitingPlayMode;
 
         [UnityEditor.InitializeOnLoadMethod]
         private static void RegisterEditorPlayModeHooks() {
@@ -91,18 +90,17 @@ namespace Network.Session {
         }
 
         private static void OnEditorPlayModeStateChanged(UnityEditor.PlayModeStateChange state) {
-            if(state == UnityEditor.PlayModeStateChange.ExitingPlayMode) {
-                _editorExitingPlayMode = true;
-                return;
-            }
-
-            if(state == UnityEditor.PlayModeStateChange.EnteredPlayMode ||
-               state == UnityEditor.PlayModeStateChange.EnteredEditMode) {
-                _editorExitingPlayMode = false;
+            switch(state) {
+                case UnityEditor.PlayModeStateChange.ExitingPlayMode:
+                    IsEditorPlayModeExitInProgress = true;
+                    return;
+                case UnityEditor.PlayModeStateChange.EnteredPlayMode or UnityEditor.PlayModeStateChange.EnteredEditMode:
+                    IsEditorPlayModeExitInProgress = false;
+                    break;
             }
         }
 
-        internal static bool IsEditorPlayModeExitInProgress => _editorExitingPlayMode;
+        internal static bool IsEditorPlayModeExitInProgress { get; private set; }
 #else
         internal static bool IsEditorPlayModeExitInProgress => false;
 #endif

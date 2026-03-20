@@ -89,12 +89,12 @@ namespace Network.Session {
         public static bool IsDaStartupInFlight =>
             distributedAuthorityStartupDepth > 0 && Time.unscaledTime <= distributedAuthorityStartupUntilTime;
 
-        private static void BeginDaStartupWindow(string contextLabel) {
+        private static void BeginDaStartupWindow() {
             distributedAuthorityStartupDepth = Math.Max(0, distributedAuthorityStartupDepth) + 1;
             distributedAuthorityStartupUntilTime = Time.unscaledTime + DistributedAuthorityStartupDisconnectGraceSeconds;
         }
 
-        private static void EndDaStartupWindow(string contextLabel) {
+        private static void EndDaStartupWindow() {
             distributedAuthorityStartupDepth = Math.Max(0, distributedAuthorityStartupDepth - 1);
             if(distributedAuthorityStartupDepth == 0)
                 distributedAuthorityStartupUntilTime = 0f;
@@ -163,9 +163,9 @@ namespace Network.Session {
             int maxPlayers,
             bool isPrivateMatch,
             string contextLabel) {
-            var startupTraceId = Guid.NewGuid().ToString("N").Substring(0, 8);
+            var startupTraceId = Guid.NewGuid().ToString("N")[..8];
             var startupBeginTime = Time.realtimeSinceStartup;
-            BeginDaStartupWindow(contextLabel);
+            BeginDaStartupWindow();
             try {
                 await lifecycleActions.CleanupNetworkAsync();
                 ApplyLocalConnectionPayload(ctx, isPrivateMatch);
@@ -176,11 +176,10 @@ namespace Network.Session {
                         var options = BuildDaSessionOptions(ctx, maxPlayers, isPrivateMatch);
                         var hostSession = await MultiplayerService.Instance.CreateSessionAsync(options);
                         daActions.BindActiveSession(hostSession);
-                        if(Debug.isDebugBuild) {
-                            var elapsedMs = Mathf.RoundToInt((Time.realtimeSinceStartup - startupBeginTime) * 1000f);
-                            DevLog.Log(
-                                $"[SessionManager] DA create success trace={startupTraceId} context={contextLabel} attempt={attempt}/{maxAttempts} elapsedMs={elapsedMs} sessionId='{hostSession.Id}' code='{hostSession.Code}'.");
-                        }
+                        if(!Debug.isDebugBuild) return hostSession.Code;
+                        var elapsedMs = Mathf.RoundToInt((Time.realtimeSinceStartup - startupBeginTime) * 1000f);
+                        DevLog.Log(
+                            $"[SessionManager] DA create success trace={startupTraceId} context={contextLabel} attempt={attempt}/{maxAttempts} elapsedMs={elapsedMs} sessionId='{hostSession.Id}' code='{hostSession.Code}'.");
                         return hostSession.Code;
                     } catch(Exception ex) when(attempt < maxAttempts && IsRetryableDaStartupException(ex)) {
                         if(Debug.isDebugBuild) {
@@ -204,7 +203,7 @@ namespace Network.Session {
 
                 return null;
             } finally {
-                EndDaStartupWindow(contextLabel);
+                EndDaStartupWindow();
             }
         }
 
@@ -257,7 +256,7 @@ namespace Network.Session {
                 return DaSessionJoinResult.Failed;
             }
 
-            BeginDaStartupWindow(contextLabel);
+            BeginDaStartupWindow();
             try {
                 await lifecycleActions.CleanupNetworkAsync();
                 ApplyLocalConnectionPayload(ctx, isPrivateMatch);
@@ -288,7 +287,7 @@ namespace Network.Session {
 
                 return DaSessionJoinResult.Failed;
             } finally {
-                EndDaStartupWindow(contextLabel);
+                EndDaStartupWindow();
             }
         }
 
