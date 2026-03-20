@@ -2,6 +2,12 @@ using Cysharp.Threading.Tasks;
 using Unity.Services.Lobbies.Models;
 
 namespace Network.Contracts {
+    public struct StartMatchClientRequest {
+        public bool UseFadeOut { get; set; }
+        public string ExpectedSessionCode { get; set; }
+        public bool? ExpectedIsPrivateMatch { get; set; }
+    }
+
     /// <summary>
     /// Actions used by SessionMatchLobbyService for snapshot/follow/sync/client-start flow.
     /// Implemented by SessionManager.
@@ -9,7 +15,7 @@ namespace Network.Contracts {
     public interface IMatchSnapshotActions {
         void SyncModeFromMatchLobby(Lobby lobby);
         UniTask StartMatchSyncAsync(bool skipFadeOut);
-        UniTask StartMatchClientAsync(bool useFadeOut = false, string expectedSessionCode = null, bool? expectedIsPrivateMatch = null);
+        UniTask StartMatchClientAsync(in StartMatchClientRequest request);
         UniTask FadeOutWithFallbackAsync(int fallbackDelayMs = 500);
         UniTask LeaveToMainMenuAsync(bool skipFadeOut = false);
         UniTask<DaSessionJoinResult> JoinDaSessionAsync(string sessionCode, bool isPrivateMatch, string contextLabel);

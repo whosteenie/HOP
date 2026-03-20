@@ -823,7 +823,9 @@ namespace Network.Session {
                     if(IsLocalPlayerLobbyHost(ctx.UgsMatchLobby)) return;
                     if(IsDistributedAuthorityJoinRetryBackoffActive(sessionCode)) return;
                     if(!actions.UgsClientStartedForMatch) {
-                        ctx.LaunchSessionTask(actions.StartMatchClientAsync(expectedSessionCode: sessionCode), $"{source}/LoadingScene");
+                        ctx.LaunchSessionTask(actions.StartMatchClientAsync(new StartMatchClientRequest {
+                            ExpectedSessionCode = sessionCode
+                        }), $"{source}/LoadingScene");
                     }
                     return;
                 case "InGame":
@@ -831,7 +833,10 @@ namespace Network.Session {
                     actions.UgsLocalReadySubmitted = true;
                     if(IsDistributedAuthorityJoinRetryBackoffActive(sessionCode)) return;
                     if(!actions.UgsClientStartedForMatch) {
-                        ctx.LaunchSessionTask(actions.StartMatchClientAsync(useFadeOut: true, expectedSessionCode: sessionCode), $"{source}/InGame");
+                        ctx.LaunchSessionTask(actions.StartMatchClientAsync(new StartMatchClientRequest {
+                            UseFadeOut = true,
+                            ExpectedSessionCode = sessionCode
+                        }), $"{source}/InGame");
                     }
                     return;
             }
@@ -914,7 +919,11 @@ namespace Network.Session {
                     }
 
                     _isRetryingDistributedAuthorityJoin = false;
-                    await actions.StartMatchClientAsync(useFadeOut: false, expectedSessionCode: sessionCode, expectedIsPrivateMatch: isPrivateMatch);
+                    await actions.StartMatchClientAsync(new StartMatchClientRequest {
+                        UseFadeOut = false,
+                        ExpectedSessionCode = sessionCode,
+                        ExpectedIsPrivateMatch = isPrivateMatch
+                    });
                     return;
                 }
             } finally {
@@ -984,7 +993,8 @@ namespace Network.Session {
             }
         }
 
-        public async UniTask StartMatchClientAsync(ISessionContext ctx, IMatchSnapshotActions actions, bool useFadeOut = false, string expectedSessionCode = null, bool? expectedIsPrivateMatch = null) {
+        public async UniTask StartMatchClientAsync(ISessionContext ctx, IMatchSnapshotActions actions,
+            in StartMatchClientRequest request) {
             if(ctx.UgsMatchLobby == null || actions.UgsClientStartedForMatch || !actions.UgsLocalReadySubmitted) return;
             if(ctx.IsLeaving || ctx.IsShuttingDown) return;
 
@@ -1004,7 +1014,10 @@ namespace Network.Session {
 
             RefreshDistributedAuthorityJoinRetrySessionCode(sessionCode);
             if(IsDistributedAuthorityJoinRetryBackoffActive(sessionCode)) return;
-            if(!string.IsNullOrWhiteSpace(expectedSessionCode) && !string.Equals(expectedSessionCode, sessionCode, StringComparison.Ordinal)) return;
+            if(!string.IsNullOrWhiteSpace(request.ExpectedSessionCode) &&
+               !string.Equals(request.ExpectedSessionCode, sessionCode, StringComparison.Ordinal)) {
+                return;
+            }
 
             actions.SyncModeFromMatchLobby(ctx.UgsMatchLobby);
 
@@ -1014,12 +1027,12 @@ namespace Network.Session {
             try {
                 ctx.SetPhase(SessionPhase.StartingClient);
 
-                if(useFadeOut) {
+                if(request.UseFadeOut) {
                     await actions.FadeOutWithFallbackAsync();
                     if(ctx.IsLeaving || ctx.IsShuttingDown) return;
                 }
 
-                var isPrivateMatch = expectedIsPrivateMatch ?? IsPrivateMatchLobby(ctx.UgsMatchLobby);
+                var isPrivateMatch = request.ExpectedIsPrivateMatch ?? IsPrivateMatchLobby(ctx.UgsMatchLobby);
                 var joinResult = await actions.JoinDaSessionAsync(sessionCode, isPrivateMatch, "StartMatchClientAsync");
                 switch(joinResult) {
                     case DaSessionJoinResult.Success:

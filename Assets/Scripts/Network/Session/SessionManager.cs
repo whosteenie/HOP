@@ -568,10 +568,8 @@ namespace Network.Session {
         private UniTask StartMatchSyncAsync(bool skipFadeOut = false) =>
             _matchLobby.StartMatchSyncAsync(this, this, this, skipFadeOut);
 
-        private UniTask StartMatchClientAsync(bool useFadeOut = false, string expectedSessionCode = null,
-            bool? expectedIsPrivateMatch = null) =>
-            _matchLobby.StartMatchClientAsync(this, this, useFadeOut, expectedSessionCode,
-                expectedIsPrivateMatch);
+        private UniTask StartMatchClientAsync(in StartMatchClientRequest request) =>
+            _matchLobby.StartMatchClientAsync(this, this, request);
 
         private async UniTask EnsurePartyLobbySubscriptionAsync(string context) =>
             await _matchLobby.EnsurePartyLobbySubscriptionAsync(this, this, context);
@@ -923,9 +921,8 @@ namespace Network.Session {
         UniTask IMatchSnapshotActions.StartMatchSyncAsync(bool skipFadeOut) =>
             StartMatchSyncAsync(skipFadeOut);
 
-        UniTask IMatchSnapshotActions.StartMatchClientAsync(bool useFadeOut, string expectedSessionCode,
-            bool? expectedIsPrivateMatch) =>
-            StartMatchClientAsync(useFadeOut, expectedSessionCode, expectedIsPrivateMatch);
+        UniTask IMatchSnapshotActions.StartMatchClientAsync(in StartMatchClientRequest request) =>
+            StartMatchClientAsync(request);
 
         UniTask IMatchSnapshotActions.FadeOutWithFallbackAsync(int fallbackDelayMs) =>
             FadeOutWithFallbackAsync(fallbackDelayMs);
