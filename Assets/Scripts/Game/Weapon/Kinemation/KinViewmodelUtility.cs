@@ -1,6 +1,8 @@
+using System;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Object = UnityEngine.Object;
 
 namespace Game.Weapon.Kinemation {
     internal static class KinViewmodelUtility {
@@ -22,16 +24,24 @@ namespace Game.Weapon.Kinemation {
             }
         }
 
-        public static void AttachReloadEventRelays(GameObject viewmodelRoot, KinFpWeaponDriver driver,
-            bool weaponSoundPlaybackDisabled, bool disablePlayerSounds) {
-            if(viewmodelRoot == null || driver == null) return;
+        public static void AttachReloadEventRelays(GameObject viewmodelRoot,
+            Action onReloadSingle,
+            Action onAmmoEject,
+            Action onShellShow,
+            Action onReloadComplete,
+            Action onEquipComplete,
+            Action<int> onPlayWeaponSound,
+            bool weaponSoundPlaybackDisabled,
+            bool disablePlayerSounds) {
+            if(viewmodelRoot == null) return;
 
             var animators = viewmodelRoot.GetComponentsInChildren<Animator>(true);
             foreach(var animator in animators) {
                 if(animator == null) continue;
                 var relay = animator.GetComponent<KinReloadEventRelay>();
                 if(relay == null) relay = animator.gameObject.AddComponent<KinReloadEventRelay>();
-                relay.Bind(driver);
+                relay.Bind(onReloadSingle, onAmmoEject, onShellShow, onReloadComplete, onEquipComplete,
+                    onPlayWeaponSound);
             }
 
             var weaponSounds = viewmodelRoot.GetComponentsInChildren<FPSWeaponSound>(true);
@@ -39,7 +49,8 @@ namespace Game.Weapon.Kinemation {
                 if(weaponSound == null) continue;
                 var relay = weaponSound.GetComponent<KinReloadEventRelay>();
                 if(relay == null) relay = weaponSound.gameObject.AddComponent<KinReloadEventRelay>();
-                relay.Bind(driver);
+                relay.Bind(onReloadSingle, onAmmoEject, onShellShow, onReloadComplete, onEquipComplete,
+                    onPlayWeaponSound);
                 if(weaponSoundPlaybackDisabled) Object.Destroy(weaponSound);
             }
 

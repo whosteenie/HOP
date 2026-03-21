@@ -58,7 +58,15 @@ namespace Game.Weapon.Kinemation {
             DisableUnneededComponents(playerInstance);
             KinViewmodelUtility.SetLayerRecursive(playerInstance, renderLayer);
             KinViewmodelUtility.DisableViewmodelShadows(playerInstance);
-            KinViewmodelUtility.AttachReloadEventRelays(playerInstance, _driver, weaponSoundPlaybackDisabled, disableKinemationPlayerSounds);
+            KinViewmodelUtility.AttachReloadEventRelays(playerInstance,
+                _driver.NotifyReloadSingleEvent,
+                _driver.NotifyAmmoEjectEvent,
+                _driver.NotifyShellShowEvent,
+                _driver.NotifyReloadCompleteEvent,
+                _driver.NotifyEquipCompleteEvent,
+                _driver.NotifyWeaponEventSoundEvent,
+                weaponSoundPlaybackDisabled,
+                disableKinemationPlayerSounds);
 
             if(disableKinemationPlayerSounds && weaponSoundPlaybackDisabled) {
                 var sources = playerInstance.GetComponentsInChildren<AudioSource>(true);

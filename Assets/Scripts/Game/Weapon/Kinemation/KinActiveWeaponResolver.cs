@@ -21,7 +21,12 @@ namespace Game.Weapon.Kinemation {
         bool DisableKinemationPlayerSounds { get; }
         bool RouteWeaponSoundEventsToAudioService { get; }
         bool DisableKinemationInternalMuzzleFx { get; }
-        KinFpWeaponDriver DriverForRelays { get; }
+        void NotifyReloadSingleEvent();
+        void NotifyAmmoEjectEvent();
+        void NotifyShellShowEvent();
+        void NotifyReloadCompleteEvent();
+        void NotifyEquipCompleteEvent();
+        void NotifyWeaponEventSoundEvent(int clipIndex);
         bool TryGetWeaponCameraTransform(out Transform cameraTransform);
     }
 
@@ -86,8 +91,15 @@ namespace Game.Weapon.Kinemation {
                 _cache.Invalidate();
                 if(renderLayer >= 0) KinViewmodelUtility.SetLayerRecursive(playerInstance, renderLayer);
                 KinViewmodelUtility.DisableViewmodelShadows(playerInstance);
-                KinViewmodelUtility.AttachReloadEventRelays(playerInstance, _context.DriverForRelays,
-                    _context.WeaponSoundPlaybackDisabled, _context.DisableKinemationPlayerSounds);
+                KinViewmodelUtility.AttachReloadEventRelays(playerInstance,
+                    _context.NotifyReloadSingleEvent,
+                    _context.NotifyAmmoEjectEvent,
+                    _context.NotifyShellShowEvent,
+                    _context.NotifyReloadCompleteEvent,
+                    _context.NotifyEquipCompleteEvent,
+                    _context.NotifyWeaponEventSoundEvent,
+                    _context.WeaponSoundPlaybackDisabled,
+                    _context.DisableKinemationPlayerSounds);
             }
 
             _cache.Ensure(ActiveWeapon);
@@ -112,8 +124,15 @@ namespace Game.Weapon.Kinemation {
             if(playerInstance == null) return;
             if(renderLayer >= 0) KinViewmodelUtility.SetLayerRecursive(playerInstance, renderLayer);
             KinViewmodelUtility.DisableViewmodelShadows(playerInstance);
-            KinViewmodelUtility.AttachReloadEventRelays(playerInstance, _context.DriverForRelays,
-                _context.WeaponSoundPlaybackDisabled, _context.DisableKinemationPlayerSounds);
+            KinViewmodelUtility.AttachReloadEventRelays(playerInstance,
+                _context.NotifyReloadSingleEvent,
+                _context.NotifyAmmoEjectEvent,
+                _context.NotifyShellShowEvent,
+                _context.NotifyReloadCompleteEvent,
+                _context.NotifyEquipCompleteEvent,
+                _context.NotifyWeaponEventSoundEvent,
+                _context.WeaponSoundPlaybackDisabled,
+                _context.DisableKinemationPlayerSounds);
         }
 
         private FPSWeapon FindActiveWeaponComponent() {

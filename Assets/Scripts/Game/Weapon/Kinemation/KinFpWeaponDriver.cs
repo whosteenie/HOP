@@ -72,7 +72,13 @@ namespace Game.Weapon.Kinemation {
         bool IKinDriverResolverContext.DisableKinemationPlayerSounds => disableKinemationPlayerSounds;
         bool IKinDriverResolverContext.RouteWeaponSoundEventsToAudioService => routeWeaponSoundEventsToAudioService;
         bool IKinDriverResolverContext.DisableKinemationInternalMuzzleFx => disableKinemationInternalMuzzleFx;
-        KinFpWeaponDriver IKinDriverResolverContext.DriverForRelays => this;
+        void IKinDriverResolverContext.NotifyReloadSingleEvent() => NotifyReloadSingleEvent();
+        void IKinDriverResolverContext.NotifyAmmoEjectEvent() => NotifyAmmoEjectEvent();
+        void IKinDriverResolverContext.NotifyShellShowEvent() => NotifyShellShowEvent();
+        void IKinDriverResolverContext.NotifyReloadCompleteEvent() => NotifyReloadCompleteEvent();
+        void IKinDriverResolverContext.NotifyEquipCompleteEvent() => NotifyEquipCompleteEvent();
+        void IKinDriverResolverContext.NotifyWeaponEventSoundEvent(int clipIndex) =>
+            NotifyWeaponEventSoundEvent(clipIndex);
 
         bool IKinDriverResolverContext.TryGetWeaponCameraTransform(out Transform cameraTransform) {
             cameraTransform = null;
