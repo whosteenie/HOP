@@ -6,7 +6,7 @@ using UnityEngine.VFX;
 
 namespace Game.Weapon.Kinemation {
     internal sealed class KinActiveWeaponComponentCache {
-        private int _cachedActiveWeaponInstanceId;
+        private EntityId _cachedActiveWeaponInstanceId = EntityId.None;
         private KinWeaponPartReferences _activeWeaponPartReferences;
         private Animator[] _activeWeaponAnimators;
         private FPSWeaponSound[] _activeWeaponSounds;
@@ -17,7 +17,7 @@ namespace Game.Weapon.Kinemation {
         private AudioSource[] _activeWeaponAudioSources;
 
         public void Invalidate() {
-            _cachedActiveWeaponInstanceId = 0;
+            _cachedActiveWeaponInstanceId = EntityId.None;
             _activeWeaponPartReferences = null;
             _activeWeaponAnimators = null;
             _activeWeaponSounds = null;
@@ -34,7 +34,7 @@ namespace Game.Weapon.Kinemation {
                 return;
             }
 
-            var instanceId = activeWeapon.gameObject.GetInstanceID();
+            var instanceId = activeWeapon.gameObject.GetEntityId();
             if(_cachedActiveWeaponInstanceId == instanceId) return;
             _cachedActiveWeaponInstanceId = instanceId;
             _activeWeaponPartReferences = null;

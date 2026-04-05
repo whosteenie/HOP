@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using Diagnostics;
 using Game.Weapon.Contracts;
+using UnityEngine;
 
 namespace Game.Weapon.Kinemation {
     /// <summary>Pending weapon fire/event sound queues and reload-event clip detection for KIN viewmodel sound routing.</summary>
     internal sealed class KinDriverSoundEvents {
-        private static readonly HashSet<int> MissingKinemationReloadSoundIndexWarnings = new();
+        private static readonly HashSet<EntityId> MissingKinemationReloadSoundIndexWarnings = new();
 
         private readonly IKinDriverResolverContext _context;
         private readonly KinActiveWeaponResolver _resolver;

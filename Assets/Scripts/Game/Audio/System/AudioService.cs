@@ -25,7 +25,7 @@ namespace Game.Audio.System {
         private readonly List<Voice> _active = new();
         private readonly Dictionary<string, List<Voice>> _activeById = new(StringComparer.Ordinal);
         private readonly Dictionary<string, float> _lastPlayTime = new(StringComparer.Ordinal);
-        private readonly Dictionary<int, float> _nextSourceStateLogTime = new();
+        private readonly Dictionary<EntityId, float> _nextSourceStateLogTime = new();
         private readonly Dictionary<string, float> _nextDropReasonLogTime = new(StringComparer.Ordinal);
 
 
@@ -49,7 +49,7 @@ namespace Game.Audio.System {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureExists() {
             if(Instance != null) return;
-            var existing = FindFirstObjectByType<AudioService>();
+            var existing = FindAnyObjectByType<AudioService>();
             if(existing != null) return;
             var go = new GameObject("AudioService");
             go.AddComponent<AudioService>();
@@ -494,12 +494,12 @@ namespace Game.Audio.System {
         }
 
         private static string GetSourceDebugId(AudioSource src) {
-            return src == null ? "null" : $"{src.gameObject.name}#{src.GetInstanceID()}";
+            return src == null ? "null" : $"{src.gameObject.name}#{src.GetEntityId().GetRawData()}";
         }
 
         private bool ShouldEmitSourceStateLog(AudioSource src, float intervalSeconds = 10f) {
             if(src == null) return false;
-            var key = src.GetInstanceID();
+            var key = src.GetEntityId();
             var now = Time.unscaledTime;
             if(_nextSourceStateLogTime.TryGetValue(key, out var next) && now < next) {
                 return false;

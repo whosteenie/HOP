@@ -133,7 +133,7 @@ namespace Game.Player.Visual {
         private float _lastRightHandLayerWeight = -1f;
         private float _lastBaseLayerNormalizedTime = float.NaN;
         private string _lastBaseLayerStateName = string.Empty;
-        private readonly HashSet<int> _invalidTrailWarningIds = new();
+        private readonly HashSet<EntityId> _invalidTrailWarningIds = new();
         private int _lastTrailSystemSignature;
         private float _lastAppliedTailSyntheticVelocityScale = float.NaN;
         private float _lastAppliedTrailVelocityMultiplier = float.NaN;
@@ -148,7 +148,7 @@ namespace Game.Player.Visual {
         private int _lastShotConfigHash = int.MinValue;
         private Vector3 _lastShotOriginPos = Vector3.positiveInfinity;
         private Vector3 _lastShotDirection = Vector3.positiveInfinity;
-        private readonly Dictionary<int, float> _shotMuzzleLightBaseIntensity = new();
+        private readonly Dictionary<EntityId, float> _shotMuzzleLightBaseIntensity = new();
         private readonly HashSet<int> _invalidShotWarningIds = new();
         private bool _deferredApplyQueued;
         private bool _forceAnimationPoseRefreshThisApply;
@@ -161,8 +161,8 @@ namespace Game.Player.Visual {
         private float _nextRuntimeLookProbeAt;
         private MaterialPropertyBlock _mannequinPropertyBlock;
         private MaterialPropertyBlock _trailMaterialPropertyBlock;
-        private readonly Dictionary<int, VisualEffect> _shotVfxPreviewInstances = new();
-        private readonly Dictionary<int, TrailRenderer> _shotTrailPreviewInstances = new();
+        private readonly Dictionary<EntityId, VisualEffect> _shotVfxPreviewInstances = new();
+        private readonly Dictionary<EntityId, TrailRenderer> _shotTrailPreviewInstances = new();
 
         private const float RuntimeLookProbeInterval = 0.25f;
         private const float RuntimeLookProbeErrorThresholdDeg = 0.1f;
@@ -603,13 +603,13 @@ namespace Game.Player.Visual {
                 return result;
             }
 
-            var seen = new HashSet<int>();
+            var seen = new HashSet<EntityId>();
             foreach(var rootSystem in trailSystems) {
                 if(rootSystem == null) continue;
                 var hierarchySystems = rootSystem.GetComponentsInChildren<ParticleSystem>(true);
                 foreach(var system in hierarchySystems) {
                     if(system == null) continue;
-                    var id = system.GetInstanceID();
+                    var id = system.GetEntityId();
                     if(!seen.Add(id)) continue;
                     result.Add(system);
                 }
@@ -974,7 +974,7 @@ namespace Game.Player.Visual {
 
         private void WarnInvalidTrailReference(ParticleSystem ps, string reason) {
             if(ps == null) return;
-            var id = ps.GetInstanceID();
+            var id = ps.GetEntityId();
             if(!_invalidTrailWarningIds.Add(id)) return;
             var go = ps.gameObject;
             var sceneName = go != null && go.scene.IsValid() ? go.scene.name : "(invalid scene)";
@@ -1326,7 +1326,7 @@ namespace Game.Player.Visual {
             if(assignedVfx.gameObject == null) return null;
             var shouldUsePreviewClone = ShouldUsePreviewClone(assignedVfx);
             if(!shouldUsePreviewClone) return assignedVfx;
-            var sourceId = assignedVfx.GetInstanceID();
+            var sourceId = assignedVfx.GetEntityId();
             if(_shotVfxPreviewInstances.TryGetValue(sourceId, out var existing) && existing != null) {
                 return existing;
             }
@@ -1360,7 +1360,7 @@ namespace Game.Player.Visual {
             if(assignedTrail.gameObject == null) return null;
             var shouldUsePreviewClone = ShouldUsePreviewClone(assignedTrail);
             if(!shouldUsePreviewClone) return assignedTrail;
-            var sourceId = assignedTrail.GetInstanceID();
+            var sourceId = assignedTrail.GetEntityId();
             if(_shotTrailPreviewInstances.TryGetValue(sourceId, out var existing) && existing != null) {
                 return existing;
             }
@@ -1581,7 +1581,7 @@ namespace Game.Player.Visual {
 
         private float GetOrCacheShotMuzzleLightBaseIntensity(Light muzzleLight) {
             if(muzzleLight == null) return 0f;
-            var id = muzzleLight.GetInstanceID();
+            var id = muzzleLight.GetEntityId();
             if(_shotMuzzleLightBaseIntensity.TryGetValue(id, out var cached)) {
                 return cached;
             }
@@ -1605,7 +1605,7 @@ namespace Game.Player.Visual {
                 if(option?.shotMuzzleLights == null) continue;
                 foreach(var muzzleLight in option.shotMuzzleLights) {
                     if(muzzleLight == null) continue;
-                    var id = muzzleLight.GetInstanceID();
+                    var id = muzzleLight.GetEntityId();
                     if(_shotMuzzleLightBaseIntensity.TryGetValue(id, out var baseIntensity)) {
                         muzzleLight.intensity = baseIntensity;
                     }
@@ -2002,7 +2002,7 @@ namespace Game.Player.Visual {
                 var hash = 17;
                 if(trailSystems == null) return hash;
                 foreach(var ps in trailSystems) {
-                    hash = hash * 31 + (ps != null ? ps.GetInstanceID() : 0);
+                    hash = hash * 31 + (ps != null ? ps.GetEntityId().GetHashCode() : 0);
                 }
                 return hash;
             }

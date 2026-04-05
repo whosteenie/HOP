@@ -12,7 +12,7 @@ namespace Game.Player.Core {
         private readonly PlayerController _player;
         private float _lastDeathTime;
         private float _ignoreOutOfBoundsUntilTime;
-        private int _cachedOobSceneHandle = -1;
+        private ulong _cachedOobSceneHandleRaw = ulong.MaxValue;
         private float _cachedOutOfBoundsY;
         private bool _cachedUseYLevelOutOfBoundsKill = true;
         private bool _cachedUseTriggerOutOfBoundsKill;
@@ -158,9 +158,10 @@ namespace Game.Player.Core {
 
         private void RefreshOobCache() {
             var activeScene = SceneManager.GetActiveScene();
-            if(_cachedOobSceneHandle == activeScene.handle) return;
+            var activeSceneHandleRaw = activeScene.handle.GetRawData();
+            if(_cachedOobSceneHandleRaw == activeSceneHandleRaw) return;
 
-            _cachedOobSceneHandle = activeScene.handle;
+            _cachedOobSceneHandleRaw = activeSceneHandleRaw;
             _cachedOutOfBoundsY = _player.DefaultOutOfBoundsY;
             _cachedUseYLevelOutOfBoundsKill = MatchMapService.IsOobKillEnabled(activeScene.name);
             _cachedUseTriggerOutOfBoundsKill = MatchMapService.IsTriggerOobKillEnabled(activeScene.name);

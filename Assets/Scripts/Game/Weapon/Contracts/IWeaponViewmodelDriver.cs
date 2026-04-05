@@ -11,7 +11,7 @@ namespace Game.Weapon.Contracts {
     }
 
     public interface IWeaponDataRuntime {
-        int InstanceId { get; }
+        EntityId InstanceId { get; }
         string AssetName { get; }
         string WeaponName { get; }
         int KinemationSpecialHandling { get; }

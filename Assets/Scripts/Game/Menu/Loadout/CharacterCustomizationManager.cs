@@ -101,7 +101,7 @@ namespace Game.Menu.Loadout {
             }
 
             if(loadoutManager == null) {
-                loadoutManager = FindFirstObjectByType<LoadoutManager>();
+                loadoutManager = FindAnyObjectByType<LoadoutManager>();
             }
         }
 

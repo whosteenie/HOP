@@ -276,7 +276,7 @@ namespace Game.Player.Visual {
         /// </summary>
         private static string GetCacheKey(PlayerMaterialPacket packet, Color baseColor, float smoothness, 
             float metallic, Color specularColor, float heightStrength, bool emissionEnabled, Color emissionColor) {
-            var packetId = packet != null ? packet.GetInstanceID().ToString() : "null";
+            var packetId = packet != null ? packet.GetEntityId().GetRawData().ToString() : "null";
             var colorKey = $"{baseColor.r:F3}_{baseColor.g:F3}_{baseColor.b:F3}_{baseColor.a:F3}";
             var specularKey = $"{specularColor.r:F3}_{specularColor.g:F3}_{specularColor.b:F3}_{specularColor.a:F3}";
             var emissionKey = $"{(emissionEnabled ? 1 : 0)}_{emissionColor.r:F3}_{emissionColor.g:F3}_{emissionColor.b:F3}_{emissionColor.a:F3}";

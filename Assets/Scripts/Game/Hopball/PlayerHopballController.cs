@@ -111,8 +111,8 @@ namespace Game.Hopball {
         private bool _fpParticlesPrewarmed;
         private bool _worldParticlesPrewarmed;
         private Material _cachedHopballArmCustomMaterial;
-        private int _cachedHopballArmCustomSourceId;
-        private readonly Dictionary<int, Material> _cachedHopballArmOutlineByRenderer = new();
+        private EntityId _cachedHopballArmCustomSourceId = EntityId.None;
+        private readonly Dictionary<EntityId, Material> _cachedHopballArmOutlineByRenderer = new();
         private PlayerAnimationEvents _armAnimationEvents;
 
         private static readonly MethodInfo VisualEffectSimulateFloatUIntMethod = typeof(VisualEffect).GetMethod(
@@ -154,7 +154,7 @@ namespace Game.Hopball {
 
             var sourceMaterial = playerMesh.materials[1];
             if(_cachedHopballArmCustomMaterial != null &&
-               sourceMaterial.GetInstanceID() == _cachedHopballArmCustomSourceId) {
+               sourceMaterial.GetEntityId() == _cachedHopballArmCustomSourceId) {
                 return true;
             }
 
@@ -164,7 +164,7 @@ namespace Game.Hopball {
             }
 
             _cachedHopballArmCustomMaterial = new Material(sourceMaterial);
-            _cachedHopballArmCustomSourceId = sourceMaterial.GetInstanceID();
+            _cachedHopballArmCustomSourceId = sourceMaterial.GetEntityId();
             return true;
         }
 
@@ -175,7 +175,7 @@ namespace Game.Hopball {
             foreach(var r in renderers) {
                 if(r == null) continue;
 
-                var rendererId = r.GetInstanceID();
+                var rendererId = r.GetEntityId();
                 if(_cachedHopballArmOutlineByRenderer.TryGetValue(rendererId, out var cachedOutline) &&
                    cachedOutline != null) {
                     continue;
@@ -384,7 +384,7 @@ namespace Game.Hopball {
                 _cachedHopballArmCustomMaterial = null;
             }
 
-            _cachedHopballArmCustomSourceId = 0;
+            _cachedHopballArmCustomSourceId = EntityId.None;
 
             foreach(var kvp in _cachedHopballArmOutlineByRenderer) {
                 if(kvp.Value != null) {
@@ -709,7 +709,7 @@ namespace Game.Hopball {
             var renderers = _fpHopballArmInstance.GetComponentsInChildren<Renderer>(true);
             foreach(var r in renderers) {
                 if(r == null) continue;
-                var rendererId = r.GetInstanceID();
+                var rendererId = r.GetEntityId();
 
                 var materials = r.materials;
                 if(materials == null || materials.Length < 2) {

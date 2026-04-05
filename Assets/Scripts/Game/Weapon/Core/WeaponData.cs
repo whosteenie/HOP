@@ -101,7 +101,7 @@ namespace Game.Weapon.Core {
 
         public int WeaponSlotIndex => (int)weaponSlot;
 
-        int IWeaponDataRuntime.InstanceId => GetInstanceID();
+        EntityId IWeaponDataRuntime.InstanceId => GetEntityId();
         string IWeaponDataRuntime.AssetName => name;
         string IWeaponDataRuntime.WeaponName => weaponName;
         int IWeaponDataRuntime.KinemationSpecialHandling => (int)kinemationSpecialHandling;

@@ -37,14 +37,14 @@ namespace Game.Weapon.Kinemation {
         private const int KarLoopBulletReferenceKey = 13;
         private const int FpMuzzleReferenceKey = 21;
 
-        private static readonly HashSet<int> MissingKinemationSpecialHandlingWarnings = new();
-        private static readonly HashSet<int> MissingKinemationGrappleIndexWarnings = new();
+        private static readonly HashSet<EntityId> MissingKinemationSpecialHandlingWarnings = new();
+        private static readonly HashSet<EntityId> MissingKinemationGrappleIndexWarnings = new();
         private static readonly HashSet<int> MissingKinemationPartReferenceWarnings = new();
         private static readonly HashSet<int> InvalidKinemationPartReferenceWarnings = new();
 
         private readonly IKinDriverResolverContext _context;
         private readonly KinActiveWeaponComponentCache _cache = new();
-        private readonly HashSet<int> _suppressedMuzzleFxWeaponIds = new();
+        private readonly HashSet<EntityId> _suppressedMuzzleFxWeaponIds = new();
 
         private Transform _muzzleTransform;
 
@@ -182,7 +182,7 @@ namespace Game.Weapon.Kinemation {
 
         public void SuppressInternalMuzzleFx(FPSWeapon activeWeapon, bool disableMuzzleFx) {
             if(!disableMuzzleFx || activeWeapon == null) return;
-            var weaponId = activeWeapon.gameObject.GetInstanceID();
+            var weaponId = activeWeapon.gameObject.GetEntityId();
             if(_suppressedMuzzleFxWeaponIds.Contains(weaponId)) return;
             int disabledParticles = 0, disabledVfx = 0, disabledLights = 0;
             var particleSystems = GetWeaponParticleSystems(activeWeapon);
@@ -268,7 +268,7 @@ namespace Game.Weapon.Kinemation {
         }
 
         private int BuildPartReferenceWarningKey(int partKey) {
-            var weaponId = ActiveWeapon != null ? ActiveWeapon.GetInstanceID() : 0;
+            var weaponId = ActiveWeapon != null ? ActiveWeapon.GetEntityId().GetHashCode() : 0;
             return unchecked(weaponId * 397 ^ partKey);
         }
 
@@ -289,7 +289,7 @@ namespace Game.Weapon.Kinemation {
             DevLog.LogError($"[KinFpWeaponDriver] Weapon '{label}' has invalid part reference '{partFieldName}' (assigned '{configuredPart.name}', outside active weapon hierarchy).", ActiveWeapon);
         }
 
-        private static void ReportMissingAssignment(IWeaponDataRuntime data, HashSet<int> cache, string fieldName, string impact) {
+        private static void ReportMissingAssignment(IWeaponDataRuntime data, HashSet<EntityId> cache, string fieldName, string impact) {
             if(data == null || cache == null) return;
             if(!cache.Add(data.InstanceId)) return;
             var label = string.IsNullOrWhiteSpace(data.WeaponName) ? data.AssetName : data.WeaponName;

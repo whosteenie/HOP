@@ -30,7 +30,7 @@ namespace Game.Player.Visual {
         private MaterialPropertyBlock _tagPropertyBlock;
 
         private Material[] _cachedMaterialsArray;
-        private readonly HashSet<int> _loggedMissingFpArmRoots = new();
+        private readonly HashSet<EntityId> _loggedMissingFpArmRoots = new();
 
         private void Awake() {
             ValidateComponents();
@@ -115,7 +115,7 @@ namespace Game.Player.Visual {
 
             var armRenderers = ResolveFpArmRenderers(fpWeaponInstance);
             if(armRenderers.Length == 0) {
-                var weaponId = fpWeaponInstance.GetInstanceID();
+                var weaponId = fpWeaponInstance.GetEntityId();
                 if(_loggedMissingFpArmRoots.Add(weaponId)) {
                     DevLog.LogWarning(
                         $"[PlayerVisualController] No FP arm renderers resolved for '{fpWeaponInstance.name}' during material apply.",

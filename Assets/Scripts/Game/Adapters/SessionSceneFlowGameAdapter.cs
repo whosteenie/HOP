@@ -61,7 +61,7 @@ namespace Game.Adapters {
         }
 
         private static bool IsGameMenuReady() {
-            return FindFirstObjectByType<GameMenuManager>() != null;
+            return FindAnyObjectByType<GameMenuManager>() != null;
         }
 
         private static bool IsMatchTimerReady() {
@@ -142,7 +142,7 @@ namespace Game.Adapters {
         // ===== Main menu readiness =====
 
         private static bool IsMainMenuReady() {
-            return FindFirstObjectByType<MainMenuManager>() != null;
+            return FindAnyObjectByType<MainMenuManager>() != null;
         }
 
         // ===== Match timer / scene presented =====

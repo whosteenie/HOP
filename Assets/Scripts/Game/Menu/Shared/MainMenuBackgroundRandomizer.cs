@@ -421,13 +421,13 @@ namespace Game.Menu.Shared {
                 return resolved;
             }
 
-            var seen = new HashSet<int>();
+            var seen = new HashSet<EntityId>();
             AddSetupsFromManualList(entry.mannequinSetups, resolved, seen);
             AddSetupsFromMannequinsContainer(entry.mapGeometryRoot, resolved, seen);
             return resolved;
         }
 
-        private static void AddSetupsFromManualList(List<GameObject> manualSetups, ICollection<GameObject> resolved, ISet<int> seen) {
+        private static void AddSetupsFromManualList(List<GameObject> manualSetups, ICollection<GameObject> resolved, ISet<EntityId> seen) {
             if(manualSetups == null) {
                 return;
             }
@@ -437,7 +437,7 @@ namespace Game.Menu.Shared {
             }
         }
 
-        private static void AddSetupsFromMannequinsContainer(GameObject mapGeometryRoot, ICollection<GameObject> resolved, ISet<int> seen) {
+        private static void AddSetupsFromMannequinsContainer(GameObject mapGeometryRoot, ICollection<GameObject> resolved, ISet<EntityId> seen) {
             if(mapGeometryRoot == null) {
                 return;
             }
@@ -475,12 +475,12 @@ namespace Game.Menu.Shared {
             return null;
         }
 
-        private static void TryAddSetup(GameObject setup, ICollection<GameObject> resolved, ISet<int> seen) {
+        private static void TryAddSetup(GameObject setup, ICollection<GameObject> resolved, ISet<EntityId> seen) {
             if(setup == null || resolved == null || seen == null) {
                 return;
             }
 
-            var id = setup.GetInstanceID();
+            var id = setup.GetEntityId();
             if(!seen.Add(id)) {
                 return;
             }
