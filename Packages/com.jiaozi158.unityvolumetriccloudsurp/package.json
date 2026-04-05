@@ -1,0 +1,24 @@
+{
+  "name": "com.jiaozi158.unityvolumetriccloudsurp",
+  "version": "1.0.0",
+  "displayName": "UnityVolumetricCloudsURP",
+  "description": "Volumetric Clouds for Unity URP (Universal Render Pipeline).",
+  "documentationUrl": "https://github.com/jiaozi158/UnityVolumetricCloudsURP",
+  "unity": "6000.4",
+  "license": "MIT",
+  "licensesUrl": "https://github.com/jiaozi158/UnityVolumetricCloudsURP/blob/main/LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jiaozi158/UnityVolumetricCloudsURP"
+  },
+  "author": "jiaozi158",
+  "keywords": [
+    "unity"
+  ],
+  "dependencies": {
+    "com.unity.render-pipelines.core": "17.4.0",
+    "com.unity.render-pipelines.universal": "17.4.0",
+    "com.unity.mathematics": "1.2.6"
+  },
+  "_fingerprint": "f06a8c69f1275260b1570ca93df173b6b81321e0"
+}
