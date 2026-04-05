@@ -157,7 +157,8 @@ namespace Game.Hopball {
             }
 
             if(CurrentHopballController != null || _isSpawning) return;
-            if(MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch) {
+            if(MatchTimerManager.Instance != null &&
+               MatchTimerManager.Instance.CurrentState == MatchLifecycleState.Active) {
                 SpawnHopball();
             } else {
                 StartCoroutine(InitialSpawnCoroutine());
@@ -188,18 +189,31 @@ namespace Game.Hopball {
         /// Spawns the first hopball after initial delay.
         /// </summary>
         private IEnumerator InitialSpawnCoroutine() {
-            var matchSettings = MatchSettingsManager.Instance;
-            var preMatchCountdown = 5f;
-            if(matchSettings != null) {
-                preMatchCountdown = matchSettings.IsPreMatchCountdownEnabled()
-                    ? matchSettings.GetPreMatchCountdownSeconds()
-                    : 0f;
+            while(HasHopballAuthority) {
+                var matchSettings = MatchSettingsManager.Instance;
+                if(matchSettings == null || matchSettings.selectedGameModeId != HopballModeId) {
+                    yield break;
+                }
+
+                if(MatchTimerManager.Instance != null &&
+                   MatchTimerManager.Instance.CurrentState == MatchLifecycleState.Active) {
+                    break;
+                }
+
+                yield return null;
             }
-            yield return new WaitForSeconds(preMatchCountdown + postPrematchSpawnDelay);
+
+            if(postPrematchSpawnDelay > 0f) {
+                yield return new WaitForSeconds(postPrematchSpawnDelay);
+            }
 
             if(!HasHopballAuthority || _hasSpawnedInitial) yield break;
-            matchSettings = MatchSettingsManager.Instance;
+            var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings == null || matchSettings.selectedGameModeId != HopballModeId) {
+                yield break;
+            }
+            if(MatchTimerManager.Instance == null ||
+               MatchTimerManager.Instance.CurrentState != MatchLifecycleState.Active) {
                 yield break;
             }
             SpawnHopball();

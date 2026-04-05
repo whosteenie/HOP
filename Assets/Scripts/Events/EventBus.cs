@@ -79,6 +79,7 @@ namespace Events {
             typeof(HopballVisualPrewarmRequestedEvent),
             typeof(HopballEquippedPresentationEvent),
             typeof(HopballDropPresentationEvent),
+            typeof(MatchLifecycleStateChangedEvent),
             typeof(MatchStartedEvent),
             typeof(MatchEndedEvent),
             typeof(PreMatchCountdownEvent),

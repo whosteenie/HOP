@@ -47,7 +47,7 @@ namespace Game.UI.Screens.Scoreboard {
             var matchSettings = MatchSettingsManager.Instance;
 
             if(matchTimer != null) {
-                if(matchTimer.IsPreMatch) {
+                if(matchTimer.CurrentState is MatchLifecycleState.WaitingForPlayers or MatchLifecycleState.Countdown) {
                     var preMatchSeconds = matchTimer.PreMatchCountdownSeconds;
                     if(preMatchSeconds <= 0)
                         preMatchSeconds = matchSettings != null
@@ -57,7 +57,7 @@ namespace Game.UI.Screens.Scoreboard {
                     return;
                 }
 
-                if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
+                if(matchTimer.CurrentState == MatchLifecycleState.Active && matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
                     SetMatchTime(-1, false);
                     return;
                 }

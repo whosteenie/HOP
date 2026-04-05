@@ -1,4 +1,5 @@
 using System;
+using Events;
 using Game.Hopball;
 using Game.Match;
 using Game.Player.Core;
@@ -33,7 +34,8 @@ namespace Game.Adapters {
 
             var timer = MatchTimerManager.Instance;
             if(timer != null) {
-                if(timer.IsWaitingForPlayers || timer.IsPreMatch) return (true, "PreMatch");
+                if(timer.CurrentState is MatchLifecycleState.WaitingForPlayers or MatchLifecycleState.Countdown)
+                    return (true, "PreMatch");
                 var duration = matchSettings != null ? matchSettings.GetMatchDurationSeconds() : 0;
                 if(duration > 0 && timer.TimeRemainingSeconds >= 0) {
                     var remainingFraction = timer.TimeRemainingSeconds / (float)Mathf.Max(1, duration);

@@ -1,9 +1,11 @@
+using Events;
 using Game.Match;
 
 namespace Game.Player.Core {
     internal static class PlayerMatchRules {
         public static bool IsPreMatchMovementLocked =>
-            MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
+            MatchTimerManager.Instance != null &&
+            MatchTimerManager.Instance.CurrentState is MatchLifecycleState.WaitingForPlayers or MatchLifecycleState.Countdown;
 
         public static bool IsPostMatchMovementLocked => PostMatchManager.IsPostMatchMovementLockedLocal;
 

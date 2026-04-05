@@ -1,4 +1,5 @@
 using Diagnostics;
+using Events;
 using Game.Match;
 using Game.Weapon.Contracts;
 using UnityEngine;
@@ -22,7 +23,8 @@ namespace Game.Weapon.Core {
 
             var isSliding = ownerContext.IsSliding;
             var isWallRunning = ownerContext.IsWallRunning;
-            var isPreMatch = MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
+            var isPreMatch = MatchTimerManager.Instance != null &&
+                             MatchTimerManager.Instance.CurrentState is MatchLifecycleState.WaitingForPlayers or MatchLifecycleState.Countdown;
             var isPostMatch = _weapon.Manager is { IsPostMatchFlowActive: true };
 
             var moveInput = ownerContext.MoveInput;

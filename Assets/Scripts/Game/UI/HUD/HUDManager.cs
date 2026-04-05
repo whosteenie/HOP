@@ -355,7 +355,7 @@ namespace Game.UI.HUD {
         /// <summary>Syncs pre-match waiting-for-players toast visibility.</summary>
         private void SyncPreMatchWaitingToast() {
             var matchTimer = MatchTimerManager.Instance;
-            var shouldShowWaiting = matchTimer != null && matchTimer.IsPreMatch && matchTimer.IsWaitingForPlayers;
+            var shouldShowWaiting = matchTimer != null && matchTimer.CurrentState == MatchLifecycleState.WaitingForPlayers;
             SetWaitingForPlayersToast(shouldShowWaiting);
         }
 

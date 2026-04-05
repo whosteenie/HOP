@@ -266,7 +266,8 @@ namespace Game.Match {
             }
 
             // Prevent post-match from starting during pre-match countdown
-            if(MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch) {
+            if(MatchTimerManager.Instance != null &&
+               MatchTimerManager.Instance.CurrentState is MatchLifecycleState.WaitingForPlayers or MatchLifecycleState.Countdown) {
                 DevLog.LogWarning("[PostMatchManager] Cannot start post-match during pre-match countdown!");
                 return;
             }

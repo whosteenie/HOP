@@ -1,4 +1,22 @@
 namespace Events {
+    public enum MatchLifecycleState : byte {
+        Initializing,
+        WaitingForPlayers,
+        Countdown,
+        Active,
+        PostMatch
+    }
+
+    public class MatchLifecycleStateChangedEvent : GameEvent {
+        public readonly MatchLifecycleState Previous;
+        public readonly MatchLifecycleState Current;
+
+        public MatchLifecycleStateChangedEvent(MatchLifecycleState previous, MatchLifecycleState current) {
+            Previous = previous;
+            Current = current;
+        }
+    }
+
     /// <summary>
     /// Event published when a match starts.
     /// </summary>

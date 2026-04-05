@@ -149,10 +149,14 @@ namespace Game.Match {
             if(_currentHill != null) {
                 NetworkAuthority.TryConfigureSessionOwnerObject(_currentHill);
             }
-            _isGameActive = _currentHill != null && MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch;
+            _isGameActive = _currentHill != null &&
+                            MatchTimerManager.Instance != null &&
+                            MatchTimerManager.Instance.CurrentState == MatchLifecycleState.Active;
             if(_isGameActive) {
                 _nextScoreTime = Time.time + scoreInterval;
-            } else if(_currentHill == null && MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch) {
+            } else if(_currentHill == null &&
+                      MatchTimerManager.Instance != null &&
+                      MatchTimerManager.Instance.CurrentState == MatchLifecycleState.Active) {
                 SpawnHill();
                 _isGameActive = _currentHill != null;
                 if(_isGameActive) {
@@ -237,7 +241,8 @@ namespace Game.Match {
 
             // Refresh spawn points for the new scene
             FindSpawnPoints();
-            if(MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch) {
+            if(MatchTimerManager.Instance != null &&
+               MatchTimerManager.Instance.CurrentState == MatchLifecycleState.Active) {
                 BeginKothRound();
             }
         }
