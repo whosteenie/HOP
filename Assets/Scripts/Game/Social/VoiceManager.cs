@@ -638,10 +638,10 @@ namespace Game.Social {
             UnsubscribeParticipant(participant.PlayerId);
 
             var subscription = new ParticipantSubscription {
-                Participant = participant
+                Participant = participant,
+                SpeechDetected = () => OnSpeechDetected(participant),
+                AudioStateChanged = () => OnParticipantAudioStateChanged(participant)
             };
-            subscription.SpeechDetected = () => OnSpeechDetected(participant);
-            subscription.AudioStateChanged = () => OnParticipantAudioStateChanged(participant);
 
             participant.ParticipantSpeechDetected += subscription.SpeechDetected;
             participant.ParticipantAudioStateChanged += subscription.AudioStateChanged;
