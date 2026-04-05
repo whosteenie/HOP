@@ -16,7 +16,7 @@ namespace Game.Match {
         [Header("Match Settings")]
         [SerializeField] private int matchDurationSeconds = 600; // 10 minutes by default
 
-        private readonly NetworkVariable<MatchLifecycleState> _state = new(MatchLifecycleState.Initializing);
+        private readonly NetworkVariable<MatchLifecycleState> _state = new();
         private readonly NetworkVariable<int> _timeRemainingSeconds = new(value: 0);
         private readonly NetworkVariable<int> _preMatchCountdownSeconds = new(value: 0);
         private readonly NetworkVariable<double> _preMatchCountdownEndServerTimeSeconds = new(value: 0d);
@@ -483,18 +483,18 @@ namespace Game.Match {
             return ResolveConfiguredPreMatchCountdownSeconds();
         }
 
-        private int ResolveConfiguredPreMatchCountdownSeconds() {
+        private static int ResolveConfiguredPreMatchCountdownSeconds() {
             var settings = MatchSettingsManager.Instance;
             var configured = settings != null ? settings.GetPreMatchCountdownSeconds() : 5;
             return Mathf.Max(0, configured);
         }
 
-        private bool ShouldUsePreMatchFlow() {
+        private static bool ShouldUsePreMatchFlow() {
             var matchSettings = MatchSettingsManager.Instance;
             return matchSettings == null || matchSettings.IsPreMatchCountdownEnabled();
         }
 
-        private bool IsInfiniteMatchTimer() {
+        private static bool IsInfiniteMatchTimer() {
             return IsInfiniteMatchTimer(MatchSettingsManager.Instance);
         }
 

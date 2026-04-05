@@ -47,19 +47,19 @@ namespace Game.UI.Screens.Scoreboard {
             var matchSettings = MatchSettingsManager.Instance;
 
             if(matchTimer != null) {
-                if(matchTimer.CurrentState is MatchLifecycleState.WaitingForPlayers or MatchLifecycleState.Countdown) {
-                    var preMatchSeconds = matchTimer.PreMatchCountdownSeconds;
-                    if(preMatchSeconds <= 0)
-                        preMatchSeconds = matchSettings != null
-                            ? matchSettings.GetPreMatchCountdownSeconds()
-                            : defaultPreMatchSeconds;
-                    SetMatchTime(Mathf.Max(0, preMatchSeconds), false);
-                    return;
-                }
-
-                if(matchTimer.CurrentState == MatchLifecycleState.Active && matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
-                    SetMatchTime(-1, false);
-                    return;
+                switch(matchTimer.CurrentState) {
+                    case MatchLifecycleState.WaitingForPlayers or MatchLifecycleState.Countdown: {
+                        var preMatchSeconds = matchTimer.PreMatchCountdownSeconds;
+                        if(preMatchSeconds <= 0)
+                            preMatchSeconds = matchSettings != null
+                                ? matchSettings.GetPreMatchCountdownSeconds()
+                                : defaultPreMatchSeconds;
+                        SetMatchTime(Mathf.Max(0, preMatchSeconds), false);
+                        return;
+                    }
+                    case MatchLifecycleState.Active when matchSettings != null && matchSettings.IsInfiniteMatchTimer():
+                        SetMatchTime(-1, false);
+                        return;
                 }
 
                 var activeSeconds = matchTimer.TimeRemainingSeconds;
