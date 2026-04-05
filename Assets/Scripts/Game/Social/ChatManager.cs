@@ -27,7 +27,7 @@ namespace Game.Social {
         private const int ChunkAssemblyExpirySeconds = 30;
         private const int PendingSelfEchoExpirySeconds = 15;
         private const int SoftWrapLongTokenLength = 24;
-        private bool _isVivoxBound;
+        private VivoxObserver _vivoxObserver;
         private readonly Dictionary<string, ChunkAssemblyState> _chunkAssemblies = new();
         private readonly Queue<PendingSelfEchoState> _pendingSelfEchoes = new();
         private long _nextPendingSelfEchoId = 1;
@@ -62,16 +62,11 @@ namespace Game.Social {
         }
 
         private void OnEnable() {
-            TryBindVivoxEvents();
-        }
-
-        private void Update() {
-            if(_isVivoxBound) return;
-            TryBindVivoxEvents();
+            BindVivoxObserver();
         }
 
         private void OnDisable() {
-            UnbindVivoxEvents();
+            UnbindVivoxObserver();
         }
 
         private void OnDestroy() {
@@ -79,25 +74,24 @@ namespace Game.Social {
                 Instance = null;
             }
 
-            UnbindVivoxEvents();
+            UnbindVivoxObserver();
             _chunkAssemblies.Clear();
             _pendingSelfEchoes.Clear();
         }
 
-        private void TryBindVivoxEvents() {
-            if(_isVivoxBound) return;
-            if(VivoxService.Instance == null) return;
-            VivoxService.Instance.ChannelMessageReceived += HandleVivoxChannelMessage;
-            _isVivoxBound = true;
+        private void BindVivoxObserver() {
+            if(_vivoxObserver != null) return;
+
+            _vivoxObserver = new VivoxObserver(VivoxObserverType.ChannelMessages);
+            _vivoxObserver.ChannelMessageReceived += HandleVivoxChannelMessage;
         }
 
-        private void UnbindVivoxEvents() {
-            if(_isVivoxBound == false) return;
-            if(VivoxService.Instance != null) {
-                VivoxService.Instance.ChannelMessageReceived -= HandleVivoxChannelMessage;
-            }
+        private void UnbindVivoxObserver() {
+            if(_vivoxObserver == null) return;
 
-            _isVivoxBound = false;
+            _vivoxObserver.ChannelMessageReceived -= HandleVivoxChannelMessage;
+            _vivoxObserver.Dispose();
+            _vivoxObserver = null;
         }
 
         public void SendChatMessage(string message) {

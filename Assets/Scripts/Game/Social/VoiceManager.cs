@@ -20,11 +20,17 @@ namespace Game.Social {
         public bool IsLoggedIn { get; private set; }
         public string LoggedInIdentity { get; private set; }
 
+        private sealed class ParticipantSubscription {
+            internal VivoxParticipant Participant;
+            internal Action SpeechDetected;
+            internal Action AudioStateChanged;
+        }
+
         // State
         private bool _isMicOpen;
         private bool _isPttActive;
         private string _currentChannelName;
-        private readonly Dictionary<string, Action> _participantSpeechActions = new();
+        private readonly Dictionary<string, ParticipantSubscription> _participantSubscriptions = new();
         private readonly SemaphoreSlim _channelOperationGate = new(1, 1);
         private float _nextClaimsMismatchLogTime;
         private float _nextJoinFailureLogTime;
@@ -89,6 +95,9 @@ namespace Game.Social {
                 VivoxService.Instance.ParticipantAddedToChannel -= OnParticipantAddedToChannel;
                 VivoxService.Instance.ParticipantRemovedFromChannel -= OnParticipantRemoved;
             }
+            foreach(var playerId in _participantSubscriptions.Keys.ToList()) {
+                UnsubscribeParticipant(playerId);
+            }
             _channelOperationGate.Dispose();
         }
 
@@ -110,13 +119,38 @@ namespace Game.Social {
                 await EnsureLoginAsync();
 
             } catch (Exception e) {
-                DevLog.LogError($"[VoiceManager] Initialization Failed: {e.Message}");
+                DevLog.LogError($"[VoiceManager] Initialization Failed: {DescribeVivoxException(e)}");
             }
         }
 
+        private static bool ContainsClaimsMismatchText(string message) {
+            return string.IsNullOrEmpty(message) == false &&
+                   message.IndexOf("claims mismatch", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static bool IsVivoxClaimsMismatch(Exception ex) {
-            if(ex == null || string.IsNullOrEmpty(ex.Message)) return false;
-            return ex.Message.IndexOf("claims mismatch", StringComparison.OrdinalIgnoreCase) >= 0;
+            if(ex == null) return false;
+            if(ContainsClaimsMismatchText(ex.Message)) return true;
+            if(ContainsClaimsMismatchText(ex.InnerException?.Message)) return true;
+
+            if(ex is not VivoxApiException vivoxApiException) return false;
+            if(ContainsClaimsMismatchText(vivoxApiException.Message)) return true;
+            if(ContainsClaimsMismatchText(vivoxApiException.InnerException?.Message)) return true;
+
+            return vivoxApiException.StatusCode is 403 or 406 &&
+                   ((vivoxApiException.Message?.IndexOf("token", StringComparison.OrdinalIgnoreCase) ?? -1) >= 0 ||
+                    (vivoxApiException.Message?.IndexOf("claim", StringComparison.OrdinalIgnoreCase) ?? -1) >= 0);
+        }
+
+        private static string DescribeVivoxException(Exception ex) {
+            if(ex is not VivoxApiException vivoxApiException) {
+                return ex?.Message ?? "Unknown exception";
+            }
+
+            var requestIdPart = string.IsNullOrEmpty(vivoxApiException.RequestId)
+                ? string.Empty
+                : $" RequestId={vivoxApiException.RequestId}";
+            return $"{vivoxApiException.Message} [StatusCode={vivoxApiException.StatusCode}{requestIdPart}]";
         }
 
         private static bool ShouldEmitThrottledLog(ref float nextLogTime, float intervalSeconds) {
@@ -189,7 +223,8 @@ namespace Game.Social {
                     await VivoxService.Instance.LeaveChannelAsync(channelToLeave);
                 }
             } catch(Exception ex) {
-                DevLog.LogWarning($"[VoiceManager] Leave channel '{channelToLeave}' failed ({reason}): {ex.Message}");
+                DevLog.LogWarning(
+                    $"[VoiceManager] Leave channel '{channelToLeave}' failed ({reason}): {DescribeVivoxException(ex)}");
             } finally {
                 PublishVoiceOverlayReset();
                 if(_currentChannelName == channelToLeave) {
@@ -223,7 +258,8 @@ namespace Game.Social {
                 }
 
             } catch (Exception e) {
-                DevLog.LogError($"[VoiceManager] Login Failed! If Vivox Test Mode is disabled, ensure Cloud Code Vivox token minting is deployed and reachable. Exception: {e.Message}");
+                DevLog.LogError(
+                    $"[VoiceManager] Login Failed! If Vivox Test Mode is disabled, ensure Cloud Code Vivox token minting is deployed and reachable. Exception: {DescribeVivoxException(e)}");
             }
         }
 
@@ -246,7 +282,8 @@ namespace Game.Social {
                 return reloggedIn;
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
-                    DevLog.LogWarning($"[VoiceManager] Vivox re-authentication threw after claims mismatch: {ex.Message}");
+                    DevLog.LogWarning(
+                        $"[VoiceManager] Vivox re-authentication threw after claims mismatch: {DescribeVivoxException(ex)}");
                 }
                 return false;
             }
@@ -411,7 +448,7 @@ namespace Game.Social {
                 DevLog.LogWarning(
                     $"[VoiceManager] Join channel '{channelName}' failed after claims-mismatch recovery attempts.");
             } else {
-                DevLog.LogError($"[VoiceManager] Join Channel Failed: {exception.Message}");
+                DevLog.LogError($"[VoiceManager] Join Channel Failed: {DescribeVivoxException(exception)}");
             }
 
             if(!Application.isEditor && Debug.isDebugBuild) {
@@ -595,13 +632,39 @@ namespace Game.Social {
             return false;
         }
 
+        private void SubscribeParticipant(VivoxParticipant participant) {
+            if(participant == null || string.IsNullOrEmpty(participant.PlayerId)) return;
+
+            UnsubscribeParticipant(participant.PlayerId);
+
+            var subscription = new ParticipantSubscription {
+                Participant = participant
+            };
+            subscription.SpeechDetected = () => OnSpeechDetected(participant);
+            subscription.AudioStateChanged = () => OnParticipantAudioStateChanged(participant);
+
+            participant.ParticipantSpeechDetected += subscription.SpeechDetected;
+            participant.ParticipantAudioStateChanged += subscription.AudioStateChanged;
+            _participantSubscriptions[participant.PlayerId] = subscription;
+        }
+
+        private void UnsubscribeParticipant(string playerId) {
+            if(string.IsNullOrEmpty(playerId)) return;
+            if(_participantSubscriptions.TryGetValue(playerId, out var subscription) == false) return;
+
+            if(subscription.Participant != null) {
+                subscription.Participant.ParticipantSpeechDetected -= subscription.SpeechDetected;
+                subscription.Participant.ParticipantAudioStateChanged -= subscription.AudioStateChanged;
+            }
+
+            _participantSubscriptions.Remove(playerId);
+        }
+
         private void OnParticipantAddedToChannel(VivoxParticipant participant) {
-            // Subscribe to participant-level events
-            Action speechAction = () => OnSpeechDetected(participant);
-            _participantSpeechActions[participant.PlayerId] = speechAction;
-            
-            participant.ParticipantSpeechDetected += speechAction;
-            
+            if(participant == null || string.IsNullOrEmpty(participant.PlayerId)) return;
+
+            SubscribeParticipant(participant);
+
             // Apply mute if this player is in the muted list
             if (SocialSettings.IsMuted(participant.PlayerId)) {
                 MuteUser(participant.PlayerId, true);
@@ -609,11 +672,14 @@ namespace Game.Social {
         }
 
         private void OnParticipantRemoved(VivoxParticipant participant) {
-            if (_participantSpeechActions.TryGetValue(participant.PlayerId, out var action)) {
-                participant.ParticipantSpeechDetected -= action;
-                _participantSpeechActions.Remove(participant.PlayerId);
-            }
+            if(participant == null || string.IsNullOrEmpty(participant.PlayerId)) return;
 
+            UnsubscribeParticipant(participant.PlayerId);
+            EventBus.Publish(new VoiceParticipantRemovedEvent(participant.PlayerId));
+        }
+
+        private static void OnParticipantAudioStateChanged(VivoxParticipant participant) {
+            if(participant == null || participant.IsInAudio) return;
             EventBus.Publish(new VoiceParticipantRemovedEvent(participant.PlayerId));
         }
 
