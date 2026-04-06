@@ -55,7 +55,7 @@ namespace Game.Hopball {
         private bool _hasSpawnedInitial;
         private ulong _currentHolderId; // Track who is currently holding the ball
         private Coroutine _respawnCoroutine;
-        private ulong _cachedOobSceneHandleRaw = ulong.MaxValue;
+        private SceneHandle _cachedOobSceneHandle = SceneHandle.None;
         private float _cachedOutOfBoundsY;
         private bool _cachedUseYLevelOutOfBoundsKill = true;
         private bool _sessionOwnerCallbacksRegistered;
@@ -413,12 +413,11 @@ namespace Game.Hopball {
         /// <summary>Refreshes cached OOB Y and enable flag for the current scene.</summary>
         private void RefreshOobCacheIfNeeded() {
             var activeScene = SceneManager.GetActiveScene();
-            var activeSceneHandleRaw = activeScene.handle.GetRawData();
-            if(_cachedOobSceneHandleRaw == activeSceneHandleRaw) {
+            if(_cachedOobSceneHandle == activeScene.handle) {
                 return;
             }
 
-            _cachedOobSceneHandleRaw = activeSceneHandleRaw;
+            _cachedOobSceneHandle = activeScene.handle;
             _cachedOutOfBoundsY = oobThreshold;
             _cachedUseYLevelOutOfBoundsKill = MatchMapService.IsOobKillEnabled(activeScene.name);
 

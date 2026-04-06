@@ -494,7 +494,7 @@ namespace Game.Audio.System {
         }
 
         private static string GetSourceDebugId(AudioSource src) {
-            return src == null ? "null" : $"{src.gameObject.name}#{src.GetEntityId().GetRawData()}";
+            return src == null ? "null" : $"{src.gameObject.name}#{EntityId.ToULong(src.GetEntityId())}";
         }
 
         private bool ShouldEmitSourceStateLog(AudioSource src, float intervalSeconds = 10f) {
