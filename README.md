@@ -45,6 +45,8 @@ HOP is an in-progress game project:
 
 - **Social & progression**
   - Lobbying and public matchmaking so players can find and join matches.
+  - Character customization with selectable player materials, colors, and visual identity options.
+  - Loadout selection with 3 primary weapons and 3 secondary weapons to choose from.
   - Basic progression and post-match summary (e.g., XP, challenges) to support repeat play.
 
 ---
