@@ -28,7 +28,7 @@ HOP is an in-progress game project:
   - **Hopball** – ball-possession objective mode designed around traversal.
   - **Deathmatch / Team Deathmatch** – standard elimination modes.
   - **King of the Hill** – moving capture point that forces repositioning.
-  - **Tag** – one player is “it” and must tag others via combat.
+  - **Gun Tag** – one player is “it” and must tag others via combat.
 
 - **Combat**
   - Weapon system supporting multiple weapon types and fire modes.
@@ -78,7 +78,7 @@ The goal is to keep the “feel” of the game configurable and debuggable rathe
 
 Game rules are implemented as discrete mode controllers that handle:
 
-- Scoring and win conditions per mode (Hopball, KOTH, DM/TDM, Tag).
+- Scoring and win conditions per mode (Hopball, KOTH, DM/TDM, Gun Tag).
 - Round flow, including sudden death or overtime where applicable.
 - Integration with the HUD, scoreboard, and announcer/UI feedback.
 
